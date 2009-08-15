@@ -1,0 +1,12 @@
+This is the first release of xib so some things are not implemented yet, if you want/need an error-safe bot, don't use this one !
+
+Here is the list of the important things that still need to be implemented:
+- handle kicks
+- handle multiple bridges without risk of resource conflict
+
+and a list of features that should be implemented but are not critical for usual use case:
+- split logs into multiple files
+- handle password-protected rooms
+- handle room deletion and muc server reboot
+
+xib includes its own version of the old irclib.py <http://python-irclib.sourceforge.net/> because this library doesn't correctly handle the different character encodings, I'm sorry about it but I don't have time to contribute to the upstream version right now, I don't know if it still has developers anyway
