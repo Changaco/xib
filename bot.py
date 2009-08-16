@@ -106,7 +106,7 @@ class bot(Thread):
 					# presence comes from a participant of the muc
 					try:
 						p = bridge.getParticipant(resource)
-						if p.protocol == 'xmpp':
+						if p.protocol in ['xmpp', 'both']:
 							if presence.getType() == 'unavailable':
 								x = presence.getTag('x', namespace='http://jabber.org/protocol/muc#user')
 								if x and x.getTag('status', attrs={'code': '303'}):
@@ -124,10 +124,11 @@ class bot(Thread):
 								# participant left
 								bridge.removeParticipant('xmpp', resource, presence.getStatus())
 					except NoSuchParticipantException:
-						try:
-							bridge.addParticipant('xmpp', resource)
-						except Exception:
-							pass
+						if presence.getType() != 'unavailable':
+							try:
+								bridge.addParticipant('xmpp', resource)
+							except Exception:
+								pass
 				return
 	
 	
@@ -263,8 +264,8 @@ class bot(Thread):
 					connection.bridge.addParticipant('irc', nickname)
 		try:
 			from_ = connection.bridge.getParticipant(event.source().split('!')[0])
-			if event.eventtype() == 'quit':
-				if from_.protocol == 'irc':
+			if event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target() == connection.bridge.irc_room:
+				if from_.protocol in ['irc', 'both']:
 					connection.bridge.removeParticipant('irc', from_.nickname, event.arguments()[0])
 				return
 		except NoSuchParticipantException:
