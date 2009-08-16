@@ -199,9 +199,9 @@ class participant:
 	def leave(self, message):
 		if message == None:
 			message = ''
-		if self.muc:
+		if self.xmpp_c != None:
 			self.muc.leave(message)
-		if self.irc_connection:
+		if self.irc_connection != None:
 			self.irc_connection.closing = True
 			self.irc_connection.disconnect(message)
 			self.irc_connection = None
