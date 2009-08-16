@@ -100,7 +100,6 @@ class muc:
 	
 	def change_nick(self, nickname, callback=None):
 		"""Change nickname"""
-		self._check()
 		self.jid = self.room_jid+'/'+nickname
 		self.callback = callback
 		self.xmpp_c.RegisterHandler('presence', self._xmpp_presence_handler)
