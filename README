@@ -14,3 +14,16 @@ xib includes its own version of the old irclib.py <http://python-irclib.sourcefo
 xib depends on:
 - python 2.6
 - xmppony 0.1
+
+
+How to install and run xib bots:
+
+If you are not installing xib from a package manager I suggest you put the files in /usr/local/share/xib
+To start xib bots just execute start_bots_from_xml_config.py, this script will search the *current* directory for a file named "config.xml" which must have the same schema as "example_config.xml".
+
+How to log xib bots output:
+
+xib does not directly handle logging for now so you have to do it the old school way, for example:
+mkdir /var/log/xib
+touch /var/log/xib/1.log
+cd /usr/local/share/xib && ./start_bots_from_xml_config.py 1>/var/log/xib/log 2>&1 &
