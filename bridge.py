@@ -35,6 +35,7 @@ class bridge:
 		self.mode = mode
 		
 		# Join IRC room
+		self.irc_connections_limit = -1
 		self.irc_connection = self.bot.irc.server()
 		self.irc_connection.nick_callback = self._irc_nick_callback
 		self.irc_connection.bridge = self
@@ -127,11 +128,14 @@ class bridge:
 			p.leave(leave_message)
 			i = 0
 			for p in self.participants:
-				if p.protocol == 'irc':
+				if p.protocol == 'xmpp':
 					i += 1
-			if protocol == 'xmpp' and self.irc_connections_limit >= i:
+			if protocol == 'xmpp' and self.irc_connections_limit != -1 and self.irc_connections_limit > i:
 				self.switchToNormalMode()
 			del p
+		if self.mode != 'normal':
+			xmpp_participants_nicknames = self.get_xmpp_participants_nicknames_list()
+			self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
 	
 	
 	def say(self, message, on_irc=True, on_xmpp=True):
@@ -168,8 +172,8 @@ class bridge:
 					p.irc_connection.disconnect('Bridge is switching to limited mode')
 					p.irc_connection = None
 		self.irc_connections_limit = i
-		self.bot.error('===> Bridge is switching to limited mode.')
-		self.say('[Warning] Bridge is switching to limited mode, it means that it will be transparent for XMPP users but not for IRC users, this is due to the IRC servers\' per-IP-address connections\' limit number.')
+		self.bot.error('===> Bridge is switching to limited mode. Limit seems to be '+str(self.irc_connections_limit)+' on "'+self.irc_server+'".')
+		self.say('[Warning] Bridge is switching to limited mode, it means that it will be transparent for XMPP users but not for IRC users, this is due to the IRC servers\' per-IP-address connections\' limit number which seems to be '+str(self.irc_connections_limit)+' on "'+self.irc_server+'".')
 		xmpp_participants_nicknames = self.get_xmpp_participants_nicknames_list()
 		self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
 	
