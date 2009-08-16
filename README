@@ -10,3 +10,7 @@ and a list of features that should be implemented but are not critical for usual
 - handle room deletion and muc server reboot
 
 xib includes its own version of the old irclib.py <http://python-irclib.sourceforge.net/> because this library doesn't correctly handle the different character encodings, I'm sorry about it but I don't have time to contribute to the upstream version right now, I don't know if it still has developers anyway
+
+xib depends on:
+- python 2.6
+- xmppony 0.1
