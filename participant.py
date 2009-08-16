@@ -59,6 +59,13 @@ class participant:
 	def createDuplicateOnIRC(self):
 		if self.irc_connection != None or self.xmpp_c != None or self.protocol == 'both' or self.bridge.mode != 'normal':
 			return
+		if ' ' in self.nickname:
+			self.bridge.bot.error('===> Debug: "'+self.nickname+'" contains a white space character, duplicate cannot be created on the IRC chan of bridge "'+str(self.bridge)+'"', debug=True)
+			self.bridge.say('[Warning] The nickname "'+self.nickname+'" contains a white space character, duplicate cannot be created on IRC, please avoid that if possible')
+			if self.irc_connection:
+				self.irc_connection.close()
+				self.irc_connection = None
+			return
 		sleep(1) # try to prevent "reconnecting too fast" shit
 		self.irc_connection = self.bridge.bot.irc.server()
 		self.irc_connection.bridge = self.bridge
