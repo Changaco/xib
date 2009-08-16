@@ -74,7 +74,7 @@ class participant:
 		elif self.protocol != 'both':
 			if error == 'nicknameinuse':
 				self.bridge.bot.error('===> Debug: "'+self.nickname+'" is already used in the IRC chan of bridge "'+str(self.bridge)+'"', debug=True)
-				self.bridge.say('[Warning] The nickname "'+self.nickname+'" is used on both rooms, please avoid that if possible')
+				self.bridge.say('[Warning] The nickname "'+self.nickname+'" is used on both rooms or reserved on the IRC server, please avoid that if possible')
 				self.protocol = 'both'
 				self.irc_connection.close()
 				self.irc_connection = None

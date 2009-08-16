@@ -103,9 +103,11 @@ class bridge:
 		if p.protocol == 'both':
 			self.bot.error('===> Debug: "'+nickname+'" was on both sides of bridge "'+str(self)+'" but left '+protocol, debug=True)
 			if protocol == 'xmpp':
-				p.createDuplicateOnIRC()
-			elif protocol == 'irc':
+				p.protocol = 'irc'
 				p.createDuplicateOnXMPP()
+			elif protocol == 'irc':
+				p.protocol = 'xmpp'
+				p.createDuplicateOnIRC()
 			else:
 				raise Exception('Internal Error: bad protocol')
 		else:
