@@ -151,8 +151,8 @@ class bridge:
 			if p.protocol == 'xmpp':
 				i += 1
 				if p.irc_connection:
+					p.irc_connection.closing = True
 					p.irc_connection.disconnect('Bridge is switching to limited mode')
-					p.irc_connection.close()
 					p.irc_connection = None
 		self.irc_connections_limit = i
 		self.bot.error('===> Bridge is switching to limited mode.')

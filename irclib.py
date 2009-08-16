@@ -411,6 +411,7 @@ class ServerConnection(Connection):
         if self.connected:
             self.disconnect("Changing servers")
 
+        self.closing = False  # added for xib
         self.previous_buffer = ""
         self.handlers = {}
         self.real_server_name = ""

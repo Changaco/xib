@@ -225,8 +225,11 @@ class bot(Thread):
 				# Lost bridge IRC connection, we must reconnect if we want the bridge to work
 				self.recreate_bridge(connection.bridge)
 				return
-			if connection.bridge.mode == 'normal' and event.arguments()[0] != 'Closing object':
+			if connection.bridge.mode == 'normal' and connection.closing == False:
 				connection.bridge.switchToLimitedMode()
+			if connection.closing == True:
+				connection.close()
+			return
 		elif event.eventtype() == 'nicknameinuse':
 			if connection.nick_callback:
 				connection.nick_callback('nicknameinuse')
@@ -247,7 +250,9 @@ class bot(Thread):
 				self.error('connection.nick_callback='+str(connection.nick_callback), debug=True)
 			return
 		elif event.eventtype() == 'namreply':
-			for nickname in re.split(' [@\+]?', event.arguments()[2].strip()):
+			for nickname in re.split('(?:^[@\+]?|(?: [@\+]?)*)', event.arguments()[2].strip()):
+				if nickname == '':
+					continue
 				try:
 					connection.bridge.addParticipant('irc', nickname)
 				except:
@@ -262,12 +267,15 @@ class bot(Thread):
 					connection.bridge.getParticipant(nickname)
 				except NoSuchParticipantException:
 					connection.bridge.addParticipant('irc', nickname)
+			return
 		try:
 			from_ = connection.bridge.getParticipant(event.source().split('!')[0])
 			if event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target() == connection.bridge.irc_room:
 				if from_.protocol in ['irc', 'both']:
 					connection.bridge.removeParticipant('irc', from_.nickname, event.arguments()[0])
 				return
+			if event.eventtype() == 'nick' and from_.protocol == 'irc':
+				from_.changeNickname(event.target(), 'xmpp')
 		except NoSuchParticipantException:
 			return
 		except AttributeError:

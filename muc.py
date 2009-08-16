@@ -88,24 +88,13 @@ class muc:
 				self.callback(errors)
 	
 	
-	def _check(self):
-		i = 0
-		while not self.connected:
-			i += 1
-			if i > 30:
-				raise Exception('Error: connection to room timed out')
-			sleep(1)
-	
-	
 	def say(self, message):
 		"""Say message in the room"""
-		self._check()
 		self.xmpp_c.send(xmpp.protocol.Message(to=self.room_jid, typ='groupchat', body=message))
 	
 	
 	def sayTo(self, to, message):
 		"""Send a private message"""
-		self._check()
 		self.xmpp_c.send(xmpp.protocol.Message(to=self.room_jid+'/'+to, typ='chat', body=message))
 	
 	
