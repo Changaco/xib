@@ -764,12 +764,14 @@ class ServerConnection(Connection):
     def privmsg(self, target, text):
         """Send a PRIVMSG command."""
         # Should limit len(text) here!
-        self.send_raw("PRIVMSG %s :%s" % (target, text))
+        for l in text.split('\n'):
+            self.send_raw("PRIVMSG %s :%s" % (target, l))
 
     def privmsg_many(self, targets, text):
         """Send a PRIVMSG command to multiple targets."""
         # Should limit len(text) here!
-        self.send_raw("PRIVMSG %s :%s" % (",".join(targets), text))
+        for l in text.split('\n'):
+            self.send_raw("PRIVMSG %s :%s" % (",".join(targets), l))
 
     def quit(self, message=""):
         """Send a QUIT command."""
