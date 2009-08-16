@@ -62,9 +62,6 @@ class participant:
 		if ' ' in self.nickname:
 			self.bridge.bot.error('===> Debug: "'+self.nickname+'" contains a white space character, duplicate cannot be created on the IRC chan of bridge "'+str(self.bridge)+'"', debug=True)
 			self.bridge.say('[Warning] The nickname "'+self.nickname+'" contains a white space character, duplicate cannot be created on IRC, please avoid that if possible')
-			if self.irc_connection:
-				self.irc_connection.close()
-				self.irc_connection = None
 			return
 		sleep(1) # try to prevent "reconnecting too fast" shit
 		self.irc_connection = self.bridge.bot.irc.server()
@@ -83,12 +80,14 @@ class participant:
 				self.bridge.bot.error('===> Debug: "'+self.nickname+'" is already used in the IRC chan of bridge "'+str(self.bridge)+'"', debug=True)
 				self.bridge.say('[Warning] The nickname "'+self.nickname+'" is used on both rooms or reserved on the IRC server, please avoid that if possible')
 				self.protocol = 'both'
-				self.irc_connection.close()
+				self.irc_connection.closing = True
+				self.irc_connection.disconnect()
 				self.irc_connection = None
 			elif error == 'erroneusnickname':
 				self.bridge.bot.error('===> Debug: "'+self.nickname+'" got "erroneusnickname" on bridge "'+str(self.bridge)+'"', debug=True)
 				self.bridge.say('[Warning] The nickname "'+self.nickname+'" contains non-ASCII characters and cannot be used in the IRC channel, please avoid that if possible')
-				self.irc_connection.close()
+				self.irc_connection.closing = True
+				self.irc_connection.disconnect()
 				self.irc_connection = None
 	
 	
@@ -118,15 +117,27 @@ class participant:
 		if self.protocol == 'xmpp':
 			if on_protocol == 'xmpp':
 				raise Exception('Internal Error: wanted to change nickname on bad protocol')
-			if self.irc_connection:
-				self.irc_connection.nick(newnick)
 			self.nickname = newnick
+			if ' ' in self.nickname:
+				self.bridge.bot.error('===> Debug: "'+self.nickname+'" contains a white space character, duplicate cannot be created on the IRC chan of bridge "'+str(self.bridge)+'"', debug=True)
+				self.bridge.say('[Warning] The nickname "'+self.nickname+'" contains a white space character, duplicate cannot be created on IRC, please avoid that if possible')
+				if self.irc_connection != None:
+					self.irc_connection.closing = True
+					self.irc_connection.disconnect()
+					self.irc_connection = None
+				return
+			if self.irc_connection != None:
+				self.irc_connection.nick(newnick)
+			else:
+				self.createDuplicateOnIRC()
 		elif self.protocol == 'irc':
 			if on_protocol == 'irc':
 				raise Exception('Internal Error: wanted to change nickname on bad protocol')
+			self.nickname = newnick
 			if self.muc:
 				self.muc.change_nick(newnick, callback=self._xmpp_join_callback)
-			self.nickname = newnick
+			else:
+				self.createDuplicateOnXMPP()
 		elif self.protocol == 'both':
 			if on_protocol == 'irc':
 				self.protocol = 'xmpp'
@@ -188,14 +199,12 @@ class participant:
 	def leave(self, message):
 		if message == None:
 			message = ''
-		try:
+		if self.muc:
 			self.muc.leave(message)
-		except AttributeError:
-			pass
-		try:
+		if self.irc_connection:
+			self.irc_connection.closing = True
 			self.irc_connection.disconnect(message)
-		except AttributeError:
-			pass
+			self.irc_connection = None
 		self.nickname = None
 	
 	
