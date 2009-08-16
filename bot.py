@@ -246,7 +246,7 @@ class bot(Thread):
 				self.error('connection.nick_callback='+str(connection.nick_callback), debug=True)
 			return
 		elif event.eventtype() == 'namreply':
-			for nickname in re.split(' [@]?', event.arguments()[2].strip()):
+			for nickname in re.split(' [@\+]?', event.arguments()[2].strip()):
 				try:
 					connection.bridge.addParticipant('irc', nickname)
 				except:
