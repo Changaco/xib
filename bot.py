@@ -43,6 +43,7 @@ class bot(Thread):
 	
 	def __init__(self, jid, password, nickname, error_fd=sys.stderr, debug=False):
 		Thread.__init__(self)
+		self.commands = ['!xmpp_participants']
 		self.jid = xmpp.protocol.JID(jid=jid)
 		self.nickname = nickname
 		self.password = password
@@ -143,23 +144,23 @@ class bot(Thread):
 		if message.getType() == 'chat':
 			self.error('==> Debug: Received XMPP message.', debug=True)
 			self.error(message.__str__(fancy=1), debug=True)
-			if message.getTo() == self.jid:
-				xmpp_c.send(xmpp.protocol.Message(to=message.getFrom(), body=u'Sorry I am a bot I don\'t speak …', typ='chat'))
-			else:
-				from_bare_jid = unicode(message.getFrom().getNode()+'@'+message.getFrom().getDomain())
-				for bridge in self.bridges:
-					if from_bare_jid == bridge.xmpp_room.room_jid:
-						# message comes from a room participant
-						try:
-							to_ = bridge.getParticipant(message.getTo().getResource())
-							from_ = bridge.getParticipant(message.getFrom().getResource())
-						except NoSuchParticipantException:
-							self.error('==> Debug: XMPP chat message not relayed, from_bare_jid='+from_bare_jid+'  to='+str(message.getTo().getResource())+'  from='+message.getFrom().getResource(), debug=True)
+			from_bare_jid = unicode(message.getFrom().getNode()+'@'+message.getFrom().getDomain())
+			for bridge in self.bridges:
+				if from_bare_jid == bridge.xmpp_room.room_jid:
+					# message comes from a room participant
+					try:
+						from_ = bridge.getParticipant(message.getFrom().getResource())
+						to_ = bridge.getParticipant(message.getTo().getResource())
+					except NoSuchParticipantException:
+						if message.getTo() == self.jid:
+							xmpp_c.send(xmpp.protocol.Message(to=message.getFrom(), body=self.respond(message.getBody(), from_), typ='chat'))
 							return
-						if from_.protocol in ['xmpp', 'both']:
-							from_.sayOnIRCTo(to_.nickname, message.getBody())
-						else:
-							self.error('==> Debug: received XMPP chat message from a non-XMPP participant, WTF ?', debug=True)
+						self.error('==> Debug: XMPP chat message not relayed, from_bare_jid='+from_bare_jid+'  to='+str(message.getTo().getResource())+'  from='+message.getFrom().getResource(), debug=True)
+						return
+					if from_.protocol in ['xmpp', 'both']:
+						from_.sayOnIRCTo(to_.nickname, message.getBody())
+					else:
+						self.error('==> Debug: received XMPP chat message from a non-XMPP participant, WTF ?', debug=True)
 		
 		elif message.getType() == 'groupchat':
 			# message comes from a room
@@ -269,7 +270,7 @@ class bot(Thread):
 					connection.bridge.addParticipant('irc', nickname)
 			return
 		try:
-			if not '!' in event.source():
+			if event.source() == None or not '!' in event.source():
 				return
 			from_ = connection.bridge.getParticipant(event.source().split('!')[0])
 			if event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target() == connection.bridge.irc_room:
@@ -291,7 +292,7 @@ class bot(Thread):
 				to_ = connection.bridge.getParticipant(event.target().split('!')[0])
 			except NoSuchParticipantException:
 				if event.target().split('!')[0] == self.nickname:
-					connection.privmsg(from_.nickname, u'Sorry I am a bot I don\'t speak …')
+					connection.privmsg(from_.nickname, self.respond(event.arguments()[0], from_))
 				return
 			if to_.protocol == 'xmpp':
 				from_.sayOnXMPPTo(to_.nickname, event.arguments()[0])
@@ -310,6 +311,13 @@ class bot(Thread):
 		self.bridges.remove(bridge)
 		del bridge
 	
+	
+	def respond(self, message, participant):
+		if message.strip() == '!xmpp_participants':
+			xmpp_participants_nicknames = participant.bridge.get_xmpp_participants_nicknames_list()
+			return 'participants on '+participant.bridge.xmpp_room.room_jid+': '+'  '.join(xmpp_participants_nicknames)
+		else:
+			return 'commands: '+' '.join(self.commands)
 	
 	def __del__(self):
 		for bridge in bridges:

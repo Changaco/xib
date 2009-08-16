@@ -86,6 +86,9 @@ class bridge:
 		self.bot.error('===> Debug: adding participant "'+nickname+'" from "'+protocol+'" to bridge "'+str(self)+'"', debug=True)
 		p = participant(self, protocol, nickname)
 		self.participants.append(p)
+		if self.mode != 'normal' and protocol == 'xmpp':
+			xmpp_participants_nicknames = self.get_xmpp_participants_nicknames_list()
+			self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
 		return p
 	
 	
@@ -95,6 +98,14 @@ class bridge:
 			if participant_.nickname == nickname:
 				return participant_
 		raise NoSuchParticipantException('there is no participant using the nickname "'+nickname+'" in this bridge')
+	
+	
+	def get_xmpp_participants_nicknames_list(self):
+		xmpp_participants_nicknames = []
+		for p in self.participants:
+			if p.protocol == 'xmpp':
+				xmpp_participants_nicknames.append(p.nickname)
+		return xmpp_participants_nicknames
 	
 	
 	def removeParticipant(self, protocol, nickname, leave_message):
@@ -123,9 +134,11 @@ class bridge:
 			del p
 	
 	
-	def say(self, message):
-		self.xmpp_room.say(message)
-		self.irc_connection.privmsg(self.irc_room, auto_encode(message))
+	def say(self, message, on_irc=True, on_xmpp=True):
+		if on_xmpp == True:
+			self.xmpp_room.say(message)
+		if on_irc == True:
+			self.irc_connection.privmsg(self.irc_room, auto_encode(message))
 	
 	
 	def switchToNormalMode(self):
@@ -157,6 +170,8 @@ class bridge:
 		self.irc_connections_limit = i
 		self.bot.error('===> Bridge is switching to limited mode.')
 		self.say('[Warning] Bridge is switching to limited mode, it means that it will be transparent for XMPP users but not for IRC users, this is due to the IRC servers\' per-IP-address connections\' limit number.')
+		xmpp_participants_nicknames = self.get_xmpp_participants_nicknames_list()
+		self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
 	
 	
 	def __str__(self):
