@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <config>
 	<bot jid='some_bot@example.net' password='do not forget to escape xml entities like &amp;' nickname='xib-bot-nickname' debug='true'>
+		<!-- WARNING: do NOT set debug to "true" if you are sending the bot's stderr to a file, it logs every XMPP stanza and IRC event without controlling the size of the resulting file -->
 		<bridge>
 			<xmpp-room jid='dream-world@chat.example.com'/>
 			<irc chan='#dream-world' server='irc.example.org'/>
