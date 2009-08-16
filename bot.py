@@ -269,17 +269,18 @@ class bot(Thread):
 					connection.bridge.addParticipant('irc', nickname)
 			return
 		try:
+			if not '!' in event.source():
+				return
 			from_ = connection.bridge.getParticipant(event.source().split('!')[0])
 			if event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target() == connection.bridge.irc_room:
 				if from_.protocol in ['irc', 'both']:
 					connection.bridge.removeParticipant('irc', from_.nickname, event.arguments()[0])
 				return
-			if event.eventtype() == 'nick' and from_.protocol == 'irc':
+			if event.eventtype() == 'nick' and from_.protocol in ['irc', 'both']:
 				from_.changeNickname(event.target(), 'xmpp')
 		except NoSuchParticipantException:
+			self.error('===> Debug: NoSuchParticipantException "'+event.source().split('!')[0]+'"', debug=True)
 			return
-		except AttributeError:
-			pass
 		if event.eventtype() == 'pubmsg':
 			if from_.protocol == 'irc' or from_.protocol == 'both':
 				from_.sayOnXMPP(event.arguments()[0])

@@ -140,11 +140,11 @@ class participant:
 				self.createDuplicateOnXMPP()
 		elif self.protocol == 'both':
 			if on_protocol == 'irc':
-				self.protocol = 'xmpp'
-				self.createDuplicateOnIRC()
+				self.bridge.removeParticipant('xmpp', self.nickname, '')
+				self.bridge.addParticipant('xmpp', newnick)
 			elif on_protocol == 'xmpp':
-				self.protocol = 'irc'
-				self.createDuplicateOnXMPP()
+				self.bridge.removeParticipant('irc', self.nickname, '')
+				self.bridge.addParticipant('irc', newnick)
 	
 	
 	def sayOnIRC(self, message):

@@ -70,7 +70,7 @@ class bridge:
 	def addParticipant(self, protocol, nickname):
 		"""Add a participant to the bridge."""
 		if (protocol == 'irc' and nickname == self.irc_connection.get_nickname()) or (protocol == 'xmpp' and nickname == self.xmpp_room.nickname):
-			raise Exception('cannot add self')
+			raise Exception('Internal Error: cannot add self')
 		try:
 			p = self.getParticipant(nickname)
 			if p.protocol != protocol:
