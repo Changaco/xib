@@ -1,3 +1,5 @@
+> Introduction
+
 This is the first release of xib so some things are not implemented yet, if you want/need an error-safe bot, don't use this one !
 
 Here is the list of the important things that still need to be implemented:
@@ -11,17 +13,35 @@ and a list of features that should be implemented but are not critical for usual
 
 xib includes its own version of the old irclib.py <http://python-irclib.sourceforge.net/> because this library doesn't correctly handle the different character encodings, I'm sorry about it but I don't have time to contribute to the upstream version right now, I don't know if it still has developers anyway
 
-xib depends on:
+
+> xib dependencies:
 - python 2.6
 - xmppony 0.1
 
 
-How to install and run xib bots:
+> Contributors:
+Changaco <changaco@changaco.net>
+
+
+> Changelog:
+0.1.1:
+ - fixed bug that prevented the bot from connecting to freenode and all other servers that don't send "umode"
+ - added optional parameter to start_bots_from_xml_config.py
+0.1: Initial release
+
+
+> How to install and run xib bots:
 
 If you are not installing xib from a package manager I suggest you put the files in /usr/local/share/xib
-To start xib bots just execute start_bots_from_xml_config.py, this script will search the *current* directory for a file named "config.xml" which must have the same schema as "example_config.xml".
+To start xib bots just execute "start_bots_from_xml_config.py", this script takes the path to a configuration file as optional first parameter, if no such parameter is given it will search the *current* directory for a file named "config.xml".
 
-How to log xib bots output:
+
+> How to write a configuration file understandable by "start_bots_from_xml_config.py":
+
+Copy "example_config.xml" and modify it to fit your needs.
+
+
+> How to log xib bots output:
 
 xib does not directly handle logging for now so you have to do it the old school way, for example:
 mkdir /var/log/xib
