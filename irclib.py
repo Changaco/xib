@@ -375,6 +375,7 @@ class ServerConnection(Connection):
     def __init__(self, irclibobj):
         Connection.__init__(self, irclibobj)
         self.connected = 0  # Not connected yet.
+        self.really_connected = False
         self.socket = None
         self.ssl = None
 
@@ -411,7 +412,7 @@ class ServerConnection(Connection):
         if self.connected:
             self.disconnect("Changing servers")
 
-        self.closing = False  # added for xib
+        self.closing = False
         self.previous_buffer = ""
         self.handlers = {}
         self.real_server_name = ""

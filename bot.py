@@ -15,14 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-# *** CONTRIBUTORS ***
-# Contributor: Changaco <changaco@changaco.net>
-
-
-# *** Changelog ***
-# 0.1: First release
-
-
 # *** Versioning ***
 # Major will pass to 1 when xib will be considered fault-tolerant
 # After that major will only be changed if the new version is not retro-compatible (e.g. requires changes in config file)
@@ -206,7 +198,7 @@ class bot(Thread):
 		if 'motd' in event.eventtype():
 			self.error('=> Debug: ignoring event containing "motd" in the eventtype ('+event.eventtype()+')', debug=True)
 			return
-		if event.eventtype() in ['pong', 'welcome', 'yourhost', 'created', 'myinfo', 'featurelist', 'luserclient', 'luserop', 'luserchannels', 'luserme', 'n_local', 'n_global', 'endofnames', 'luserunknown']:
+		if event.eventtype() in ['pong', 'privnotice']:
 			self.error('=> Debug: ignoring '+event.eventtype(), debug=True)
 			return
 		if event.eventtype() == 'pubmsg' and connection.get_nickname() != connection.bridge.irc_connection.get_nickname():
@@ -214,6 +206,17 @@ class bot(Thread):
 			return
 		if event.eventtype() == 'ping':
 			connection.pong(connection.get_server_name())
+			return
+		if event.eventtype() in ['umode', 'welcome', 'yourhost', 'created', 'myinfo', 'featurelist', 'luserclient', 'luserop', 'luserchannels', 'luserme', 'n_local', 'n_global', 'endofnames', 'luserunknown', 'luserconns']:
+			if connection.really_connected == False:
+				connection.really_connected = True
+				self.error('===> Debug: now really connected', debug=True)
+				if connection.nick_callback:
+					connection.nick_callback(None)
+				else:
+					self.error('=> Debug: no nick callback for "'+str(event.target())+'"', debug=True)
+					self.error('connection.nick_callback='+str(connection.nick_callback), debug=True)
+			self.error('=> Debug: ignoring '+event.eventtype(), debug=True)
 			return
 		self.error('==> Debug: Received IRC event.', debug=True)
 		self.error('server='+connection.get_server_name(), debug=True)
@@ -242,13 +245,6 @@ class bot(Thread):
 				connection.nick_callback('erroneusnickname')
 			else:
 				self.error('=> Debug: no nick callback for "'+str(event.target())+'"', debug=True)
-			return
-		elif event.eventtype() == 'umode':
-			if connection.nick_callback:
-				connection.nick_callback(None)
-			else:
-				self.error('=> Debug: no nick callback for "'+str(event.target())+'"', debug=True)
-				self.error('connection.nick_callback='+str(connection.nick_callback), debug=True)
 			return
 		elif event.eventtype() == 'namreply':
 			for nickname in re.split('(?:^[@\+]?|(?: [@\+]?)*)', event.arguments()[2].strip()):
