@@ -20,14 +20,18 @@
 from bot import bot
 from time import sleep
 from xml.dom.minidom import parse
+import sys
 
 
 bots = []
 
 try:
-	config = parse('config.xml')
+	if len(sys.argv) > 1:
+		config = parse(sys.argv[1])
+	else:
+		config = parse('config.xml')
 except IOError:
-	print 'Error: config.xml is missing or cannot be read'
+	print 'Error: configuration file is missing or cannot be read'
 	quit(1)
 
 bots_jids = []
