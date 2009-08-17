@@ -8,5 +8,5 @@
 		</bridge>
 		<!-- WARNING: multiple bridges is not currently well-implemented, start multiple bots instead -->
 	</bot>
-	<!-- WARNING: do NOT start two bots with the same JID -->
+	<!-- WARNING: do NOT start two bots with the same JID or the same nickname -->
 </config>
