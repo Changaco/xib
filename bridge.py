@@ -59,13 +59,12 @@ class bridge:
 			self.irc_connection.join(self.irc_room)
 			self.irc_connection.nick_callback = None
 			self.bot.error('===> Debug: successfully connected on IRC side of bridge "'+str(self)+'"', debug=True)
-		elif self.protocol != 'both':
-			if error == 'nicknameinuse':
-				self.bot.error('Error: "'+self.bot.nickname+'" is already used in the IRC chan of bridge "'+str(self)+'"')
-				raise Exception('Error: "'+self.bot.nickname+'" is already used in the IRC chan of bridge "'+str(self)+'"')
-			elif error == 'erroneusnickname':
-				self.bot.error('Error: "'+self.bot.nickname+'" got "erroneusnickname" on bridge "'+str(self)+'"')
-				raise Exception('Error: "'+self.bot.nickname+'" got "erroneusnickname" on bridge "'+str(self)+'"')
+		if error == 'nicknameinuse':
+			self.bot.error('Error: "'+self.bot.nickname+'" is already used in the IRC chan of bridge "'+str(self)+'"')
+			raise Exception('Error: "'+self.bot.nickname+'" is already used in the IRC chan of bridge "'+str(self)+'"')
+		elif error == 'erroneusnickname':
+			self.bot.error('Error: "'+self.bot.nickname+'" got "erroneusnickname" on bridge "'+str(self)+'"')
+			raise Exception('Error: "'+self.bot.nickname+'" got "erroneusnickname" on bridge "'+str(self)+'"')
 	
 	
 	def addParticipant(self, protocol, nickname):
