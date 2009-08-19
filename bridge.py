@@ -54,13 +54,13 @@ class bridge:
 			self.bot.error('Error: joining IRC room failed')
 			raise
 		self.bot.error('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode')
-		self.say('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode')
 	
 	
 	def _irc_nick_callback(self, error, arguments=[]):
 		if error == None:
 			self.irc_connection.join(self.irc_room)
 			self.bot.error('===> Debug: successfully connected on IRC side of bridge "'+str(self)+'"', debug=True)
+			self.say('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode', on_xmpp=False)
 		if error == 'nicknameinuse':
 			self.bot.error('Error: "'+self.bot.nickname+'" is already used in the IRC chan or reserved on the IRC server of bridge "'+str(self)+'"')
 			raise Exception('Error: "'+self.bot.nickname+'" is already used in the IRC chan or reserved on the IRC server of bridge "'+str(self)+'"')
@@ -76,6 +76,7 @@ class bridge:
 		"""Called by muc._xmpp_presence_handler"""
 		if len(errors) == 0:
 			self.bot.error('===> Debug: succesfully connected on XMPP side of bridge "'+str(self)+'"', debug=True)
+			self.say('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode', on_irc=False)
 		for error in errors:
 			try:
 				raise error
@@ -123,7 +124,7 @@ class bridge:
 		participants_nicknames = []
 		for p in self.participants:
 			if p.protocol in protocols:
-				participants_nicknames.append(p.nickname)
+				participants_nicknames.append('"'+p.nickname+'"')
 		return participants_nicknames
 	
 	
