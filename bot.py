@@ -35,7 +35,7 @@ class bot(Thread):
 	
 	def __init__(self, jid, password, nickname, error_fd=sys.stderr, debug=False):
 		Thread.__init__(self)
-		self.commands = ['!xmpp_participants']
+		self.commands = ['!xmpp_participants', '!irc_participants']
 		self.bare_jid = xmpp.protocol.JID(jid=jid)
 		self.bare_jid.setResource('')
 		self.jid = xmpp.protocol.JID(jid=jid)
@@ -73,13 +73,13 @@ class bot(Thread):
 	def _xmpp_loop(self):
 		"""[Internal] XMPP infinite loop."""
 		while True:
-			self.xmpp_c.Process(5)
+			self.xmpp_c.Process(0.5)
 			try:
 				for c in self.xmpp_connections.itervalues():
 					if hasattr(c, 'Process'):
-						c.Process(5)
+						c.Process(0.5)
 					else:
-						sleep(1)
+						sleep(0.5)
 			except RuntimeError:
 				pass
 	
@@ -165,7 +165,7 @@ class bot(Thread):
 						
 					except NoSuchParticipantException:
 						if message.getTo() == self.jid:
-							xmpp_c.send(xmpp.protocol.Message(to=message.getFrom(), body=self.respond(message.getBody(), from_), typ='chat'))
+							xmpp_c.send(xmpp.protocol.Message(to=message.getFrom(), body=self.respond(message.getBody(), participant=from_), typ='chat'))
 							return
 						self.error('==> Debug: XMPP chat message not relayed, from_bare_jid='+from_bare_jid+'  to='+str(message.getTo().getResource())+'  from='+message.getFrom().getResource(), debug=True)
 						return
@@ -224,7 +224,7 @@ class bot(Thread):
 		# Events we always want to ignore
 		if 'all' in event.eventtype() or 'motd' in event.eventtype():
 			return
-		if event.eventtype() in ['pong', 'privnotice', 'ctcp', 'nochanmodes']:
+		if event.eventtype() in ['pong', 'privnotice', 'ctcp', 'nochanmodes', 'notexttosend']:
 			self.error('=> Debug: ignoring '+event.eventtype(), debug=True)
 			return
 		
@@ -280,7 +280,7 @@ class bot(Thread):
 						if event.target().split('!')[0] == self.nickname:
 							# Message is for the bot
 							self.error(event_str, debug=True)
-							connection.privmsg(from_.nickname, self.respond(event.arguments()[0], from_))
+							connection.privmsg(from_.nickname, self.respond(event.arguments()[0]))
 							return
 						else:
 							continue
@@ -427,10 +427,26 @@ class bot(Thread):
 		del bridge
 	
 	
-	def respond(self, message, participant):
+	def respond(self, message, participant=None):
+		ret = ''
 		if message.strip() == '!xmpp_participants':
-			xmpp_participants_nicknames = participant.bridge.get_participants_nicknames_list(protocols=['xmpp'])
-			return 'participants on '+participant.bridge.xmpp_room.room_jid+': '+'  '.join(xmpp_participants_nicknames)
+			if participant == None:
+				for bridge in self.bridges:
+					xmpp_participants_nicknames = bridge.get_participants_nicknames_list(protocols=['xmpp'])
+					ret += '\nparticipants on '+bridge.xmpp_room.room_jid+': '+' '.join(xmpp_participants_nicknames)
+				return ret
+			else:
+				xmpp_participants_nicknames = participant.bridge.get_participants_nicknames_list(protocols=['xmpp'])
+				return 'participants on '+participant.bridge.xmpp_room.room_jid+': '+' '.join(xmpp_participants_nicknames)
+		elif message.strip() == '!irc_participants':
+			if participant == None:
+				for bridge in self.bridges:
+					irc_participants_nicknames = bridge.get_participants_nicknames_list(protocols=['irc'])
+					ret += '\nparticipants on '+bridge.irc_room+' at '+bridge.irc_server+': '+' '.join(irc_participants_nicknames)
+				return ret
+			else:
+				irc_participants_nicknames = participant.bridge.get_participants_nicknames_list(protocols=['irc'])
+				return 'participants on '+participant.bridge.irc_room+' at '+participant.bridge.irc_server+': '+' '.join(irc_participants_nicknames)
 		else:
 			return 'commands: '+' '.join(self.commands)
 	
