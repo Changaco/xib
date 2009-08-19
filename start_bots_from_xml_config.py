@@ -21,9 +21,9 @@ from bot import bot
 from time import sleep
 from xml.dom.minidom import parse
 import sys
+import traceback
 
 
-bots = []
 
 try:
 	if len(sys.argv) > 1:
@@ -40,22 +40,35 @@ for bot_el in config.getElementsByTagName('bot'):
 		print 'Error: you cannot have two bots using the same JID'
 		quit(2)
 	bots_jids.append(bot_el.getAttribute('jid'))
-for bot_el in config.getElementsByTagName('bot'):
-	debug = False
-	if bot_el.hasAttribute('debug'):
-		if bot_el.getAttribute('debug') == 'true':
-			debug = True
-	bot_ = bot(bot_el.getAttribute('jid'), bot_el.getAttribute('password'), bot_el.getAttribute('nickname'), debug=debug)
-	bots.append(bot_)
-	for bridge_el in bot_el.getElementsByTagName('bridge'):
-		xmpp_room = bridge_el.getElementsByTagName('xmpp-room')[0]
-		irc = bridge_el.getElementsByTagName('irc')[0]
-		bridge_ = bot_.new_bridge(xmpp_room.getAttribute('jid'), irc.getAttribute('chan'), irc.getAttribute('server'))
 
 
 try:
+	bots = []
+	for bot_el in config.getElementsByTagName('bot'):
+		debug = False
+		if bot_el.hasAttribute('debug'):
+			if bot_el.getAttribute('debug') == 'true':
+				debug = True
+		bot_ = bot(bot_el.getAttribute('jid'), bot_el.getAttribute('password'), bot_el.getAttribute('nickname'), debug=debug)
+		bots.append(bot_)
+		for bridge_el in bot_el.getElementsByTagName('bridge'):
+			xmpp_room = bridge_el.getElementsByTagName('xmpp-room')[0]
+			irc = bridge_el.getElementsByTagName('irc')[0]
+			say_participants_list = True
+			if bridge_el.hasAttribute('say_participants_list'):
+				if bridge_el.getAttribute('say_participants_list') == 'false':
+					say_participants_list = False
+			if bridge_el.hasAttribute('mode'):
+				mode = bridge_el.getAttribute('mode')
+			else:
+				mode = 'normal'
+			bridge_ = bot_.new_bridge(xmpp_room.getAttribute('jid'), irc.getAttribute('chan'), irc.getAttribute('server'), mode, say_participants_list)
+	
+	
 	while True:
 		sleep(1)
 except:
-	del bots
+	for bot in bots:
+		del bot
+	traceback.print_exc()
 	quit(3)

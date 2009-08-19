@@ -2,11 +2,12 @@
 <config>
 	<bot jid='some_bot@example.net' password='do not forget to escape xml entities like &amp;' nickname='xib-bot-nickname' debug='true'>
 		<!-- WARNING: do NOT set debug to "true" if you are sending the bot's stderr to a file, it logs every XMPP stanza and IRC event without controlling the size of the resulting file -->
-		<bridge>
+		<bridge mode='normal'>
 			<xmpp-room jid='dream-world@chat.example.com'/>
 			<irc chan='#dream-world' server='irc.example.org'/>
 		</bridge>
-		<!-- WARNING: multiple bridges is not currently well-implemented, start multiple bots instead -->
 	</bot>
 	<!-- WARNING: do NOT start two bots with the same JID or the same nickname -->
+	<!-- WARNING: two bots connecting to the same XMPP MUC server and/or the same IRC server may conflict, it is better to use multiple bridges -->
+	<!-- NOTICE: even if you use multiple bridges instead of multiple bots, conflicts may still appear if somebody else is running a bot on the same XMPP MUC server and/or the same IRC server -->
 </config>

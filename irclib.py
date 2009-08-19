@@ -161,10 +161,19 @@ class IRC:
 
         self.add_global_handler("ping", _ping_ponger, -42)
 
-    def server(self):
-        """Creates and returns a ServerConnection object."""
+    def server(self, server, port, nickname):
+        """Creates or returns an existing ServerConnection object for nickname at server:port.
 
-        c = ServerConnection(self)
+            server -- Server name.
+
+            port -- Port number.
+
+            nickname -- The nickname."""
+
+        for c in self.connections:
+            if c.server == server and c.port == port and c.real_nickname == nickname:
+                return c
+        c = ServerConnection(self, server, port, nickname)
         self.connections.append(c)
         return c
 
@@ -372,24 +381,27 @@ class ServerConnection(Connection):
     method on an IRC object.
     """
 
-    def __init__(self, irclibobj):
+    def __init__(self, irclibobj, server, port, nickname):
         Connection.__init__(self, irclibobj)
-        self.connected = 0  # Not connected yet.
+        self.connected = False  # Not connected yet.
         self.really_connected = False
+        self.used_by = 1
         self.socket = None
         self.ssl = None
+        self.server = server
+        self.port = port
+        self.nickname = nickname
 
-    def connect(self, server, port, nickname, password=None, username=None,
-                ircname=None, localaddress="", localport=0, ssl=False, ipv6=False):
-        """Connect/reconnect to a server.
+
+    def __str__(self):
+        return self.real_nickname+' at '+self.server+':'+str(self.port)
+
+
+    def connect(self, password=None, username=None,
+                ircname=None, localaddress="", localport=0, ssl=False, ipv6=False, nick_callback=None):
+        """Connect to the server.
 
         Arguments:
-
-            server -- Server name.
-
-            port -- Port number.
-
-            nickname -- The nickname.
 
             password -- Password (if any).
 
@@ -409,23 +421,27 @@ class ServerConnection(Connection):
 
         Returns the ServerConnection object.
         """
-        if self.connected:
-            self.disconnect("Changing servers")
+        if self.connected == True:
+            self.used_by += 1
+            self.irclibobj.bot.error('===> Debug: using existing IRC connection for '+str(self)+', this connection is now used by '+str(self.used_by)+' bridges', debug=True)
+            self.nick(self.real_nickname, callback=nick_callback)
+            return
 
-        self.closing = False
+
+        self.nick_callbacks = []
         self.previous_buffer = ""
         self.handlers = {}
         self.real_server_name = ""
-        self.real_nickname = nickname
-        self.server = server
-        self.port = port
-        self.nickname = nickname
-        self.username = username or nickname
-        self.ircname = ircname or nickname
+        self.real_nickname = self.nickname
+        self.username = username or self.nickname
+        self.ircname = ircname or self.nickname
         self.password = password
         self.localaddress = localaddress
         self.localport = localport
         self.localhost = socket.gethostname()
+
+        self.irclibobj.bot.error('===> Debug: opening new IRC connection for '+str(self), debug=True)
+
         if ipv6:
             self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         else:
@@ -439,25 +455,42 @@ class ServerConnection(Connection):
             self.socket.close()
             self.socket = None
             raise ServerConnectionError, "Couldn't connect to socket: %s" % x
-        self.connected = 1
+        self.connected = True
         if self.irclibobj.fn_to_add_socket:
             self.irclibobj.fn_to_add_socket(self.socket)
 
         # Log on...
         if self.password:
             self.pass_(self.password)
-        self.nick(self.nickname)
+        self.nick(self.nickname, callback=nick_callback)
         self.user(self.username, self.ircname)
         return self
 
-    def close(self):
+
+    def _call_nick_callbacks(self, error, arguments=[]):
+        i = 0
+        for f in self.nick_callbacks:
+            i += 1
+            f(error, arguments=arguments)
+        self.nick_callbacks = []
+        if i == 0:
+            self.irclibobj.bot.error('=> Debug: no nick callback for "'+str(self)+'"', debug=True)
+        else:
+            self.irclibobj.bot.error('=> Debug: called '+str(i)+' callback(s) for "'+str(self)+'"', debug=True)
+
+
+    def add_nick_callback(self, callback):
+        self.nick_callbacks.append(callback)
+
+
+    def close(self, message):
         """Close the connection.
 
         This method closes the connection permanently; after it has
         been called, the object is unusable.
         """
 
-        self.disconnect("Closing object")
+        self.disconnect(message)
         self.irclibobj._remove_connection(self)
 
     def _get_socket(self):
@@ -656,7 +689,7 @@ class ServerConnection(Connection):
         if not self.connected:
             return
 
-        self.connected = 0
+        self.connected = False
 
         self.quit(message)
 
@@ -665,6 +698,7 @@ class ServerConnection(Connection):
         except socket.error, x:
             pass
         self.socket = None
+        self.irclibobj
         self._handle_event(Event("disconnect", self.server, "", [message]))
 
     def globops(self, text):
@@ -730,8 +764,13 @@ class ServerConnection(Connection):
         """Send a NAMES command."""
         self.send_raw("NAMES" + (channels and (" " + ",".join(channels)) or ""))
 
-    def nick(self, newnick):
+    def nick(self, newnick, callback=None):
         """Send a NICK command."""
+        if callback != None:
+            self.add_nick_callback(callback)
+        if ' ' in newnick:
+            self._call_nick_callbacks('erroneusnickname')
+            return
         self.send_raw("NICK " + newnick)
 
     def notice(self, target, text):
@@ -868,7 +907,7 @@ class DCCConnection(Connection):
     """
     def __init__(self, irclibobj, dcctype):
         Connection.__init__(self, irclibobj)
-        self.connected = 0
+        self.connected = False
         self.passive = 0
         self.dcctype = dcctype
         self.peeraddress = None
@@ -895,7 +934,7 @@ class DCCConnection(Connection):
             self.socket.connect((self.peeraddress, self.peerport))
         except socket.error, x:
             raise DCCConnectionError, "Couldn't connect to socket: %s" % x
-        self.connected = 1
+        self.connected = True
         if self.irclibobj.fn_to_add_socket:
             self.irclibobj.fn_to_add_socket(self.socket)
         return self
@@ -932,7 +971,7 @@ class DCCConnection(Connection):
         if not self.connected:
             return
 
-        self.connected = 0
+        self.connected = False
         try:
             self.socket.close()
         except socket.error, x:
@@ -950,7 +989,7 @@ class DCCConnection(Connection):
             conn, (self.peeraddress, self.peerport) = self.socket.accept()
             self.socket.close()
             self.socket = conn
-            self.connected = 1
+            self.connected = True
             if DEBUG:
                 print "DCC connection from %s:%d" % (
                     self.peeraddress, self.peerport)

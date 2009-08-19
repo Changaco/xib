@@ -43,7 +43,7 @@ class muc:
 		self.xmpp_c = xmpp_c
 		self.callback = callback
 		self.xmpp_c.RegisterHandler('presence', self._xmpp_presence_handler)
-		self.xmpp_c.send(xmpp.protocol.Presence(to=self.jid, status=status))
+		self.xmpp_c.send(xmpp.protocol.Presence(to=self.jid, status=status, payload=[xmpp.simplexml.Node(tag='x', attrs={'xmlns': 'http://jabber.org/protocol/muc'}, payload=[xmpp.simplexml.Node(tag='history', attrs={'maxchars': '0'})])]))
 	
 	
 	def _xmpp_presence_handler(self, xmpp_c, presence):
@@ -98,12 +98,12 @@ class muc:
 		self.xmpp_c.send(xmpp.protocol.Message(to=self.room_jid+'/'+to, typ='chat', body=message))
 	
 	
-	def change_nick(self, nickname, callback=None):
+	def change_nick(self, nickname, status=None, callback=None):
 		"""Change nickname"""
 		self.jid = self.room_jid+'/'+nickname
 		self.callback = callback
 		self.xmpp_c.RegisterHandler('presence', self._xmpp_presence_handler)
-		self.xmpp_c.send(xmpp.protocol.Presence(to=self.jid))
+		self.xmpp_c.send(xmpp.protocol.Presence(to=self.jid, status=status))
 	
 	
 	def leave(self, message=''):
