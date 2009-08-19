@@ -36,27 +36,24 @@ class bot(Thread):
 	def __init__(self, jid, password, nickname, error_fd=sys.stderr, debug=False):
 		Thread.__init__(self)
 		self.commands = ['!xmpp_participants']
+		self.bare_jid = xmpp.protocol.JID(jid=jid)
+		self.bare_jid.setResource('')
 		self.jid = xmpp.protocol.JID(jid=jid)
 		self.nickname = nickname
+		self.jid.setResource(self.nickname)
 		self.password = password
 		self.error_fd = error_fd
 		self.debug = debug
 		self.bridges = []
+		self.xmpp_connections = {}
 		self.irc = irclib.IRC()
+		self.irc.bot = self
 		self.irc.add_global_handler('all_events', self._irc_event_handler)
 		self.irc_thread = Thread(target=self.irc.process_forever)
 		self.irc_thread.start()
 		# Open connection with XMPP server
 		try:
-			self.xmpp_c = xmpp.client.Client(self.jid.getDomain(), debug=[])
-			self.xmpp_c.connect()
-			if self.jid.getResource() == '':
-				self.jid.setResource('xib-bot')
-			self.xmpp_c.auth(self.jid.getNode(), password, resource=self.jid.getResource())
-			self.xmpp_c.RegisterHandler('presence', self._xmpp_presence_handler)
-			self.xmpp_c.RegisterHandler('iq', self._xmpp_iq_handler)
-			self.xmpp_c.RegisterHandler('message', self._xmpp_message_handler)
-			self.xmpp_c.sendInitPresence()
+			self.xmpp_c = self.get_xmpp_connection(self.jid.getResource())
 		except:
 			self.error('Error: XMPP Connection failed')
 			raise
@@ -65,6 +62,7 @@ class bot(Thread):
 	
 	
 	def error(self, s, debug=False):
+		"""Output an error message."""
 		if not debug or debug and self.debug:
 			try:
 				self.error_fd.write(auto_encode(s)+"\n")
@@ -73,55 +71,70 @@ class bot(Thread):
 	
 	
 	def _xmpp_loop(self):
+		"""[Internal] XMPP infinite loop."""
 		while True:
 			self.xmpp_c.Process(5)
+			try:
+				for c in self.xmpp_connections.itervalues():
+					if hasattr(c, 'Process'):
+						c.Process(5)
+					else:
+						sleep(1)
+			except RuntimeError:
+				pass
 	
 	
 	def _xmpp_presence_handler(self, xmpp_c, presence):
 		"""[Internal] Manage XMPP presence."""
+		
+		if presence.getTo() != self.jid:
+			self.error('=> Debug: Skipping XMPP presence not received on bot connection.', debug=True)
+			return
+		
 		self.error('==> Debug: Received XMPP presence.', debug=True)
 		self.error(presence.__str__(fancy=1), debug=True)
 		
-		if presence.getTo() != self.jid:
-			#self.error('=> Debug: Skipping XMPP presence not received on bot connection.', debug=True)
-			return
 		from_ = xmpp.protocol.JID(presence.getFrom())
 		bare_jid = unicode(from_.getNode()+'@'+from_.getDomain())
 		for bridge in self.bridges:
 			if bare_jid == bridge.xmpp_room.room_jid:
 				# presence comes from a muc
 				resource = unicode(from_.getResource())
+				
 				if resource == '':
 					# presence comes from the muc itself
 					# TODO: handle room deletion and muc server reboot
 					pass
+				
 				else:
 					# presence comes from a participant of the muc
 					try:
 						p = bridge.getParticipant(resource)
-						if p.protocol in ['xmpp', 'both']:
-							if presence.getType() == 'unavailable':
-								x = presence.getTag('x', namespace='http://jabber.org/protocol/muc#user')
-								if x and x.getTag('status', attrs={'code': '303'}):
-									# participant changed its nickname
-									item = x.getTag('item')
-									if not item:
-										self.error('Debug: bad stanza, no item element', debug=True)
-										return
-									new_nick = item.getAttr('nick')
-									if not new_nick:
-										self.error('Debug: bad stanza, new nick is not given', debug=True)
-										return
-									p.changeNickname(new_nick, 'irc')
-									return
-								# participant left
-								bridge.removeParticipant('xmpp', resource, presence.getStatus())
+						
 					except NoSuchParticipantException:
-						if presence.getType() != 'unavailable':
-							try:
-								bridge.addParticipant('xmpp', resource)
-							except Exception:
-								pass
+						if presence.getType() != 'unavailable' and resource != bridge.bot.nickname:
+							bridge.addParticipant('xmpp', resource)
+						return
+					
+					
+					if p.protocol == 'xmpp' and presence.getType() == 'unavailable':
+						x = presence.getTag('x', namespace='http://jabber.org/protocol/muc#user')
+						if x and x.getTag('status', attrs={'code': '303'}):
+							# participant changed its nickname
+							item = x.getTag('item')
+							if not item:
+								self.error('Debug: bad stanza, no item element', debug=True)
+								return
+							new_nick = item.getAttr('nick')
+							if not new_nick:
+								self.error('Debug: bad stanza, new nick is not given', debug=True)
+								return
+							p.changeNickname(new_nick, 'irc')
+						
+						else:
+							# participant left
+							bridge.removeParticipant('xmpp', resource, presence.getStatus())
+					
 				return
 	
 	
@@ -134,37 +147,42 @@ class bot(Thread):
 	def _xmpp_message_handler(self, xmpp_c, message):
 		"""[Internal] Manage XMPP messages."""
 		if message.getType() == 'chat':
-			self.error('==> Debug: Received XMPP message.', debug=True)
+			self.error('==> Debug: Received XMPP chat message.', debug=True)
 			self.error(message.__str__(fancy=1), debug=True)
 			from_bare_jid = unicode(message.getFrom().getNode()+'@'+message.getFrom().getDomain())
 			for bridge in self.bridges:
 				if from_bare_jid == bridge.xmpp_room.room_jid:
 					# message comes from a room participant
+					
 					try:
 						from_ = bridge.getParticipant(message.getFrom().getResource())
 						to_ = bridge.getParticipant(message.getTo().getResource())
+						
+						if from_.protocol == 'xmpp':
+							from_.sayOnIRCTo(to_.nickname, message.getBody())
+						else:
+							self.error('==> Debug: received XMPP chat message from a non-XMPP participant, WTF ?', debug=True)
+						
 					except NoSuchParticipantException:
 						if message.getTo() == self.jid:
 							xmpp_c.send(xmpp.protocol.Message(to=message.getFrom(), body=self.respond(message.getBody(), from_), typ='chat'))
 							return
 						self.error('==> Debug: XMPP chat message not relayed, from_bare_jid='+from_bare_jid+'  to='+str(message.getTo().getResource())+'  from='+message.getFrom().getResource(), debug=True)
 						return
-					if from_.protocol in ['xmpp', 'both']:
-						from_.sayOnIRCTo(to_.nickname, message.getBody())
-					else:
-						self.error('==> Debug: received XMPP chat message from a non-XMPP participant, WTF ?', debug=True)
 		
 		elif message.getType() == 'groupchat':
 			# message comes from a room
-			if message.getTo() != self.jid:
-				self.error('=> Debug: Skipping XMPP MUC message not received on bot connection.', debug=True)
-				return
+			
 			for child in message.getChildren():
 				if child.getName() == 'delay':
-					self.error('=> Debug: Skipping XMPP MUC delayed message.', debug=True)
+					# MUC delayed message
 					return
-			self.error('==> Debug: Received XMPP message.', debug=True)
-			self.error(message.__str__(fancy=1), debug=True)
+			
+			if message.getTo() != self.jid:
+				self.error('=> Debug: Ignoring XMPP MUC message not received on bot connection.', debug=True)
+				return
+			
+			
 			from_ = xmpp.protocol.JID(message.getFrom())
 			room_jid = unicode(from_.getNode()+'@'+from_.getDomain())
 			for bridge in self.bridges:
@@ -172,149 +190,251 @@ class bot(Thread):
 					resource = unicode(from_.getResource())
 					if resource == '':
 						# message comes from the room itself
-						pass
+						self.error('=> Debug: Ignoring XMPP groupchat message sent by the room.', debug=True)
+						return
 					else:
 						# message comes from a participant of the room
+						self.error('==> Debug: Received XMPP groupchat message.', debug=True)
+						self.error(message.__str__(fancy=1), debug=True)
+						
 						try:
 							participant_ = bridge.getParticipant(resource)
 						except NoSuchParticipantException:
+							if resource != self.nickname:
+								self.error('=> Debug: NoSuchParticipantException "'+resource+'", WTF ?', debug=True)
 							return
+						
 						if participant_.protocol == 'xmpp':
 							participant_.sayOnIRC(message.getBody())
-						elif participant_.protocol == 'both':
-							bridge.irc_connection.privmsg(bridge.irc_room, '<'+participant_.nickname+'> '+message.getBody())
+		
 		else:
-			self.error('==> Debug: Received XMPP message.', debug=True)
+			self.error('==> Debug: Received XMPP message of unknown type "'+message.getType()+'".', debug=True)
 			self.error(message.__str__(fancy=1), debug=True)
 	
 	
 	def _irc_event_handler(self, connection, event):
-		"""[internal] Manage IRC events"""
-		if not connection.bridge in self.bridges:
-			# Not for us, ignore
-			return
-		if 'all' in event.eventtype():
-			return
-		if 'motd' in event.eventtype():
-			self.error('=> Debug: ignoring event containing "motd" in the eventtype ('+event.eventtype()+')', debug=True)
-			return
-		if event.eventtype() in ['pong', 'privnotice']:
-			self.error('=> Debug: ignoring '+event.eventtype(), debug=True)
-			return
-		if event.eventtype() == 'pubmsg' and connection.get_nickname() != connection.bridge.irc_connection.get_nickname():
-			self.error('=> Debug: ignoring IRC pubmsg not received on bridge connection', debug=True)
-			return
+		"""[Internal] Manage IRC events"""
+		
+		# Answer ping
 		if event.eventtype() == 'ping':
 			connection.pong(connection.get_server_name())
 			return
-		if event.eventtype() in ['umode', 'welcome', 'yourhost', 'created', 'myinfo', 'featurelist', 'luserclient', 'luserop', 'luserchannels', 'luserme', 'n_local', 'n_global', 'endofnames', 'luserunknown', 'luserconns']:
-			if connection.really_connected == False:
-				connection.really_connected = True
-				self.error('===> Debug: now really connected', debug=True)
-				if connection.nick_callback:
-					connection.nick_callback(None)
-				else:
-					self.error('=> Debug: no nick callback for "'+str(event.target())+'"', debug=True)
-					self.error('connection.nick_callback='+str(connection.nick_callback), debug=True)
+		
+		
+		# Events we always want to ignore
+		if 'all' in event.eventtype() or 'motd' in event.eventtype():
+			return
+		if event.eventtype() in ['pong', 'privnotice', 'ctcp', 'nochanmodes']:
 			self.error('=> Debug: ignoring '+event.eventtype(), debug=True)
 			return
-		self.error('==> Debug: Received IRC event.', debug=True)
-		self.error('server='+connection.get_server_name(), debug=True)
-		self.error('eventtype='+event.eventtype(), debug=True)
-		self.error('source='+str(event.source()), debug=True)
-		self.error('target='+str(event.target()), debug=True)
-		self.error('arguments='+str(event.arguments()), debug=True)
-		if event.eventtype() == 'disconnect':
-			if connection.get_nickname() == connection.bridge.irc_connection.get_nickname():
-				# Lost bridge IRC connection, we must reconnect if we want the bridge to work
-				self.recreate_bridge(connection.bridge)
+		
+		
+		nickname = None
+		if '!' in event.source():
+			nickname = event.source().split('!')[0]
+		
+		
+		# Events that we want to ignore only in some cases
+		if event.eventtype() in ['umode', 'welcome', 'yourhost', 'created', 'myinfo', 'featurelist', 'luserclient', 'luserop', 'luserchannels', 'luserme', 'n_local', 'n_global', 'endofnames', 'luserunknown', 'luserconns']:
+			if connection.really_connected == False:
+				if event.target() == connection.nickname:
+					connection.really_connected = True
+					connection._call_nick_callbacks(None)
+				elif len(connection.nick_callbacks) > 0:
+					self.error('===> Debug: event target ('+event.target()+') and connection nickname ('+connection.nickname+') don\'t match')
+					connection._call_nick_callbacks('nicknametoolong', arguments=[len(event.target())])
+			self.error('=> Debug: ignoring '+event.eventtype(), debug=True)
+			return
+		
+		
+		# A string representation of the event
+		event_str = '==> Debug: Received IRC event.\nconnection='+str(connection)+'\neventtype='+event.eventtype()+'\nsource='+str(event.source())+'\ntarget='+str(event.target())+'\narguments='+str(event.arguments())
+		
+		
+		if event.eventtype() in ['pubmsg', 'privmsg', 'quit', 'part', 'nick']:
+			if nickname == None:
 				return
-			if connection.bridge.mode == 'normal' and connection.closing == False:
-				connection.bridge.switchToLimitedMode()
-			if connection.closing == True:
-				connection.close()
-			return
-		elif event.eventtype() == 'nicknameinuse':
-			if connection.nick_callback:
-				connection.nick_callback('nicknameinuse')
-			else:
-				self.error('=> Debug: no nick callback for "'+str(event.target())+'"', debug=True)
-			return
-		elif event.eventtype() == 'erroneusnickname':
-			if connection.nick_callback:
-				connection.nick_callback('erroneusnickname')
-			else:
-				self.error('=> Debug: no nick callback for "'+str(event.target())+'"', debug=True)
-			return
-		elif event.eventtype() == 'namreply':
-			for nickname in re.split('(?:^[@\+]?|(?: [@\+]?)*)', event.arguments()[2].strip()):
-				if nickname == '':
-					continue
+			
+			# TODO: lock self.bridges for thread safety
+			for bridge in self.bridges:
 				try:
-					connection.bridge.addParticipant('irc', nickname)
-				except:
+					from_ = bridge.getParticipant(nickname)
+					
+				except NoSuchParticipantException:
+					self.error('===> Debug: NoSuchParticipantException "'+nickname+'" in bridge "'+str(bridge)+'"', debug=True)
+					continue
+				
+				
+				# Private message
+				if event.eventtype() == 'privmsg':
+					if event.target() == None:
+						return
+					
+					try:
+						to_ = bridge.getParticipant(event.target().split('!')[0])
+						self.error(event_str, debug=True)
+						from_.sayOnXMPPTo(to_.nickname, event.arguments()[0])
+						return
+						
+					except NoSuchParticipantException:
+						if event.target().split('!')[0] == self.nickname:
+							# Message is for the bot
+							self.error(event_str, debug=True)
+							connection.privmsg(from_.nickname, self.respond(event.arguments()[0], from_))
+							return
+						else:
+							continue
+				
+				
+				# From here we skip if the event was not received on bot connection
+				if connection.get_nickname() != self.nickname:
+					self.error('=> Debug: ignoring IRC '+event.eventtype()+' not received on bridge connection', debug=True)
+					continue
+				
+				self.error(event_str, debug=True)
+				
+				
+				# Leaving events
+				if event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target() == bridge.irc_room:
+					if from_.protocol == 'irc':
+						bridge.removeParticipant('irc', from_.nickname, event.arguments()[0])
+					continue
+				
+				
+				# Nickname change
+				if event.eventtype() == 'nick' and from_.protocol == 'irc':
+					from_.changeNickname(event.target(), 'xmpp')
+					continue
+				
+				
+				# Chan message
+				if event.eventtype() == 'pubmsg':
+					if bridge.irc_room == event.target() and bridge.irc_server == connection.server:
+						if from_.protocol != 'xmpp':
+							from_.sayOnXMPP(event.arguments()[0])
+						return
+					else:
+						continue
+			
+			return
+		
+		
+		if event.eventtype() in ['namreply', 'join']:
+			if connection.get_nickname() != self.nickname:
+				self.error('=> Debug: ignoring IRC '+event.eventtype()+' not received on bridge connection', debug=True)
+				return
+			
+			if event.eventtype() == 'namreply':
+				# TODO: lock self.bridges for thread safety
+				for bridge in self.getBridges(irc_room=event.arguments()[1], irc_server=connection.server):
+					for nickname in re.split('(?:^[@\+]?|(?: [@\+]?)*)', event.arguments()[2].strip()):
+						if nickname == '' or nickname == self.nickname:
+							continue
+						bridge.addParticipant('irc', nickname)
+				return
+			elif event.eventtype() == 'join':
+				bridges = self.getBridges(irc_room=event.target(), irc_server=connection.server)
+				if len(bridges) == 0:
+					self.error('===> Debug: no bridge found for "'+event.target()+' at '+connection.server+'"', debug=True)
+					return
+				for bridge in bridges:
+					bridge.addParticipant('irc', nickname)
+				return
+		
+		
+		# From here the event is shown
+		self.error(event_str, debug=True)
+		
+		if event.eventtype() == 'disconnect':
+			# TODO: lock self.bridges for thread safety
+			for bridge in self.bridges:
+				try:
+					bridge.getParticipant(connection.get_nickname())
+					if bridge.mode == 'normal':
+						bridge.switchFromNormalToLimitedMode()
+				except NoSuchParticipantException:
 					pass
 			return
-		elif event.eventtype() == 'join':
-			nickname = event.source().split('!')[0]
-			if nickname == self.nickname:
-				pass
-			else:
-				try:
-					connection.bridge.getParticipant(nickname)
-				except NoSuchParticipantException:
-					connection.bridge.addParticipant('irc', nickname)
+		elif event.eventtype() == 'nicknameinuse':
+			connection._call_nick_callbacks('nicknameinuse')
 			return
-		try:
-			if event.source() == None or not '!' in event.source():
-				return
-			from_ = connection.bridge.getParticipant(event.source().split('!')[0])
-			if event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target() == connection.bridge.irc_room:
-				if from_.protocol in ['irc', 'both']:
-					connection.bridge.removeParticipant('irc', from_.nickname, event.arguments()[0])
-				return
-			if event.eventtype() == 'nick' and from_.protocol in ['irc', 'both']:
-				from_.changeNickname(event.target(), 'xmpp')
-		except NoSuchParticipantException:
-			self.error('===> Debug: NoSuchParticipantException "'+event.source().split('!')[0]+'"', debug=True)
+		elif event.eventtype() == 'erroneusnickname':
+			connection._call_nick_callbacks('erroneusnickname')
 			return
-		if event.eventtype() == 'pubmsg':
-			if from_.protocol == 'irc' or from_.protocol == 'both':
-				from_.sayOnXMPP(event.arguments()[0])
-		elif event.eventtype() == 'privmsg':
-			if event.target() == None:
-				return
-			try:
-				to_ = connection.bridge.getParticipant(event.target().split('!')[0])
-			except NoSuchParticipantException:
-				if event.target().split('!')[0] == self.nickname:
-					connection.privmsg(from_.nickname, self.respond(event.arguments()[0], from_))
-				return
-			if to_.protocol == 'xmpp':
-				from_.sayOnXMPPTo(to_.nickname, event.arguments()[0])
+		
+		
+		# Unhandled events
+		self.error('=> Debug: event not handled', debug=True)
 	
 	
-	def new_bridge(self, xmpp_room, irc_room, irc_server, irc_port=6667):
+	def new_bridge(self, xmpp_room, irc_room, irc_server, mode, say_participants_list, irc_port=6667):
 		"""Create a bridge between xmpp_room and irc_room at irc_server."""
-		b = bridge(self, xmpp_room, irc_room, irc_server, irc_port=irc_port)
+		b = bridge(self, xmpp_room, irc_room, irc_server, mode, say_participants_list, irc_port=irc_port)
 		self.bridges.append(b)
 		return b
 	
 	
-	def recreate_bridge(self, bridge):
-		"""Disconnect and reconnect."""
-		self.new_bridge(bridge.xmpp_room.room_jid, bridge.irc_room, bridge.irc_server)
+	def getBridges(self, irc_room=None, irc_server=None, xmpp_room_jid=None):
+		bridges = [b for b in self.bridges]
+		if irc_room != None:
+			for bridge in bridges:
+				if bridge.irc_room != irc_room:
+					if bridge in bridges:
+						bridges.remove(bridge)
+		if irc_server != None:
+			for bridge in bridges:
+				if bridge.irc_server != irc_server:
+					if bridge in bridges:
+						bridges.remove(bridge)
+		if xmpp_room_jid != None:
+			for bridge in bridges:
+				if bridge.xmpp_room.room_jid != xmpp_room_jid:
+					if bridge in bridges:
+						bridges.remove(bridge)
+		return bridges
+	
+	
+	def get_xmpp_connection(self, resource):
+		if self.xmpp_connections.has_key(resource):
+			c = self.xmpp_connections[resource]
+			c.used_by += 1
+			self.error('===> Debug: using existing XMPP connection for "'+str(self.bare_jid)+'/'+resource+'", now used by '+str(c.used_by)+' bridges', debug=True)
+			return c
+		self.error('===> Debug: opening new XMPP connection for "'+str(self.bare_jid)+'/'+resource+'"', debug=True)
+		c = xmpp.client.Client(self.jid.getDomain(), debug=[])
+		self.xmpp_connections[resource] = c
+		c.used_by = 1
+		c.connect()
+		c.auth(self.jid.getNode(), self.password, resource=resource)
+		c.RegisterHandler('presence', self._xmpp_presence_handler)
+		c.RegisterHandler('iq', self._xmpp_iq_handler)
+		c.RegisterHandler('message', self._xmpp_message_handler)
+		c.sendInitPresence()
+		return c
+	
+	
+	def close_xmpp_connection(self, resource):
+		self.xmpp_connections[resource].used_by -= 1
+		if self.xmpp_connections[resource].used_by < 1:
+			self.error('===> Debug: closing XMPP connection for "'+str(self.bare_jid)+'/'+resource+'"', debug=True)
+			del self.xmpp_connections[resource]
+		else:
+			self.error('===> Debug: XMPP connection for "'+str(self.bare_jid)+'/'+resource+'" is now used by '+str(self.xmpp_connections[resource].used_by)+' bridges', debug=True)
+	
+	
+	def removeBridge(self, bridge):
 		self.bridges.remove(bridge)
 		del bridge
 	
 	
 	def respond(self, message, participant):
 		if message.strip() == '!xmpp_participants':
-			xmpp_participants_nicknames = participant.bridge.get_xmpp_participants_nicknames_list()
+			xmpp_participants_nicknames = participant.bridge.get_participants_nicknames_list(protocols=['xmpp'])
 			return 'participants on '+participant.bridge.xmpp_room.room_jid+': '+'  '.join(xmpp_participants_nicknames)
 		else:
 			return 'commands: '+' '.join(self.commands)
 	
+	
 	def __del__(self):
-		for bridge in bridges:
-			del bridge
+		for bridge in self.bridges:
+			self.removeBridge(bridge)
