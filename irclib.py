@@ -69,6 +69,7 @@ import string
 import sys
 import time
 import types
+import threading
 
 VERSION = 0, 4, 8
 DEBUG = 0
@@ -189,7 +190,9 @@ class IRC:
         for s in sockets:
             for c in self.connections:
                 if s == c._get_socket():
+                    c.lock.acquire()
                     c.process_data()
+                    c.lock.release()
 
     def process_timeout(self):
         """Called when a timeout notification is due.
@@ -336,7 +339,8 @@ class IRC:
 
     def _remove_connection(self, connection):
         """[Internal]"""
-        self.connections.remove(connection)
+        if connection in self.connections:
+            self.connections.remove(connection)
         if self.fn_to_remove_socket:
             self.fn_to_remove_socket(connection._get_socket())
 
@@ -421,13 +425,19 @@ class ServerConnection(Connection):
 
         Returns the ServerConnection object.
         """
+        
+        
         if self.connected == True:
+            self.lock.acquire()
             self.used_by += 1
             self.irclibobj.bot.error('===> Debug: using existing IRC connection for '+str(self)+', this connection is now used by '+str(self.used_by)+' bridges', debug=True)
             self.nick(self.real_nickname, callback=nick_callback)
-            return
+            self.lock.release()
+            return self
 
 
+        self.lock = threading.Lock()
+        self.lock.acquire()
         self.nick_callbacks = []
         self.previous_buffer = ""
         self.handlers = {}
@@ -464,6 +474,7 @@ class ServerConnection(Connection):
             self.pass_(self.password)
         self.nick(self.nickname, callback=nick_callback)
         self.user(self.username, self.ircname)
+        self.lock.release()
         return self
 
 
