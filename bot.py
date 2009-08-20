@@ -91,6 +91,11 @@ class bot(Thread):
 				continue
 	
 	
+	def _xmpp_disconnect_handler(self, xmpp_c):
+		xmpp_c.reconnectAndReauth()
+		return
+	
+	
 	def _xmpp_presence_handler(self, dispatcher, presence):
 		"""[Internal] Manage XMPP presence."""
 		
@@ -221,8 +226,7 @@ class bot(Thread):
 								self.error('=> Debug: NoSuchParticipantException "'+resource+'", WTF ?', debug=True)
 							return
 						
-						if participant_.protocol == 'xmpp':
-							participant_.sayOnIRC(message.getBody())
+						participant_.sayOnIRC(message.getBody())
 		
 		else:
 			self.error('==> Debug: Received XMPP message of unknown type "'+message.getType()+'".', debug=True)
@@ -328,8 +332,7 @@ class bot(Thread):
 				# Chan message
 				if event.eventtype() == 'pubmsg':
 					if bridge.irc_room == event.target() and bridge.irc_server == connection.server:
-						if from_.protocol != 'xmpp':
-							from_.sayOnXMPP(event.arguments()[0])
+						from_.sayOnXMPP(event.arguments()[0])
 						return
 					else:
 						continue
@@ -430,6 +433,7 @@ class bot(Thread):
 		c.RegisterHandler('presence', self._xmpp_presence_handler)
 		c.RegisterHandler('iq', self._xmpp_iq_handler)
 		c.RegisterHandler('message', self._xmpp_message_handler)
+		c.DisconnectHandler = self._xmpp_disconnect_handler(c)
 		c.sendInitPresence()
 		c.lock.release()
 		return c
