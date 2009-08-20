@@ -24,7 +24,7 @@ version = 0, 1
 
 import irclib
 import xmppony as xmpp
-from threading import Thread
+import threading
 from bridge import *
 from time import sleep
 import re
@@ -73,16 +73,20 @@ class bot(Thread):
 		"""[Internal] XMPP infinite loop."""
 		while True:
 			try:
+				self.xmpp_c.lock.acquire()
 				self.xmpp_c.Process(0.5)
+				self.xmpp_c.lock.release()
 				try:
 					for c in self.xmpp_connections.itervalues():
 						if hasattr(c, 'Process'):
+							c.lock.acquire()
 							c.Process(0.5)
+							c.lock.release()
 						else:
 							sleep(0.5)
 				except RuntimeError:
 					pass
-			except xml.parsers.expat.ExpatError:
+			except (xml.parsers.expat.ExpatError, xmpp.protocol.XMLNotWellFormed):
 				self.error('=> Debug: received invalid stanza', debug=True)
 				continue
 	
@@ -243,8 +247,9 @@ class bot(Thread):
 		
 		
 		nickname = None
-		if '!' in event.source():
-			nickname = event.source().split('!')[0]
+		if event.source() != None:
+			if '!' in event.source():
+				nickname = event.source().split('!')[0]
 		
 		
 		# Events that we want to ignore only in some cases
@@ -415,6 +420,8 @@ class bot(Thread):
 			return c
 		self.error('===> Debug: opening new XMPP connection for "'+nickname+'"', debug=True)
 		c = xmpp.client.Client(self.bare_jid.getDomain(), debug=[])
+		c.lock = threading.Lock()
+		c.lock.acquire()
 		self.xmpp_connections[nickname] = c
 		c.used_by = 1
 		c.nickname = nickname
@@ -424,6 +431,7 @@ class bot(Thread):
 		c.RegisterHandler('iq', self._xmpp_iq_handler)
 		c.RegisterHandler('message', self._xmpp_message_handler)
 		c.sendInitPresence()
+		c.lock.release()
 		return c
 	
 	

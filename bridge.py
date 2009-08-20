@@ -22,6 +22,7 @@ from participant import *
 from encoding import *
 import traceback
 import re
+import threading
 
 
 class NoSuchParticipantException(Exception): pass
@@ -35,6 +36,7 @@ class bridge:
 	_warning = 3
 	_error = 4
 	_nothing = 5
+	_modes = ['normal', 'limited', 'minimal']
 	
 	
 	def __init__(self, owner_bot, xmpp_room_jid, irc_room, irc_server, mode, say_level, irc_port=6667):
@@ -48,9 +50,11 @@ class bridge:
 		else:
 			raise Exception('[Error] "'+say_level+'" is not a correct value for a bridge\'s "say_level" attribute')
 		self.participants = []
-		if mode not in ['normal', 'limited', 'minimal']:
+		if mode not in self.__class__._modes:
 			raise Exception('[Error] "'+mode+'" is not a correct value for a bridge\'s "mode" attribute')
 		self.mode = mode
+		
+		self.lock = threading.Lock()
 		
 		# Join XMPP room
 		try:
@@ -67,7 +71,8 @@ class bridge:
 		except:
 			self.bot.error('[Error] joining IRC room failed')
 			raise
-		self.bot.error('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode')
+		
+		self.bot.error('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode and a say_level of "'+say_level+'"')
 	
 	
 	def _irc_nick_callback(self, error, arguments=[]):
@@ -135,18 +140,23 @@ class bridge:
 	
 	def getParticipant(self, nickname):
 		"""Returns a participant object if there is a participant using nickname in the bridge. Raises a NoSuchParticipantException otherwise."""
+		self.lock.acquire()
 		for participant_ in self.participants:
 			if participant_.nickname == nickname:
+				self.lock.release()
 				return participant_
+		self.lock.release()
 		raise NoSuchParticipantException('there is no participant using the nickname "'+nickname+'" in this bridge')
 	
 	
 	def get_participants_nicknames_list(self, protocols=['irc', 'xmpp']):
 		"""Returns a list of the nicknames of the bridge's participants that are connected on the XMPP side."""
+		self.lock.acquire()
 		participants_nicknames = []
 		for p in self.participants:
 			if p.protocol in protocols:
 				participants_nicknames.append('"'+p.nickname+'"')
+		self.lock.release()
 		return participants_nicknames
 	
 	
@@ -184,6 +194,7 @@ class bridge:
 			self.bot.error('===> Debug: "'+nickname+'" was on both sides of bridge "'+str(self)+'" but left '+left_protocol, debug=True)
 		
 		elif was_on_both == False:
+			self.lock.acquire()
 			self.bot.error('===> Debug: removing participant "'+nickname+'" from bridge "'+str(self)+'"', debug=True)
 			self.participants.remove(p)
 			p.leave(leave_message)
@@ -192,14 +203,15 @@ class bridge:
 			for p in self.participants:
 				if p.protocol == 'xmpp':
 					i += 1
+			self.lock.release()
 			if left_protocol == 'xmpp':
 				if self.irc_connections_limit != -1 and self.irc_connections_limit > i:
 					self.switchFromLimitedToNormalMode()
-				if self.mode != 'normal' and self.say_participants_list == True:
+				if self.mode != 'normal':
 					xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
 					self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
 			elif left_protocol == 'irc':
-				if self.mode == 'minimal' and self.say_participants_list == True:
+				if self.mode == 'minimal':
 					irc_participants_nicknames = self.get_participants_nicknames_list(protocols=['irc'])
 					self.say('[Info] Participants on IRC: '+'  '.join(irc_participants_nicknames), on_irc=False)
 		
