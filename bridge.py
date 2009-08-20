@@ -20,22 +20,36 @@ xmpp = muc.xmpp
 del muc
 from participant import *
 from encoding import *
+import traceback
+import re
 
 
 class NoSuchParticipantException(Exception): pass
 
 
 class bridge:
-	def __init__(self, owner_bot, xmpp_room_jid, irc_room, irc_server, mode, say_participants_list, irc_port=6667):
+	
+	_all = 0
+	_info = 1
+	_notice = 2
+	_warning = 3
+	_error = 4
+	_nothing = 5
+	
+	
+	def __init__(self, owner_bot, xmpp_room_jid, irc_room, irc_server, mode, say_level, irc_port=6667):
 		"""Create a new bridge."""
 		self.bot = owner_bot
 		self.irc_server = irc_server
 		self.irc_port = irc_port
 		self.irc_room = irc_room
-		self.say_participants_list = say_participants_list
+		if hasattr(self.__class__, '_'+say_level):
+			self.say_level = getattr(self.__class__, '_'+say_level)
+		else:
+			raise Exception('[Error] "'+say_level+'" is not a correct value for a bridge\'s "say_level" attribute')
 		self.participants = []
 		if mode not in ['normal', 'limited', 'minimal']:
-			raise Exception('Error: "'+mode+'" is not a correct value for a bridge\'s "mode" attribute')
+			raise Exception('[Error] "'+mode+'" is not a correct value for a bridge\'s "mode" attribute')
 		self.mode = mode
 		
 		# Join XMPP room
@@ -43,7 +57,7 @@ class bridge:
 			self.xmpp_room = xmpp.muc(xmpp_room_jid)
 			self.xmpp_room.join(self.bot.xmpp_c, self.bot.nickname, callback=self._xmpp_join_callback)
 		except:
-			self.bot.error('Error: joining XMPP room failed')
+			self.bot.error('[Error] joining XMPP room failed')
 			raise
 		
 		# Join IRC room
@@ -51,7 +65,7 @@ class bridge:
 			self.irc_connection = self.bot.irc.server(irc_server, irc_port, self.bot.nickname)
 			self.irc_connection.connect(nick_callback=self._irc_nick_callback)
 		except:
-			self.bot.error('Error: joining IRC room failed')
+			self.bot.error('[Error] joining IRC room failed')
 			raise
 		self.bot.error('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode')
 	
@@ -103,7 +117,12 @@ class bridge:
 		except NoSuchParticipantException:
 			pass
 		self.bot.error('===> Debug: adding participant "'+nickname+'" from "'+protocol+'" to bridge "'+str(self)+'"', debug=True)
-		p = participant(self, protocol, nickname)
+		try:
+			p = participant(self, protocol, nickname)
+		except:
+			self.bot.error('===> Debug: unknown error while adding participant "'+nickname+'" from "'+protocol+'" to bridge "'+str(self)+'"', debug=True)
+			traceback.print_exc()
+			return
 		self.participants.append(p)
 		if self.mode != 'normal' and protocol == 'xmpp':
 			xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
@@ -187,6 +206,16 @@ class bridge:
 	
 	def say(self, message, on_irc=True, on_xmpp=True):
 		"""Make the bot say something."""
+		if message[0] != '[':
+			raise Exception('[Internal Error] message does not start with "["')
+		if self.say_level == self.__class__._nothing:
+			return
+		level = re.findall('^\[(Info|Notice|Warning|Error)\]', message)
+		if len(level) == 0:
+			raise Exception('[Internal Error] unknown message importance "'+re.findall('^\[([^[\]]+)', message)[0]+'"')
+		level = level[0].lower()
+		if getattr(self.__class__, '_'+level) < self.say_level:
+			return
 		if on_xmpp == True:
 			self.xmpp_room.say(message)
 		if on_irc == True:
