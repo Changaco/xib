@@ -55,7 +55,7 @@ class bot(Thread):
 		try:
 			self.xmpp_c = self.get_xmpp_connection(self.jid.getResource())
 		except:
-			self.error('Error: XMPP Connection failed')
+			self.error('[Error] XMPP Connection failed')
 			raise
 		self.xmpp_thread = Thread(target=self._xmpp_loop)
 		self.xmpp_thread.start()
@@ -73,15 +73,19 @@ class bot(Thread):
 	def _xmpp_loop(self):
 		"""[Internal] XMPP infinite loop."""
 		while True:
-			self.xmpp_c.Process(0.5)
 			try:
-				for c in self.xmpp_connections.itervalues():
-					if hasattr(c, 'Process'):
-						c.Process(0.5)
-					else:
-						sleep(0.5)
-			except RuntimeError:
-				pass
+				self.xmpp_c.Process(0.5)
+				try:
+					for c in self.xmpp_connections.itervalues():
+						if hasattr(c, 'Process'):
+							c.Process(0.5)
+						else:
+							sleep(0.5)
+				except RuntimeError:
+					pass
+			except ExpatError:
+				self.error('=> Debug: received invalid stanza', debug=True)
+				continue
 	
 	
 	def _xmpp_presence_handler(self, xmpp_c, presence):
@@ -123,11 +127,11 @@ class bot(Thread):
 							# participant changed its nickname
 							item = x.getTag('item')
 							if not item:
-								self.error('Debug: bad stanza, no item element', debug=True)
+								self.error('=> Debug: bad stanza, no item element', debug=True)
 								return
 							new_nick = item.getAttr('nick')
 							if not new_nick:
-								self.error('Debug: bad stanza, new nick is not given', debug=True)
+								self.error('=> Debug: bad stanza, new nick is not given', debug=True)
 								return
 							p.changeNickname(new_nick, 'irc')
 						
@@ -327,7 +331,7 @@ class bot(Thread):
 			if event.eventtype() == 'namreply':
 				# TODO: lock self.bridges for thread safety
 				for bridge in self.getBridges(irc_room=event.arguments()[1], irc_server=connection.server):
-					for nickname in re.split('(?:^[@\+]?|(?: [@\+]?)*)', event.arguments()[2].strip()):
+					for nickname in re.split('(?:^[&@\+]?|(?: [&@\+]?)*)', event.arguments()[2].strip()):
 						if nickname == '' or nickname == self.nickname:
 							continue
 						bridge.addParticipant('irc', nickname)

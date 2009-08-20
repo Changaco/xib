@@ -31,13 +31,13 @@ try:
 	else:
 		config = parse('config.xml')
 except IOError:
-	print 'Error: configuration file is missing or cannot be read'
+	print '[Error] configuration file is missing or cannot be read'
 	quit(1)
 
 bots_jids = []
 for bot_el in config.getElementsByTagName('bot'):
 	if bot_el.getAttribute('jid') in bots_jids:
-		print 'Error: you cannot have two bots using the same JID'
+		print '[Error] you cannot have two bots using the same JID'
 		quit(2)
 	bots_jids.append(bot_el.getAttribute('jid'))
 
