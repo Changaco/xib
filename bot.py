@@ -192,6 +192,11 @@ class bot(Thread):
 			
 			
 			from_ = xmpp.protocol.JID(message.getFrom())
+			
+			if unicode(from_.getResource()) == self.nickname:
+				self.error('=> Debug: Ignoring XMPP MUC message sent by self.', debug=True)
+				return
+			
 			room_jid = unicode(from_.getNode()+'@'+from_.getDomain())
 			for bridge in self.bridges:
 				if room_jid == bridge.xmpp_room.room_jid:
@@ -232,7 +237,7 @@ class bot(Thread):
 		# Events we always want to ignore
 		if 'all' in event.eventtype() or 'motd' in event.eventtype():
 			return
-		if event.eventtype() in ['pong', 'privnotice', 'ctcp', 'nochanmodes', 'notexttosend']:
+		if event.eventtype() in ['pong', 'privnotice', 'ctcp', 'nochanmodes', 'notexttosend', 'currenttopic', 'topicinfo']:
 			self.error('=> Debug: ignoring '+event.eventtype(), debug=True)
 			return
 		
