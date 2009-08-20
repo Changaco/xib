@@ -698,7 +698,6 @@ class ServerConnection(Connection):
         except socket.error, x:
             pass
         self.socket = None
-        self.irclibobj
         self._handle_event(Event("disconnect", self.server, "", [message]))
 
     def globops(self, text):
