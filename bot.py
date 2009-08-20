@@ -173,7 +173,7 @@ class bot(Thread):
 					
 					try:
 						from_ = bridge.getParticipant(message.getFrom().getResource())
-						to_ = bridge.getParticipant(message.getTo().getResource())
+						to_ = bridge.getParticipant(xmpp_c.nickname)
 						
 						if from_.protocol == 'xmpp':
 							from_.sayOnIRCTo(to_.nickname, message.getBody())
