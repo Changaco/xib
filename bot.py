@@ -29,6 +29,7 @@ from bridge import *
 from time import sleep
 import re
 import sys
+import xml.parsers.expat
 
 
 class bot(Thread):
@@ -83,7 +84,7 @@ class bot(Thread):
 							sleep(0.5)
 				except RuntimeError:
 					pass
-			except ExpatError:
+			except xml.parsers.expat.ExpatError:
 				self.error('=> Debug: received invalid stanza', debug=True)
 				continue
 	
