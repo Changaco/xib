@@ -440,6 +440,8 @@ class bot(Thread):
 	
 	
 	def close_xmpp_connection(self, nickname):
+		if not self.xmpp_connections.has_key(nickname):
+			return
 		self.xmpp_connections[nickname].used_by -= 1
 		if self.xmpp_connections[nickname].used_by < 1:
 			self.error('===> Debug: closing XMPP connection for "'+nickname+'"', debug=True)

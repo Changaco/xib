@@ -58,6 +58,7 @@ class participant:
 				except xmpp.muc.NicknameConflict:
 					self.bridge.bot.error('===> Debug: "'+self.nickname+'" is already used in the XMPP MUC or reserved on the XMPP server of bridge "'+str(self.bridge)+'"', debug=True)
 					self.bridge.say('[Warning] The nickname "'+self.nickname+'" is used on both rooms or reserved on the XMPP server, please avoid that if possible')
+					self.muc.leave('Nickname change')
 					self.bridge.bot.close_xmpp_connection(self.nickname)
 					self.xmpp_c = None
 	
@@ -94,6 +95,10 @@ class participant:
 	
 	
 	def changeNickname(self, newnick, on_protocol):
+		"""Change participant's nickname."""
+		
+		oldnick = self.nickname
+		
 		if self.protocol == 'xmpp':
 			if on_protocol == 'xmpp':
 				self.bridge.removeParticipant('irc', self.nickname, '')
@@ -114,6 +119,8 @@ class participant:
 			else:
 				self.nickname = newnick
 				if self.muc != None:
+					self.bridge.bot.xmpp_connections[newnick] = self.xmpp_c
+					self.bridge.bot.close_xmpp_connection(oldnick)
 					self.muc.change_nick(newnick, status='From IRC', callback=self._xmpp_join_callback)
 				else:
 					self.createDuplicateOnXMPP()
