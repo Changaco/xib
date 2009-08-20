@@ -120,53 +120,47 @@ class participant:
 	
 	
 	def sayOnIRC(self, message):
-		if self.protocol == 'irc':
-			raise Exception('[Internal Error] "'+self.nickname+'" comes from IRC')
-		
 		try:
-			if self.irc_connection == None:
-				self.bridge.irc_connection.privmsg(self.bridge.irc_room, '<'+self.nickname+'> '+message)
-			else:
+			if self.irc_connection != None:
 				self.irc_connection.privmsg(self.bridge.irc_room, message)
+			elif self.xmpp_c == None:
+				self.bridge.irc_connection.privmsg(self.bridge.irc_room, '<'+self.nickname+'> '+message)
 		except EncodingException:
 			self.bridge.say('[Warning] "'+self.nickname+'" is sending messages using an unknown encoding')
 	
 	
 	def sayOnIRCTo(self, to, message):
-		if self.protocol == 'irc':
-			raise Exception('[Internal Error] "'+self.nickname+'" comes from IRC')
-		
-		if self.irc_connection == None:
-			if self.bridge.mode != 'normal':
-				self.bridge.getParticipant(to).sayOnXMPPTo(self.nickname, 'Sorry but cross-protocol private messages are disabled in limited mode.')
-			else:
-				self.bridge.getParticipant(to).sayOnXMPPTo(self.nickname, 'Sorry but you cannot send cross-protocol private messages because I don\'t have an IRC duplicate with your nickname.')
-		else:
+		if self.irc_connection != None:
 			try:
 				self.irc_connection.privmsg(to, message)
 			except EncodingException:
 				self.bridge.say('[Warning] "'+self.nickname+'" is sending messages using an unknown encoding')
+		elif self.xmpp_c == None:
+			if self.bridge.mode != 'normal':
+				self.bridge.getParticipant(to).sayOnXMPPTo(self.nickname, 'Sorry but cross-protocol private messages are disabled in '+self.bridge.mode+' mode.')
+			else:
+				self.bridge.getParticipant(to).sayOnXMPPTo(self.nickname, 'Sorry but you cannot send cross-protocol private messages because I don\'t have an IRC duplicate with your nickname.')
 	
 	
 	def sayOnXMPP(self, message):
-		if self.protocol == 'xmpp':
-			raise Exception('[Internal Error] "'+self.nickname+'" comes from XMPP')
-		
 		try:
-			if self.xmpp_c == None:
-				self.bridge.xmpp_room.say('<'+self.nickname+'> '+auto_decode(message))
-			else:
+			if self.xmpp_c != None:
 				self.muc.say(auto_decode(message))
+			elif self.irc_connection == None:
+				self.bridge.xmpp_room.say('<'+self.nickname+'> '+auto_decode(message))
 		except EncodingException:
 			self.bridge.say('[Warning] "'+self.nickname+'" is sending messages using an unknown encoding')
 	
 	
 	def sayOnXMPPTo(self, to, message):
-		if self.protocol == 'xmpp':
-			raise Exception('[Internal Error] "'+self.nickname+'" comes from XMPP')
-		
 		try:
-			self.muc.sayTo(to, auto_decode(message))
+			if self.xmpp_c != None:
+				self.muc.sayTo(to, auto_decode(message))
+			elif self.irc_connection == None:
+				if self.bridge.mode != 'normal':
+					self.bridge.getParticipant(to).sayOnXMPPTo(self.nickname, 'Sorry but cross-protocol private messages are disabled in '+self.bridge.mode+' mode.')
+				else:
+					self.bridge.getParticipant(to).sayOnXMPPTo(self.nickname, 'Sorry but you cannot send cross-protocol private messages because I don\'t have an XMPP duplicate with your nickname.')
 		except EncodingException:
 			self.bridge.say('[Warning] "'+self.nickname+'" is sending messages using an unknown encoding')
 	
