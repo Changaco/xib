@@ -62,14 +62,14 @@ class bridge:
 			self.bot.error('===> Debug: successfully connected on IRC side of bridge "'+str(self)+'"', debug=True)
 			self.say('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode', on_xmpp=False)
 		if error == 'nicknameinuse':
-			self.bot.error('Error: "'+self.bot.nickname+'" is already used in the IRC chan or reserved on the IRC server of bridge "'+str(self)+'"')
-			raise Exception('Error: "'+self.bot.nickname+'" is already used in the IRC chan or reserved on the IRC server of bridge "'+str(self)+'"')
+			self.bot.error('[Error] "'+self.bot.nickname+'" is already used in the IRC chan or reserved on the IRC server of bridge "'+str(self)+'"')
+			raise Exception('[Error] "'+self.bot.nickname+'" is already used in the IRC chan or reserved on the IRC server of bridge "'+str(self)+'"')
 		elif error == 'erroneusnickname':
-			self.bot.error('Error: "'+self.bot.nickname+'" got "erroneusnickname" on bridge "'+str(self)+'"')
-			raise Exception('Error: "'+self.bot.nickname+'" got "erroneusnickname" on bridge "'+str(self)+'"')
+			self.bot.error('[Error] "'+self.bot.nickname+'" got "erroneusnickname" on bridge "'+str(self)+'"')
+			raise Exception('[Error] "'+self.bot.nickname+'" got "erroneusnickname" on bridge "'+str(self)+'"')
 		elif error == 'nicknametoolong':
-			self.bot.error('Error: "'+self.bot.nickname+'" got "nicknametoolong" on bridge "'+str(self)+'", limit seems to be '+str(arguments[0]))
-			raise Exception('Error: "'+self.bot.nickname+'" got "nicknametoolong" on bridge "'+str(self)+'", limit seems to be '+str(arguments[0]))
+			self.bot.error('[Error] "'+self.bot.nickname+'" got "nicknametoolong" on bridge "'+str(self)+'", limit seems to be '+str(arguments[0]))
+			raise Exception('[Error] "'+self.bot.nickname+'" got "nicknametoolong" on bridge "'+str(self)+'", limit seems to be '+str(arguments[0]))
 	
 	
 	def _xmpp_join_callback(self, errors):
@@ -81,8 +81,8 @@ class bridge:
 			try:
 				raise error
 			except xmpp.muc.NicknameConflict:
-				self.bot.error('Error: "'+self.nickname+'" is already used in the XMPP MUC or reserved on the XMPP server of bridge "'+str(self)+'"')
-				raise Exception('Error: "'+self.nickname+'" is already used in the XMPP MUC or reserved on the XMPP server of bridge "'+str(self)+'"')
+				self.bot.error('[Error] "'+self.nickname+'" is already used in the XMPP MUC or reserved on the XMPP server of bridge "'+str(self)+'"')
+				raise Exception('[Error] "'+self.nickname+'" is already used in the XMPP MUC or reserved on the XMPP server of bridge "'+str(self)+'"')
 	
 	
 	def addParticipant(self, protocol, nickname):
@@ -98,7 +98,7 @@ class bridge:
 				elif protocol == 'xmpp':
 					p.createDuplicateOnIRC()
 				else:
-					raise Exception('Internal Error: bad protocol')
+					raise Exception('[Internal Error] bad protocol')
 			return
 		except NoSuchParticipantException:
 			pass
@@ -156,7 +156,7 @@ class bridge:
 					was_on_both = False
 		
 		else:
-			raise Exception('Internal Error: bad protocol')
+			raise Exception('[Internal Error] bad protocol')
 		
 		if was_on_both == True:
 			self.bot.error('===> Debug: "'+nickname+'" was on both sides of bridge "'+str(self)+'" but left '+left_protocol, debug=True)

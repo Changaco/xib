@@ -37,7 +37,7 @@ class participant:
 		elif protocol == 'irc':
 			self.createDuplicateOnXMPP()
 		else:
-			raise Exception('Internal Error: bad protocol')
+			raise Exception('[Internal Error] bad protocol')
 	
 	
 	def createDuplicateOnXMPP(self):
@@ -121,7 +121,7 @@ class participant:
 	
 	def sayOnIRC(self, message):
 		if self.protocol == 'irc':
-			raise Exception('Internal Error: "'+self.nickname+'" comes from IRC')
+			raise Exception('[Internal Error] "'+self.nickname+'" comes from IRC')
 		
 		try:
 			if self.irc_connection == None:
@@ -134,7 +134,7 @@ class participant:
 	
 	def sayOnIRCTo(self, to, message):
 		if self.protocol == 'irc':
-			raise Exception('Internal Error: "'+self.nickname+'" comes from IRC')
+			raise Exception('[Internal Error] "'+self.nickname+'" comes from IRC')
 		
 		if self.irc_connection == None:
 			if self.bridge.mode != 'normal':
@@ -150,7 +150,7 @@ class participant:
 	
 	def sayOnXMPP(self, message):
 		if self.protocol == 'xmpp':
-			raise Exception('Internal Error: "'+self.nickname+'" comes from XMPP')
+			raise Exception('[Internal Error] "'+self.nickname+'" comes from XMPP')
 		
 		try:
 			if self.xmpp_c == None:
@@ -163,7 +163,7 @@ class participant:
 	
 	def sayOnXMPPTo(self, to, message):
 		if self.protocol == 'xmpp':
-			raise Exception('Internal Error: "'+self.nickname+'" comes from XMPP')
+			raise Exception('[Internal Error] "'+self.nickname+'" comes from XMPP')
 		
 		try:
 			self.muc.sayTo(to, auto_decode(message))
