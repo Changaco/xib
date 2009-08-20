@@ -372,9 +372,9 @@ class bot(Thread):
 		self.error('=> Debug: event not handled', debug=True)
 	
 	
-	def new_bridge(self, xmpp_room, irc_room, irc_server, mode, say_participants_list, irc_port=6667):
+	def new_bridge(self, xmpp_room, irc_room, irc_server, mode, say_level, irc_port=6667):
 		"""Create a bridge between xmpp_room and irc_room at irc_server."""
-		b = bridge(self, xmpp_room, irc_room, irc_server, mode, say_participants_list, irc_port=irc_port)
+		b = bridge(self, xmpp_room, irc_room, irc_server, mode, say_level, irc_port=irc_port)
 		self.bridges.append(b)
 		return b
 	

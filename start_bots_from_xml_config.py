@@ -54,15 +54,14 @@ try:
 		for bridge_el in bot_el.getElementsByTagName('bridge'):
 			xmpp_room = bridge_el.getElementsByTagName('xmpp-room')[0]
 			irc = bridge_el.getElementsByTagName('irc')[0]
-			say_participants_list = True
-			if bridge_el.hasAttribute('say_participants_list'):
-				if bridge_el.getAttribute('say_participants_list') == 'false':
-					say_participants_list = False
+			say_level = 'all'
+			if bridge_el.hasAttribute('say_level'):
+				say_level = bridge_el.getAttribute('say_level')
 			if bridge_el.hasAttribute('mode'):
 				mode = bridge_el.getAttribute('mode')
 			else:
 				mode = 'normal'
-			bridge_ = bot_.new_bridge(xmpp_room.getAttribute('jid'), irc.getAttribute('chan'), irc.getAttribute('server'), mode, say_participants_list)
+			bridge_ = bot_.new_bridge(xmpp_room.getAttribute('jid'), irc.getAttribute('chan'), irc.getAttribute('server'), mode, say_level)
 	
 	
 	while True:
