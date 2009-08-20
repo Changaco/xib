@@ -43,7 +43,7 @@ Copy "example_config.xml" and modify it to fit your needs.
 
 > The different modes of the xib bots:
 
-Mode is a per-bridge attribute, it can take three values:
+"mode" is a per-bridge attribute, it can take three values:
 - 'normal':
 The bot connects on IRC on behalf of XMPP users and connects on XMPP on behalf of IRC users.
 In this mode the bot automatically switches from normal to limited mode and back again when the IRC server clones limit is crossed.
@@ -51,6 +51,17 @@ In this mode the bot automatically switches from normal to limited mode and back
 The bot only connects on XMPP on behalf of IRC users but NOT on IRC on behalf of XMPP.
 - 'minimal':
 The bot does not connect on behalf of the participants.
+
+
+> Configure what the bot says on rooms:
+
+"say_level" is a per-bridge attribute, it can take 6 values, each value contains the ones below itself:
+- 'all', default value, say everything
+- 'info', contains participants' joining and leaving events in limited and minimal modes
+- 'notice'
+- 'warning', contains nickname conflicts and everything that is not fatal to the bridge
+- 'error'
+- 'nothing', don't say a word
 
 
 > How to log xib bots output:
