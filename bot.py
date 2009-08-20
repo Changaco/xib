@@ -39,9 +39,7 @@ class bot(Thread):
 		self.commands = ['!xmpp_participants', '!irc_participants']
 		self.bare_jid = xmpp.protocol.JID(jid=jid)
 		self.bare_jid.setResource('')
-		self.jid = xmpp.protocol.JID(jid=jid)
 		self.nickname = nickname
-		self.jid.setResource(self.nickname)
 		self.password = password
 		self.error_fd = error_fd
 		self.debug = debug
@@ -54,7 +52,7 @@ class bot(Thread):
 		self.irc_thread.start()
 		# Open connection with XMPP server
 		try:
-			self.xmpp_c = self.get_xmpp_connection(self.jid.getResource())
+			self.xmpp_c = self.get_xmpp_connection(self.nickname)
 		except:
 			self.error('[Error] XMPP Connection failed')
 			raise
@@ -89,10 +87,12 @@ class bot(Thread):
 				continue
 	
 	
-	def _xmpp_presence_handler(self, xmpp_c, presence):
+	def _xmpp_presence_handler(self, dispatcher, presence):
 		"""[Internal] Manage XMPP presence."""
 		
-		if presence.getTo() != self.jid:
+		xmpp_c = dispatcher._owner
+		
+		if xmpp_c.nickname != self.nickname:
 			self.error('=> Debug: Skipping XMPP presence not received on bot connection.', debug=True)
 			return
 		
@@ -143,14 +143,17 @@ class bot(Thread):
 				return
 	
 	
-	def _xmpp_iq_handler(self, xmpp_c, iq):
+	def _xmpp_iq_handler(self, dispatcher, iq):
 		"""[Internal] Manage XMPP IQs."""
 		self.error('=> Debug: Received XMPP iq.', debug=True)
 		self.error(iq.__str__(fancy=1), debug=True)
 	
 	
-	def _xmpp_message_handler(self, xmpp_c, message):
+	def _xmpp_message_handler(self, dispatcher, message):
 		"""[Internal] Manage XMPP messages."""
+		
+		xmpp_c = dispatcher._owner
+		
 		if message.getType() == 'chat':
 			self.error('==> Debug: Received XMPP chat message.', debug=True)
 			self.error(message.__str__(fancy=1), debug=True)
@@ -166,13 +169,13 @@ class bot(Thread):
 						if from_.protocol == 'xmpp':
 							from_.sayOnIRCTo(to_.nickname, message.getBody())
 						else:
-							self.error('==> Debug: received XMPP chat message from a non-XMPP participant, WTF ?', debug=True)
+							self.error('=> Debug: received XMPP chat message from a non-XMPP participant, WTF ?', debug=True)
 						
 					except NoSuchParticipantException:
-						if message.getTo() == self.jid:
+						if xmpp_c.nickname == self.nickname:
 							xmpp_c.send(xmpp.protocol.Message(to=message.getFrom(), body=self.respond(message.getBody(), participant=from_), typ='chat'))
 							return
-						self.error('==> Debug: XMPP chat message not relayed, from_bare_jid='+from_bare_jid+'  to='+str(message.getTo().getResource())+'  from='+message.getFrom().getResource(), debug=True)
+						self.error('=> Debug: XMPP chat message not relayed', debug=True)
 						return
 		
 		elif message.getType() == 'groupchat':
@@ -183,7 +186,7 @@ class bot(Thread):
 					# MUC delayed message
 					return
 			
-			if message.getTo() != self.jid:
+			if xmpp_c.nickname != self.nickname:
 				self.error('=> Debug: Ignoring XMPP MUC message not received on bot connection.', debug=True)
 				return
 			
@@ -399,18 +402,19 @@ class bot(Thread):
 		return bridges
 	
 	
-	def get_xmpp_connection(self, resource):
-		if self.xmpp_connections.has_key(resource):
-			c = self.xmpp_connections[resource]
+	def get_xmpp_connection(self, nickname):
+		if self.xmpp_connections.has_key(nickname):
+			c = self.xmpp_connections[nickname]
 			c.used_by += 1
-			self.error('===> Debug: using existing XMPP connection for "'+str(self.bare_jid)+'/'+resource+'", now used by '+str(c.used_by)+' bridges', debug=True)
+			self.error('===> Debug: using existing XMPP connection for "'+nickname+'", now used by '+str(c.used_by)+' bridges', debug=True)
 			return c
-		self.error('===> Debug: opening new XMPP connection for "'+str(self.bare_jid)+'/'+resource+'"', debug=True)
-		c = xmpp.client.Client(self.jid.getDomain(), debug=[])
-		self.xmpp_connections[resource] = c
+		self.error('===> Debug: opening new XMPP connection for "'+nickname+'"', debug=True)
+		c = xmpp.client.Client(self.bare_jid.getDomain(), debug=[])
+		self.xmpp_connections[nickname] = c
 		c.used_by = 1
+		c.nickname = nickname
 		c.connect()
-		c.auth(self.jid.getNode(), self.password, resource=resource)
+		c.auth(self.bare_jid.getNode(), self.password)
 		c.RegisterHandler('presence', self._xmpp_presence_handler)
 		c.RegisterHandler('iq', self._xmpp_iq_handler)
 		c.RegisterHandler('message', self._xmpp_message_handler)
@@ -418,13 +422,13 @@ class bot(Thread):
 		return c
 	
 	
-	def close_xmpp_connection(self, resource):
-		self.xmpp_connections[resource].used_by -= 1
-		if self.xmpp_connections[resource].used_by < 1:
-			self.error('===> Debug: closing XMPP connection for "'+str(self.bare_jid)+'/'+resource+'"', debug=True)
-			del self.xmpp_connections[resource]
+	def close_xmpp_connection(self, nickname):
+		self.xmpp_connections[nickname].used_by -= 1
+		if self.xmpp_connections[nickname].used_by < 1:
+			self.error('===> Debug: closing XMPP connection for "'+nickname+'"', debug=True)
+			del self.xmpp_connections[nickname]
 		else:
-			self.error('===> Debug: XMPP connection for "'+str(self.bare_jid)+'/'+resource+'" is now used by '+str(self.xmpp_connections[resource].used_by)+' bridges', debug=True)
+			self.error('===> Debug: XMPP connection for "'+nickname+'" is now used by '+str(self.xmpp_connections[nickname].used_by)+' bridges', debug=True)
 	
 	
 	def removeBridge(self, bridge):

@@ -119,6 +119,9 @@ class bridge:
 		self.bot.error('===> Debug: adding participant "'+nickname+'" from "'+protocol+'" to bridge "'+str(self)+'"', debug=True)
 		try:
 			p = participant(self, protocol, nickname)
+		except IOError:
+			self.bot.error('===> Debug: IOError while adding participant "'+nickname+'" from "'+protocol+'" to bridge "'+str(self)+'", reconnectiong ...', debug=True)
+			p.xmpp_c.reconnectAndReauth()
 		except:
 			self.bot.error('===> Debug: unknown error while adding participant "'+nickname+'" from "'+protocol+'" to bridge "'+str(self)+'"', debug=True)
 			traceback.print_exc()
