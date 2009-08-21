@@ -80,18 +80,21 @@ class participant:
 			if error == 'nicknameinuse':
 				self.bridge.bot.error('===> Debug: "'+self.nickname+'" is already used in the IRC chan of bridge "'+str(self.bridge)+'"', debug=True)
 				self.bridge.say('[Warning] The nickname "'+self.nickname+'" is used on both rooms or reserved on the IRC server, please avoid that if possible')
-				self.irc_connection.close('')
-				self.irc_connection = None
+				if self.irc_connection != None:
+					self.irc_connection.close('')
+					self.irc_connection = None
 			elif error == 'erroneusnickname':
 				self.bridge.bot.error('===> Debug: "'+self.nickname+'" got "erroneusnickname" on bridge "'+str(self.bridge)+'"', debug=True)
 				self.bridge.say('[Warning] The nickname "'+self.nickname+'" contains unauthorized characters and cannot be used in the IRC channel, please avoid that if possible')
-				self.irc_connection.close('')
-				self.irc_connection = None
+				if self.irc_connection != None:
+					self.irc_connection.close('')
+					self.irc_connection = None
 			elif error == 'nicknametoolong':
 				self.bridge.bot.error('===> Debug: "'+self.nickname+'" got "nicknametoolong" on bridge "'+str(self.bridge)+'"', debug=True)
 				self.bridge.say('[Warning] The nickname "'+self.nickname+'" is too long (limit seems to be '+str(arguments[0])+') and cannot be used in the IRC channel, please avoid that if possible')
-				self.irc_connection.close('')
-				self.irc_connection = None
+				if self.irc_connection != None:
+					self.irc_connection.close('')
+					self.irc_connection = None
 	
 	
 	def changeNickname(self, newnick, on_protocol):
