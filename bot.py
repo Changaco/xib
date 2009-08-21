@@ -317,9 +317,16 @@ class bot(Thread):
 				
 				
 				# Leaving events
-				if event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target() == bridge.irc_room:
-					if from_.protocol == 'irc':
-						bridge.removeParticipant('irc', from_.nickname, event.arguments()[0])
+				if connection.server == bridge.irc_server and (event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target() == bridge.irc_room):
+					if len(event.arguments()) > 0:
+						leave_message = event.arguments()[0]
+					elif event.eventtype() == 'quit':
+						leave_message = 'Left server.'
+					elif event.eventtype() == 'part':
+						leave_message = 'Left channel.'
+					else:
+						leave_message = ''
+					bridge.removeParticipant('irc', from_.nickname, leave_message)
 					continue
 				
 				
