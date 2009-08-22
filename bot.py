@@ -426,7 +426,7 @@ class bot(Thread):
 			return c
 		self.error('===> Debug: opening new XMPP connection for "'+nickname+'"', debug=True)
 		c = xmpp.client.Client(self.bare_jid.getDomain(), debug=[])
-		c.lock = threading.Lock()
+		c.lock = threading.RLock()
 		c.lock.acquire()
 		self.xmpp_connections[nickname] = c
 		c.used_by = 1
