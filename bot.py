@@ -273,12 +273,15 @@ class bot(Thread):
 		event_str = '==> Debug: Received IRC event.\nconnection='+str(connection)+'\neventtype='+event.eventtype()+'\nsource='+str(event.source())+'\ntarget='+str(event.target())+'\narguments='+str(event.arguments())
 		
 		
-		if event.eventtype() in ['pubmsg', 'privmsg', 'quit', 'part', 'nick']:
+		if event.eventtype() in ['pubmsg', 'action', 'privmsg', 'quit', 'part', 'nick']:
 			if nickname == None:
 				return
 			
 			# TODO: lock self.bridges for thread safety
 			for bridge in self.bridges:
+				if connection.server != bridge.irc_server:
+					continue
+				
 				try:
 					from_ = bridge.getParticipant(nickname)
 					
@@ -317,7 +320,7 @@ class bot(Thread):
 				
 				
 				# Leaving events
-				if connection.server == bridge.irc_server and (event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target() == bridge.irc_room):
+				if event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target() == bridge.irc_room:
 					if len(event.arguments()) > 0:
 						leave_message = event.arguments()[0]
 					elif event.eventtype() == 'quit':
@@ -337,9 +340,12 @@ class bot(Thread):
 				
 				
 				# Chan message
-				if event.eventtype() == 'pubmsg':
+				if event.eventtype() in ['pubmsg', 'action']:
 					if bridge.irc_room == event.target() and bridge.irc_server == connection.server:
-						from_.sayOnXMPP(event.arguments()[0])
+						message = event.arguments()[0]
+						if event.eventtype() == 'action':
+							message = '/me '+message
+						from_.sayOnXMPP(message)
 						return
 					else:
 						continue
@@ -404,21 +410,16 @@ class bot(Thread):
 	
 	def getBridges(self, irc_room=None, irc_server=None, xmpp_room_jid=None):
 		bridges = [b for b in self.bridges]
-		if irc_room != None:
-			for bridge in bridges:
-				if bridge.irc_room != irc_room:
-					if bridge in bridges:
-						bridges.remove(bridge)
-		if irc_server != None:
-			for bridge in bridges:
-				if bridge.irc_server != irc_server:
-					if bridge in bridges:
-						bridges.remove(bridge)
-		if xmpp_room_jid != None:
-			for bridge in bridges:
-				if bridge.xmpp_room.room_jid != xmpp_room_jid:
-					if bridge in bridges:
-						bridges.remove(bridge)
+		for bridge in [b for b in bridges]:
+			if irc_room != None and bridge.irc_room != irc_room:
+				bridges.remove(bridge)
+				continue
+			if irc_server != None and bridge.irc_server != irc_server:
+				bridges.remove(bridge)
+				continue
+			if xmpp_room_jid != None and bridge.xmpp_room.room_jid != xmpp_room_jid:
+				bridges.remove(bridge)
+				continue
 		return bridges
 	
 	
@@ -440,7 +441,7 @@ class bot(Thread):
 		c.RegisterHandler('presence', self._xmpp_presence_handler)
 		c.RegisterHandler('iq', self._xmpp_iq_handler)
 		c.RegisterHandler('message', self._xmpp_message_handler)
-		c.DisconnectHandler = self._xmpp_disconnect_handler(c)
+		c.RegisterDisconnectHandler(self._xmpp_disconnect_handler(c))
 		c.sendInitPresence()
 		c.lock.release()
 		return c
