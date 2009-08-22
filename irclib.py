@@ -436,7 +436,7 @@ class ServerConnection(Connection):
             return self
 
 
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.lock.acquire()
         self.nick_callbacks = []
         self.previous_buffer = ""
