@@ -91,11 +91,6 @@ class bot(Thread):
 				continue
 	
 	
-	def _xmpp_disconnect_handler(xmpp_c):
-		xmpp_c.reconnectAndReauth()
-		return
-	
-	
 	def _xmpp_presence_handler(self, dispatcher, presence):
 		"""[Internal] Manage XMPP presence."""
 		
@@ -163,6 +158,9 @@ class bot(Thread):
 		
 		xmpp_c = dispatcher._owner
 		
+		if message.getBody() == None:
+			return
+		
 		if message.getType() == 'chat':
 			self.error('==> Debug: Received XMPP chat message.', debug=True)
 			self.error(message.__str__(fancy=1), debug=True)
@@ -175,10 +173,7 @@ class bot(Thread):
 						from_ = bridge.getParticipant(message.getFrom().getResource())
 						to_ = bridge.getParticipant(xmpp_c.nickname)
 						
-						if from_.protocol == 'xmpp':
-							from_.sayOnIRCTo(to_.nickname, message.getBody())
-						else:
-							self.error('=> Debug: received XMPP chat message from a non-XMPP participant, WTF ?', debug=True)
+						from_.sayOnIRCTo(to_.nickname, message.getBody())
 						
 					except NoSuchParticipantException:
 						if xmpp_c.nickname == self.nickname:
@@ -441,7 +436,6 @@ class bot(Thread):
 		c.RegisterHandler('presence', self._xmpp_presence_handler)
 		c.RegisterHandler('iq', self._xmpp_iq_handler)
 		c.RegisterHandler('message', self._xmpp_message_handler)
-		c.RegisterDisconnectHandler(self.__class__._xmpp_disconnect_handler)
 		c.sendInitPresence()
 		c.lock.release()
 		return c
