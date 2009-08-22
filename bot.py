@@ -91,7 +91,7 @@ class bot(Thread):
 				continue
 	
 	
-	def _xmpp_disconnect_handler(self, xmpp_c):
+	def _xmpp_disconnect_handler(xmpp_c):
 		xmpp_c.reconnectAndReauth()
 		return
 	
@@ -441,7 +441,7 @@ class bot(Thread):
 		c.RegisterHandler('presence', self._xmpp_presence_handler)
 		c.RegisterHandler('iq', self._xmpp_iq_handler)
 		c.RegisterHandler('message', self._xmpp_message_handler)
-		c.RegisterDisconnectHandler(self._xmpp_disconnect_handler(c))
+		c.RegisterDisconnectHandler(self.__class__._xmpp_disconnect_handler)
 		c.sendInitPresence()
 		c.lock.release()
 		return c
