@@ -4,7 +4,6 @@ This is the first release of xib so some things are not implemented yet, if you 
 
 Here is the list of the important things that still need to be implemented:
 - handle kicks
-- handle multiple bridges without risk of resource conflict
 
 and a list of features that should be implemented but are not critical for usual use case:
 - split logs into multiple files
