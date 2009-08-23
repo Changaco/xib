@@ -273,6 +273,11 @@ class bot(Thread):
 			if nickname == None:
 				return
 			
+			handled = False
+			
+			if event.eventtype() in ['quit', 'part', 'nick']:
+				self.error(event_str, debug=True)
+			
 			# TODO: lock self.bridges for thread safety
 			for bridge in self.bridges:
 				if connection.server != bridge.irc_server:
@@ -282,7 +287,6 @@ class bot(Thread):
 					from_ = bridge.getParticipant(nickname)
 					
 				except NoSuchParticipantException:
-					self.error('===> Debug: NoSuchParticipantException "'+nickname+'" in bridge "'+str(bridge)+'"', debug=True)
 					continue
 				
 				
@@ -312,8 +316,6 @@ class bot(Thread):
 					self.error('=> Debug: ignoring IRC '+event.eventtype()+' not received on bridge connection', debug=True)
 					continue
 				
-				self.error(event_str, debug=True)
-				
 				
 				# Leaving events
 				if event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target() == bridge.irc_room:
@@ -326,18 +328,21 @@ class bot(Thread):
 					else:
 						leave_message = ''
 					bridge.removeParticipant('irc', from_.nickname, leave_message)
+					handled = True
 					continue
 				
 				
 				# Nickname change
 				if event.eventtype() == 'nick' and from_.protocol == 'irc':
 					from_.changeNickname(event.target(), 'xmpp')
+					handled = True
 					continue
 				
 				
 				# Chan message
 				if event.eventtype() in ['pubmsg', 'action']:
 					if bridge.irc_room == event.target() and bridge.irc_server == connection.server:
+						self.error(event_str, debug=True)
 						message = event.arguments()[0]
 						if event.eventtype() == 'action':
 							message = '/me '+message
@@ -346,6 +351,10 @@ class bot(Thread):
 					else:
 						continue
 			
+			if handled == False:
+				if not event.eventtype() in ['quit', 'part', 'nick']:
+					self.error(event_str, debug=True)
+				self.error('=> Debug: event was not handled')
 			return
 		
 		
