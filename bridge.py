@@ -54,7 +54,7 @@ class bridge:
 			raise Exception('[Error] "'+mode+'" is not a correct value for a bridge\'s "mode" attribute')
 		self.mode = mode
 		
-		self.lock = threading.Lock()
+		self.lock = threading.RLock()
 		
 		# Join XMPP room
 		try:
