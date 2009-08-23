@@ -66,6 +66,7 @@ class bridge:
 		
 		# Join IRC room
 		try:
+			self.irc_connections_limit = -1
 			self.irc_connection = self.bot.irc.server(irc_server, irc_port, self.bot.nickname)
 			self.irc_connection.connect(nick_callback=self._irc_nick_callback)
 		except:
