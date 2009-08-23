@@ -218,10 +218,11 @@ class bot(Thread):
 							participant_ = bridge.getParticipant(resource)
 						except NoSuchParticipantException:
 							if resource != self.nickname:
-								self.error('=> Debug: NoSuchParticipantException "'+resource+'", WTF ?', debug=True)
+								self.error('=> Debug: NoSuchParticipantException "'+resource+'" on "'+str(bridge)+'", WTF ?', debug=True)
 							return
 						
 						participant_.sayOnIRC(message.getBody())
+						return
 		
 		else:
 			self.error('==> Debug: Received XMPP message of unknown type "'+message.getType()+'".', debug=True)
@@ -444,12 +445,14 @@ class bot(Thread):
 	def close_xmpp_connection(self, nickname):
 		if not self.xmpp_connections.has_key(nickname):
 			return
-		self.xmpp_connections[nickname].used_by -= 1
-		if self.xmpp_connections[nickname].used_by < 1:
+		c = self.xmpp_connections[nickname]
+		c.used_by -= 1
+		if c.used_by < 1:
 			self.error('===> Debug: closing XMPP connection for "'+nickname+'"', debug=True)
-			del self.xmpp_connections[nickname]
+			self.xmpp_connections.pop(nickname)
+			del c
 		else:
-			self.error('===> Debug: XMPP connection for "'+nickname+'" is now used by '+str(self.xmpp_connections[nickname].used_by)+' bridges', debug=True)
+			self.error('===> Debug: XMPP connection for "'+nickname+'" is now used by '+str(c.used_by)+' bridges', debug=True)
 	
 	
 	def removeBridge(self, bridge):
