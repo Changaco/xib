@@ -454,12 +454,14 @@ class bot(Thread):
 		if not self.xmpp_connections.has_key(nickname):
 			return
 		c = self.xmpp_connections[nickname]
+		c.lock.acquire()
 		c.used_by -= 1
 		if c.used_by < 1:
 			self.error('===> Debug: closing XMPP connection for "'+nickname+'"', debug=True)
 			self.xmpp_connections.pop(nickname)
 			del c
 		else:
+			c.lock.release()
 			self.error('===> Debug: XMPP connection for "'+nickname+'" is now used by '+str(c.used_by)+' bridges', debug=True)
 	
 	
