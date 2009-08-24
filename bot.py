@@ -77,7 +77,7 @@ class bot(Thread):
 					if len(self.xmpp_connections) == 1:
 						sleep(0.5)  # avoid bot connection being locked all the time
 					for c in self.xmpp_connections.itervalues():
-						if hasattr(c, 'Process') and c.lock.acquire(blocking=False) == True:
+						if hasattr(c, 'Process'):
 							c.lock.acquire()
 							c.Process(0.5)
 							c.lock.release()
