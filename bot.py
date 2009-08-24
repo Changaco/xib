@@ -314,7 +314,7 @@ class bot(Thread):
 					continue
 				
 				# Leaving events
-				if event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target() == bridge.irc_room:
+				if event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target().lower() == bridge.irc_room:
 					if len(event.arguments()) > 0:
 						leave_message = event.arguments()[0]
 					elif event.eventtype() == 'quit':
@@ -337,7 +337,7 @@ class bot(Thread):
 				
 				# Chan message
 				if event.eventtype() in ['pubmsg', 'action']:
-					if bridge.irc_room == event.target() and bridge.irc_server == connection.server:
+					if bridge.irc_room == event.target().lower() and bridge.irc_server == connection.server:
 						self.error(event_str, debug=True)
 						message = event.arguments()[0]
 						if event.eventtype() == 'action':

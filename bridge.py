@@ -44,7 +44,7 @@ class bridge:
 		self.bot = owner_bot
 		self.irc_server = irc_server
 		self.irc_port = irc_port
-		self.irc_room = irc_room
+		self.irc_room = irc_room.lower()
 		if hasattr(self.__class__, '_'+say_level):
 			self.say_level = getattr(self.__class__, '_'+say_level)
 		else:
