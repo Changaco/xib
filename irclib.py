@@ -395,6 +395,7 @@ class ServerConnection(Connection):
         self.server = server
         self.port = port
         self.nickname = nickname
+        self.lock = threading.RLock()
 
 
     def __str__(self):
@@ -426,9 +427,9 @@ class ServerConnection(Connection):
         Returns the ServerConnection object.
         """
         
+        self.lock.acquire()
         
         if self.connected == True:
-            self.lock.acquire()
             self.used_by += 1
             self.irclibobj.bot.error('===> Debug: using existing IRC connection for '+str(self)+', this connection is now used by '+str(self.used_by)+' bridges', debug=True)
             self.nick(self.real_nickname, callback=nick_callback)
@@ -436,8 +437,6 @@ class ServerConnection(Connection):
             return self
 
 
-        self.lock = threading.RLock()
-        self.lock.acquire()
         self.nick_callbacks = []
         self.previous_buffer = ""
         self.handlers = {}
