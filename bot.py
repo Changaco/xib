@@ -361,16 +361,16 @@ class bot(Thread):
 			
 			if event.eventtype() == 'namreply':
 				# TODO: lock self.bridges for thread safety
-				for bridge in self.getBridges(irc_room=event.arguments()[1], irc_server=connection.server):
+				for bridge in self.getBridges(irc_room=event.arguments()[1].lower(), irc_server=connection.server):
 					for nickname in re.split('(?:^[&@\+]?|(?: [&@\+]?)*)', event.arguments()[2].strip()):
 						if nickname == '' or nickname == self.nickname:
 							continue
 						bridge.addParticipant('irc', nickname)
 				return
 			elif event.eventtype() == 'join':
-				bridges = self.getBridges(irc_room=event.target(), irc_server=connection.server)
+				bridges = self.getBridges(irc_room=event.target().lower(), irc_server=connection.server)
 				if len(bridges) == 0:
-					self.error('===> Debug: no bridge found for "'+event.target()+' at '+connection.server+'"', debug=True)
+					self.error('===> Debug: no bridge found for "'+event.target().lower()+' at '+connection.server+'"', debug=True)
 					return
 				for bridge in bridges:
 					bridge.addParticipant('irc', nickname)
