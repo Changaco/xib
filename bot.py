@@ -77,12 +77,10 @@ class bot(Thread):
 					if len(self.xmpp_connections) == 1:
 						sleep(0.5)  # avoid bot connection being locked all the time
 					for c in self.xmpp_connections.itervalues():
-						if hasattr(c, 'Process'):
+						if hasattr(c, 'Process') and c.lock.acquire(blocking=False) == True:
 							c.lock.acquire()
 							c.Process(0.5)
 							c.lock.release()
-						else:
-							sleep(0.5)
 				except RuntimeError:
 					pass
 			except (xml.parsers.expat.ExpatError, xmpp.protocol.XMLNotWellFormed):
@@ -315,7 +313,6 @@ class bot(Thread):
 					self.error('=> Debug: ignoring IRC '+event.eventtype()+' not received on bridge connection', debug=True)
 					continue
 				
-				
 				# Leaving events
 				if event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target() == bridge.irc_room:
 					if len(event.arguments()) > 0:
@@ -353,7 +350,7 @@ class bot(Thread):
 			if handled == False:
 				if not event.eventtype() in ['quit', 'part', 'nick']:
 					self.error(event_str, debug=True)
-				self.error('=> Debug: event was not handled')
+				self.error('=> Debug: event was not handled', debug=True)
 			return
 		
 		
