@@ -79,7 +79,7 @@ class bot(Thread):
 					for c in self.xmpp_connections.itervalues():
 						if hasattr(c, 'Process'):
 							c.lock.acquire()
-							c.Process(0.5)
+							c.Process(0.01)
 							c.lock.release()
 				except RuntimeError:
 					pass
