@@ -73,10 +73,9 @@ class bot(Thread):
 		"""[Internal] XMPP infinite loop."""
 		while True:
 			try:
-				self.xmpp_c.lock.acquire()
-				self.xmpp_c.Process(0.5)
-				self.xmpp_c.lock.release()
 				try:
+					if len(self.xmpp_connections) == 1:
+						sleep(0.5)  # avoid bot connection being locked all the time
 					for c in self.xmpp_connections.itervalues():
 						if hasattr(c, 'Process'):
 							c.lock.acquire()
@@ -333,7 +332,7 @@ class bot(Thread):
 				
 				
 				# Nickname change
-				if event.eventtype() == 'nick' and from_.protocol == 'irc':
+				if event.eventtype() == 'nick':
 					from_.changeNickname(event.target(), 'xmpp')
 					handled = True
 					continue
