@@ -276,6 +276,10 @@ class bot(Thread):
 			if event.eventtype() in ['quit', 'part', 'nick']:
 				self.error(event_str, debug=True)
 			
+			if event.eventtype() in ['pubmsg', 'action'] and nickname == self.nickname:
+				self.error('=> Debug: ignoring IRC '+event.eventtype()+' sent by self', debug=True)
+				return
+			
 			# TODO: lock self.bridges for thread safety
 			for bridge in self.bridges:
 				if connection.server != bridge.irc_server:
