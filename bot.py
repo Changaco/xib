@@ -77,9 +77,10 @@ class bot(Thread):
 					if len(self.xmpp_connections) == 1:
 						sleep(0.5)  # avoid bot connection being locked all the time
 					for c in self.xmpp_connections.itervalues():
-						if hasattr(c, 'Process'):
-							c.lock.acquire()
-							c.Process(0.01)
+						c.lock.acquire()
+						if c in self.xmpp_connections.itervalues():
+							if hasattr(c, 'Process'):
+								c.Process(0.01)
 							c.lock.release()
 				except RuntimeError:
 					pass
@@ -456,6 +457,7 @@ class bot(Thread):
 		if c.used_by < 1:
 			self.error('===> Debug: closing XMPP connection for "'+nickname+'"', debug=True)
 			self.xmpp_connections.pop(nickname)
+			c.lock.release()
 			del c
 		else:
 			c.lock.release()
