@@ -30,6 +30,7 @@ from time import sleep
 import re
 import sys
 import xml.parsers.expat
+import traceback
 
 
 class bot(Thread):
@@ -73,20 +74,23 @@ class bot(Thread):
 		"""[Internal] XMPP infinite loop."""
 		while True:
 			try:
-				try:
-					if len(self.xmpp_connections) == 1:
-						sleep(0.5)  # avoid bot connection being locked all the time
-					for c in self.xmpp_connections.itervalues():
+				if len(self.xmpp_connections) == 1:
+					sleep(0.5)  # avoid bot connection being locked all the time
+				for c in self.xmpp_connections.itervalues():
+					if hasattr(c, 'lock'):
 						c.lock.acquire()
 						if c in self.xmpp_connections.itervalues():
 							if hasattr(c, 'Process'):
 								c.Process(0.01)
 							c.lock.release()
-				except RuntimeError:
-					pass
+			except RuntimeError:
+				pass
 			except (xml.parsers.expat.ExpatError, xmpp.protocol.XMLNotWellFormed):
 				self.error('=> Debug: received invalid stanza', debug=True)
 				continue
+			except:
+				self.error('[Error] Unkonwn exception on XMPP thread:')
+				traceback.print_exc()
 	
 	
 	def _xmpp_presence_handler(self, dispatcher, presence):
