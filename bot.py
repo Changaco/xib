@@ -79,10 +79,9 @@ class bot(Thread):
 				for c in self.xmpp_connections.itervalues():
 					if hasattr(c, 'lock'):
 						c.lock.acquire()
-						if c in self.xmpp_connections.itervalues():
-							if hasattr(c, 'Process'):
-								c.Process(0.01)
-							c.lock.release()
+						if hasattr(c, 'Process'):
+							c.Process(0.01)
+						c.lock.release()
 			except RuntimeError:
 				pass
 			except (xml.parsers.expat.ExpatError, xmpp.protocol.XMLNotWellFormed):
@@ -465,6 +464,7 @@ class bot(Thread):
 		if c.used_by < 1:
 			self.error('===> Debug: closing XMPP connection for "'+nickname+'"', debug=True)
 			self.xmpp_connections.pop(nickname)
+			c.send(xmpp.protocol.Presence(typ='unavailable'))
 			c.lock.release()
 			del c
 		else:
