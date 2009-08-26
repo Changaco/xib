@@ -270,14 +270,22 @@ class bot(Thread):
 		event_str = '==> Debug: Received IRC event.\nconnection='+str(connection)+'\neventtype='+event.eventtype()+'\nsource='+str(event.source())+'\ntarget='+str(event.target())+'\narguments='+str(event.arguments())
 		
 		
-		if event.eventtype() in ['pubmsg', 'action', 'privmsg', 'quit', 'part', 'nick']:
+		if event.eventtype() in ['pubmsg', 'action', 'privmsg', 'quit', 'part', 'nick', 'kick']:
 			if nickname == None:
 				return
 			
 			handled = False
 			
-			if event.eventtype() in ['quit', 'part', 'nick']:
-				self.error(event_str, debug=True)
+			if event.eventtype() in ['quit', 'part', 'nick', 'kick']:
+				if connection.get_nickname() != self.nickname:
+					self.error('=> Debug: ignoring IRC '+event.eventtype()+' not received on bot connection', debug=True)
+					return
+				else:
+					self.error(event_str, debug=True)
+			
+			if event.eventtype() == 'kick' and len(event.arguments()) < 1:
+				self.error('=> Debug: length of arguments should be greater than 0 for a kick event')
+				return
 			
 			if event.eventtype() in ['pubmsg', 'action'] and nickname == self.nickname:
 				self.error('=> Debug: ignoring IRC '+event.eventtype()+' sent by self', debug=True)
@@ -316,10 +324,19 @@ class bot(Thread):
 							continue
 				
 				
-				# From here we skip if the event was not received on bot connection
-				if connection.get_nickname() != self.nickname:
-					self.error('=> Debug: ignoring IRC '+event.eventtype()+' not received on bridge connection', debug=True)
-					continue
+				# Rejoin on kick
+				if event.eventtype() == 'kick':
+					if event.target().lower() == bridge.irc_room:
+						try:
+							kicked = bridge.getParticipant(event.arguments()[0])
+							if kicked.irc_connection != None:
+								kicked.irc_connection.join(bridge.irc_room)
+						except NoSuchParticipantException:
+							self.error('=> Debug: a participant that was not here has been kicked ? WTF ?')
+							return
+					else:
+						continue
+				
 				
 				# Leaving events
 				if event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target().lower() == bridge.irc_room:
@@ -356,7 +373,7 @@ class bot(Thread):
 						continue
 			
 			if handled == False:
-				if not event.eventtype() in ['quit', 'part', 'nick']:
+				if not event.eventtype() in ['quit', 'part', 'nick', 'kick']:
 					self.error(event_str, debug=True)
 				self.error('=> Debug: event was not handled', debug=True)
 			return
