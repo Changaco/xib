@@ -287,9 +287,13 @@ class bot(Thread):
 				self.error('=> Debug: length of arguments should be greater than 0 for a kick event')
 				return
 			
-			if event.eventtype() in ['pubmsg', 'action'] and nickname == self.nickname:
-				self.error('=> Debug: ignoring IRC '+event.eventtype()+' sent by self', debug=True)
-				return
+			if event.eventtype() in ['pubmsg', 'action']:
+				if connection.get_nickname() == self.nickname:
+					self.error('=> Debug: ignoring IRC '+event.eventtype()+' not received on bot connection', debug=True)
+					return
+				if nickname == self.nickname:
+					self.error('=> Debug: ignoring IRC '+event.eventtype()+' sent by self', debug=True)
+					return
 			
 			# TODO: lock self.bridges for thread safety
 			for bridge in self.bridges:
