@@ -288,7 +288,7 @@ class bot(Thread):
 				return
 			
 			if event.eventtype() in ['pubmsg', 'action']:
-				if connection.get_nickname() == self.nickname:
+				if connection.get_nickname() != self.nickname:
 					self.error('=> Debug: ignoring IRC '+event.eventtype()+' not received on bot connection', debug=True)
 					return
 				if nickname == self.nickname:
