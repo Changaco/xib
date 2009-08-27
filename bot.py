@@ -267,7 +267,7 @@ class bot(Thread):
 		
 		
 		# A string representation of the event
-		event_str = '==> Debug: Received IRC event.\nconnection='+str(connection)+'\neventtype='+event.eventtype()+'\nsource='+str(event.source())+'\ntarget='+str(event.target())+'\narguments='+str(event.arguments())
+		event_str = '==> Debug: Received IRC event.\nconnection='+connection.__str__()+'\neventtype='+event.eventtype()+'\nsource='+auto_decode(event.source().__str__())+'\ntarget='+auto_decode(event.target().__str__())+'\narguments='+auto_decode(event.arguments().__str__())
 		
 		
 		if event.eventtype() in ['pubmsg', 'action', 'privmsg', 'quit', 'part', 'nick', 'kick']:

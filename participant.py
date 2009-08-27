@@ -69,7 +69,8 @@ class participant:
 		sleep(1) # try to prevent "reconnecting too fast" shit
 		self.irc_connection = self.bridge.bot.irc.server(self.bridge.irc_server, self.bridge.irc_port, self.nickname)
 		self.irc_connection.connect(nick_callback=self._irc_nick_callback)
-		self.irc_connection.join(self.bridge.irc_room)
+		if self.irc_connection != None:
+			self.irc_connection.join(self.bridge.irc_room)
 	
 	
 	def _irc_nick_callback(self, error, arguments=[]):

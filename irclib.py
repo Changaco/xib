@@ -431,7 +431,7 @@ class ServerConnection(Connection):
         
         if self.connected == True:
             self.used_by += 1
-            self.irclibobj.bot.error('===> Debug: using existing IRC connection for '+str(self)+', this connection is now used by '+str(self.used_by)+' bridges', debug=True)
+            self.irclibobj.bot.error('===> Debug: using existing IRC connection for '+self.__str__()+', this connection is now used by '+str(self.used_by)+' bridges', debug=True)
             self.nick(self.real_nickname, callback=nick_callback)
             self.lock.release()
             return self
@@ -449,7 +449,7 @@ class ServerConnection(Connection):
         self.localport = localport
         self.localhost = socket.gethostname()
 
-        self.irclibobj.bot.error('===> Debug: opening new IRC connection for '+str(self), debug=True)
+        self.irclibobj.bot.error('===> Debug: opening new IRC connection for '+self.__str__(), debug=True)
 
         if ipv6:
             self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
@@ -471,8 +471,8 @@ class ServerConnection(Connection):
         # Log on...
         if self.password:
             self.pass_(self.password)
-        self.nick(self.nickname, callback=nick_callback)
-        self.user(self.username, self.ircname)
+        if self.nick(self.nickname, callback=nick_callback) == True:
+            self.user(self.username, self.ircname)
         self.lock.release()
         return self
 
@@ -484,9 +484,9 @@ class ServerConnection(Connection):
             f(error, arguments=arguments)
         self.nick_callbacks = []
         if i == 0:
-            self.irclibobj.bot.error('=> Debug: no nick callback for "'+str(self)+'"', debug=True)
+            self.irclibobj.bot.error('=> Debug: no nick callback for "'+self.__str__()+'"', debug=True)
         else:
-            self.irclibobj.bot.error('=> Debug: called '+str(i)+' callback(s) for "'+str(self)+'"', debug=True)
+            self.irclibobj.bot.error('=> Debug: called '+str(i)+' callback(s) for "'+self.__str__()+'"', debug=True)
 
 
     def add_nick_callback(self, callback):
@@ -779,8 +779,14 @@ class ServerConnection(Connection):
             self.add_nick_callback(callback)
         if ' ' in newnick:
             self._call_nick_callbacks('erroneusnickname')
-            return
+            return False
+        try:
+            str(newnick)
+        except:
+            self._call_nick_callbacks('erroneusnickname')
+            return False
         self.send_raw("NICK " + newnick)
+        return True
 
     def notice(self, target, text):
         """Send a NOTICE command."""
@@ -833,14 +839,13 @@ class ServerConnection(Connection):
 
         The string will be padded with appropriate CR LF.
         """
-        from encoding import *
         if self.socket is None:
             raise ServerNotConnectedError, "Not connected."
         try:
             if self.ssl:
-                self.ssl.write(auto_encode(string) + "\r\n")
+                self.ssl.write(string.encode('utf-8') + "\r\n")
             else:
-                self.socket.send(auto_encode(string) + "\r\n")
+                self.socket.send(string.encode('utf-8') + "\r\n")
             if DEBUG:
                 print "TO SERVER:", string
         except socket.error, x:
