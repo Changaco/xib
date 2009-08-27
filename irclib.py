@@ -191,7 +191,8 @@ class IRC:
             for c in self.connections:
                 if s == c._get_socket():
                     c.lock.acquire()
-                    c.process_data()
+                    if hasattr(c, 'socket'):
+                        c.process_data()
                     c.lock.release()
 
     def process_timeout(self):
@@ -699,6 +700,8 @@ class ServerConnection(Connection):
         if not self.connected:
             return
 
+        self.lock.acquire()
+
         self.connected = False
 
         self.quit(message)
@@ -708,6 +711,7 @@ class ServerConnection(Connection):
         except socket.error, x:
             pass
         self.socket = None
+        self.lock.release()
         self._handle_event(Event("disconnect", self.server, "", [message]))
 
     def globops(self, text):
