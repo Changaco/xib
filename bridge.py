@@ -235,7 +235,7 @@ class bridge:
 		if on_xmpp == True:
 			self.xmpp_room.say(message)
 		if on_irc == True:
-			self.irc_connection.privmsg(self.irc_room, auto_encode(message))
+			self.irc_connection.privmsg(self.irc_room, message)
 	
 	
 	def switchFromLimitedToNormalMode(self):
