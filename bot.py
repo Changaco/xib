@@ -284,7 +284,7 @@ class bot(Thread):
 					self.error(event_str, debug=True)
 			
 			if event.eventtype() == 'kick' and len(event.arguments()) < 1:
-				self.error('=> Debug: length of arguments should be greater than 0 for a kick event')
+				self.error('=> Debug: length of arguments should be greater than 0 for a '+event.eventtype()+' event')
 				return
 			
 			if event.eventtype() in ['pubmsg', 'action']:
@@ -335,6 +335,7 @@ class bot(Thread):
 							kicked = bridge.getParticipant(event.arguments()[0])
 							if kicked.irc_connection != None:
 								kicked.irc_connection.join(bridge.irc_room)
+							return
 						except NoSuchParticipantException:
 							self.error('=> Debug: a participant that was not here has been kicked ? WTF ?')
 							return
@@ -383,6 +384,37 @@ class bot(Thread):
 			return
 		
 		
+		# Handle bannedfromchan
+		if event.eventtype() == 'bannedfromchan':
+			if len(event.arguments()) < 1:
+				self.error('=> Debug: length of arguments should be greater than 0 for a '+event.eventtype()+' event')
+				return
+			
+			for bridge in self.bridges:
+				if connection.server != bridge.irc_server or event.arguments()[0].lower() != bridge.irc_room:
+					continue
+				
+				if event.target() == self.nickname:
+					self.error('[Error] the nickname "'+event.target()+'" is banned from the IRC chan of bridge "'+str(bridge)+'"')
+					raise Exception('[Error] the nickname "'+event.target()+'" is banned from the IRC chan of bridge "'+str(bridge)+'"')
+				else:
+					try:
+						banned = bridge.getParticipant(event.target())
+						if banned.irc_connection != None:
+							banned.irc_connection = None
+							self.error(event_str, debug=True)
+							self.error('[Notice] the nickname "'+event.target()+'" is banned from the IRC chan of bridge "'+str(bridge)+'"')
+							bridge.say('[Warning] the nickname "'+event.target()+'" is banned from the IRC chan')
+						else:
+							self.error('=> Debug: ignoring '+event.eventtype(), debug=True)
+					except NoSuchParticipantException:
+						self.error('=> Debug: no such participant. WTF ?')
+						return
+			
+			return
+		
+		
+		# Joining events
 		if event.eventtype() in ['namreply', 'join']:
 			if connection.get_nickname() != self.nickname:
 				self.error('=> Debug: ignoring IRC '+event.eventtype()+' not received on bridge connection', debug=True)
@@ -399,6 +431,7 @@ class bot(Thread):
 			elif event.eventtype() == 'join':
 				bridges = self.getBridges(irc_room=event.target().lower(), irc_server=connection.server)
 				if len(bridges) == 0:
+					self.error(event_str, debug=True)
 					self.error('===> Debug: no bridge found for "'+event.target().lower()+' at '+connection.server+'"', debug=True)
 					return
 				for bridge in bridges:
@@ -408,6 +441,7 @@ class bot(Thread):
 		
 		# From here the event is shown
 		self.error(event_str, debug=True)
+		
 		
 		if event.eventtype() == 'disconnect':
 			# TODO: lock self.bridges for thread safety
@@ -419,10 +453,14 @@ class bot(Thread):
 				except NoSuchParticipantException:
 					pass
 			return
-		elif event.eventtype() == 'nicknameinuse':
+		
+		
+		# Nickname callbacks
+		# TODO: move this into irclib.py
+		if event.eventtype() == 'nicknameinuse':
 			connection._call_nick_callbacks('nicknameinuse')
 			return
-		elif event.eventtype() == 'erroneusnickname':
+		if event.eventtype() == 'erroneusnickname':
 			connection._call_nick_callbacks('erroneusnickname')
 			return
 		
