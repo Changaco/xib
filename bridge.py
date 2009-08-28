@@ -101,8 +101,8 @@ class bridge:
 			try:
 				raise error
 			except xmpp.muc.NicknameConflict:
-				self.bot.error('[Error] "'+self.nickname+'" is already used in the XMPP MUC or reserved on the XMPP server of bridge "'+str(self)+'"')
-				raise Exception('[Error] "'+self.nickname+'" is already used in the XMPP MUC or reserved on the XMPP server of bridge "'+str(self)+'"')
+				self.bot.error('[Error] "'+self.bot.nickname+'" is already used in the XMPP MUC or reserved on the XMPP server of bridge "'+str(self)+'"')
+				raise Exception('[Error] "'+self.bot.nickname+'" is already used in the XMPP MUC or reserved on the XMPP server of bridge "'+str(self)+'"')
 	
 	
 	def addParticipant(self, protocol, nickname):
