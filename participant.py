@@ -41,7 +41,7 @@ class participant:
 	
 	
 	def createDuplicateOnXMPP(self):
-		if self.xmpp_c != None or self.irc_connection != None or self.bridge.mode == 'minimal':
+		if self.xmpp_c != None or self.irc_connection != None or self.bridge.mode == 'minimal' or self.nickname == 'ChanServ':
 			return
 		self.xmpp_c = self.bridge.bot.get_xmpp_connection(self.nickname)
 		self.muc = xmpp.muc(self.bridge.xmpp_room.room_jid)
