@@ -123,8 +123,18 @@ class participant:
 			else:
 				self.nickname = newnick
 				if self.muc != None:
-					self.bridge.bot.xmpp_connections[newnick] = self.xmpp_c
-					self.bridge.bot.xmpp_connections.pop(oldnick)
+					for b in self.bridge.bot.bridges:
+						if b.hasParticipant(oldnick) and b.irc_server != self.bridge.irc_server:
+							self.muc.leave(message='Nickname change')
+							self.xmpp_c = None
+							self.bridge.bot.close_xmpp_connection(oldnick)
+							self.createDuplicateOnXMPP()
+							return
+					
+					if not self.bridge.bot.xmpp_connections.has_key(newnick):
+						self.bridge.bot.xmpp_connections.pop(oldnick)
+						self.bridge.bot.xmpp_connections[newnick] = self.xmpp_c
+					
 					self.muc.change_nick(newnick, status='From IRC', callback=self._xmpp_join_callback)
 				else:
 					self.createDuplicateOnXMPP()

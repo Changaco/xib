@@ -161,6 +161,14 @@ class bridge:
 		return participants_nicknames
 	
 	
+	def hasParticipant(self, nickname):
+		try:
+			self.getParticipant(nickname)
+			return True
+		except NoSuchParticipantException:
+			return False
+	
+	
 	def removeParticipant(self, left_protocol, nickname, leave_message):
 		"""Remove the participant using nickname from the bridge. Raises a NoSuchParticipantException if nickname is not used in the bridge."""
 		
