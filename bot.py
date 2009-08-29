@@ -462,6 +462,9 @@ class bot(Thread):
 		if event.eventtype() == 'nicknameinuse':
 			connection._call_nick_callbacks('nicknameinuse')
 			return
+		if event.eventtype() == 'nickcollision':
+			connection._call_nick_callbacks('nickcollision')
+			return
 		if event.eventtype() == 'erroneusnickname':
 			connection._call_nick_callbacks('erroneusnickname')
 			return

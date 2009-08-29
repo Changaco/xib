@@ -494,7 +494,7 @@ class ServerConnection(Connection):
         self.nick_callbacks.append(callback)
 
 
-    def close(self, message, volontary=False):
+    def close(self, message, volontary=True):
         """Close the connection.
 
         This method closes the connection permanently; after it has
