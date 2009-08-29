@@ -266,7 +266,7 @@ class bridge:
 			if p.protocol == 'xmpp':
 				i += 1
 				if p.irc_connection != None:
-					p.irc_connection.close('Bridge is switching to limited mode')
+					p.irc_connection.close('Bridge is switching to limited mode', volontary=True)
 					p.irc_connection = None
 		self.irc_connections_limit = i
 		self.bot.error('===> Bridge is switching to limited mode. Limit seems to be '+str(self.irc_connections_limit)+' on "'+self.irc_server+'".')
@@ -289,7 +289,7 @@ class bridge:
 		# Close IRC connection if not used by an other bridge, just leave the room otherwise
 		self.irc_connection.used_by -= 1
 		if self.irc_connection.used_by < 1:
-			self.irc_connection.close('Removing bridge')
+			self.irc_connection.close('Removing bridge', volontary=True)
 		else:
 			self.irc_connection.part('Removing bridge')
 		del self.irc_connection
