@@ -494,14 +494,14 @@ class ServerConnection(Connection):
         self.nick_callbacks.append(callback)
 
 
-    def close(self, message):
+    def close(self, message, volontary=False):
         """Close the connection.
 
         This method closes the connection permanently; after it has
         been called, the object is unusable.
         """
 
-        self.disconnect(message)
+        self.disconnect(message, volontary)
         self.irclibobj._remove_connection(self)
 
     def _get_socket(self):
@@ -690,7 +690,7 @@ class ServerConnection(Connection):
         """Send a CTCP REPLY command."""
         self.notice(target, "\001%s\001" % parameter)
 
-    def disconnect(self, message=""):
+    def disconnect(self, message="", volontary=False):
         """Hang up the connection.
 
         Arguments:
@@ -712,7 +712,9 @@ class ServerConnection(Connection):
             pass
         self.socket = None
         self.lock.release()
-        self._handle_event(Event("disconnect", self.server, "", [message]))
+
+        if volontary == False:
+            self._handle_event(Event("disconnect", self.server, "", [message]))
 
     def globops(self, text):
         """Send a GLOBOPS command."""

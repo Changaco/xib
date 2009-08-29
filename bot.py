@@ -446,6 +446,8 @@ class bot(Thread):
 		if event.eventtype() == 'disconnect':
 			# TODO: lock self.bridges for thread safety
 			for bridge in self.bridges:
+				if connection.server != bridge.irc_server:
+					continue
 				try:
 					bridge.getParticipant(connection.get_nickname())
 					if bridge.mode == 'normal':
