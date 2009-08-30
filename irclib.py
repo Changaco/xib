@@ -195,7 +195,7 @@ class IRC:
                         try:
                             c.process_data()
                         except:
-                            self.error('[Error] Unkonwn exception on IRC thread:')
+                            self.bot.error('[Error] Unkonwn exception on IRC thread:')
                             traceback.print_exc()
                     c.lock.release()
 
