@@ -70,6 +70,7 @@ import sys
 import time
 import types
 import threading
+import traceback
 
 VERSION = 0, 4, 8
 DEBUG = 0
@@ -88,6 +89,8 @@ DEBUG = 0
 # connection.quit() only sends QUIT to the server.
 # ERROR from the server triggers the error event and the disconnect event.
 # dropping of the connection triggers the disconnect event.
+
+strip_colors_re = re.compile('\x03[0-9]+')
 
 class IRCError(Exception):
     """Represents an IRC exception."""
@@ -624,6 +627,11 @@ class ServerConnection(Connection):
                         if DEBUG:
                             print "command: %s, source: %s, target: %s, arguments: %s" % (
                                 command, prefix, target, m)
+
+                        # Remove colors
+                        for i in range(len(m)):
+                            m[i] = strip_colors_re.sub('', m[i])
+
                         self._handle_event(Event(command, prefix, target, m))
                         if command == "ctcp" and m[0] == "ACTION":
                             self._handle_event(Event("action", prefix, target, m[1:]))
@@ -631,7 +639,7 @@ class ServerConnection(Connection):
                         if DEBUG:
                             print "command: %s, source: %s, target: %s, arguments: %s" % (
                                 command, prefix, target, [m])
-                        self._handle_event(Event(command, prefix, target, [m]))
+                        self._handle_event(Event(command, prefix, target, [strip_colors_re.sub('', m)]))
             else:
                 target = None
 
@@ -650,6 +658,11 @@ class ServerConnection(Connection):
                 if DEBUG:
                     print "command: %s, source: %s, target: %s, arguments: %s" % (
                         command, prefix, target, arguments)
+
+                # Remove colors
+                for i in range(len(arguments)):
+                    arguments[i] = strip_colors_re.sub('', arguments[i])
+
                 self._handle_event(Event(command, prefix, target, arguments))
 
     def _handle_event(self, event):
