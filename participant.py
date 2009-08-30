@@ -199,7 +199,7 @@ class participant:
 		if message == None:
 			message = ''
 		if self.xmpp_c != None:
-			self.muc.leave(message)
+			self.muc.leave(auto_decode(message))
 			self.bridge.bot.close_xmpp_connection(self.nickname)
 		if self.irc_connection != None:
 			self.irc_connection.used_by -= 1
