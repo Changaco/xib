@@ -803,7 +803,7 @@ class ServerConnection(Connection):
         """Send a NICK command."""
         if callback != None:
             self.add_nick_callback(callback)
-        if ' ' in newnick:
+        if re.search('[ \.]', newnick) != None:
             self._call_nick_callbacks('erroneusnickname')
             return False
         try:
