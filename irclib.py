@@ -192,7 +192,11 @@ class IRC:
                 if s == c._get_socket():
                     c.lock.acquire()
                     if hasattr(c, 'socket'):
-                        c.process_data()
+                        try:
+                            c.process_data()
+                        except:
+                            self.error('[Error] Unkonwn exception on IRC thread:')
+                            traceback.print_exc()
                     c.lock.release()
 
     def process_timeout(self):

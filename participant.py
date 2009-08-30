@@ -18,7 +18,7 @@
 import muc
 xmpp = muc.xmpp
 del muc
-import irclib
+from irclib import ServerNotConnectedError
 from encoding import *
 from threading import Thread
 from time import sleep
@@ -149,7 +149,10 @@ class participant:
 	def sayOnIRC(self, message):
 		try:
 			if self.irc_connection != None:
-				self.irc_connection.privmsg(self.bridge.irc_room, message)
+				try:
+					self.irc_connection.privmsg(self.bridge.irc_room, message)
+				except ServerNotConnectedError:
+					self.bridge.irc_connection.privmsg(self.bridge.irc_room, '<'+self.nickname+'> '+message)
 			elif self.xmpp_c == None:
 				self.bridge.irc_connection.privmsg(self.bridge.irc_room, '<'+self.nickname+'> '+message)
 		except EncodingException:
