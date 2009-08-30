@@ -444,6 +444,9 @@ class bot(Thread):
 		
 		
 		if event.eventtype() == 'disconnect':
+			if len(event.arguments()) > 0 and event.arguments()[0] == 'Connection reset by peer':
+				return
+			
 			# TODO: lock self.bridges for thread safety
 			for bridge in self.bridges:
 				if connection.server != bridge.irc_server:
