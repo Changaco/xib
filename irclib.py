@@ -90,7 +90,7 @@ DEBUG = 0
 # ERROR from the server triggers the error event and the disconnect event.
 # dropping of the connection triggers the disconnect event.
 
-strip_colors_re = re.compile('\x03[0-9]+')
+strip_formatting_re = re.compile('(?:\x03[0-9]+|\x02)')
 
 class IRCError(Exception):
     """Represents an IRC exception."""
@@ -628,9 +628,9 @@ class ServerConnection(Connection):
                             print "command: %s, source: %s, target: %s, arguments: %s" % (
                                 command, prefix, target, m)
 
-                        # Remove colors
+                        # Remove formatting
                         for i in range(len(m)):
-                            m[i] = strip_colors_re.sub('', m[i])
+                            m[i] = strip_formatting_re.sub('', m[i])
 
                         self._handle_event(Event(command, prefix, target, m))
                         if command == "ctcp" and m[0] == "ACTION":
@@ -639,7 +639,7 @@ class ServerConnection(Connection):
                         if DEBUG:
                             print "command: %s, source: %s, target: %s, arguments: %s" % (
                                 command, prefix, target, [m])
-                        self._handle_event(Event(command, prefix, target, [strip_colors_re.sub('', m)]))
+                        self._handle_event(Event(command, prefix, target, [strip_formatting_re.sub('', m)]))
             else:
                 target = None
 
@@ -659,9 +659,9 @@ class ServerConnection(Connection):
                     print "command: %s, source: %s, target: %s, arguments: %s" % (
                         command, prefix, target, arguments)
 
-                # Remove colors
+                # Remove formatting
                 for i in range(len(arguments)):
-                    arguments[i] = strip_colors_re.sub('', arguments[i])
+                    arguments[i] = strip_formatting_re.sub('', arguments[i])
 
                 self._handle_event(Event(command, prefix, target, arguments))
 
