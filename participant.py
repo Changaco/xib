@@ -149,7 +149,10 @@ class participant:
 		try:
 			if isinstance(self.irc_connection, ServerConnection):
 				try:
-					self.irc_connection.privmsg(self.bridge.irc_room, message)
+					if message[:4] == '/me ':
+						self.irc_connection.action(self.bridge.irc_room, message[4:])
+					else:
+						self.irc_connection.privmsg(self.bridge.irc_room, message)
 				except ServerNotConnectedError:
 					self.bridge.irc_connection.privmsg(self.bridge.irc_room, '<'+self.nickname+'> '+message)
 			elif not isinstance(self.xmpp_c, xmpp.client.Client):
