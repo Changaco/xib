@@ -20,6 +20,7 @@ xmpp = muc.xmpp
 del muc
 from participant import *
 from encoding import *
+from irclib import ServerConnection
 import traceback
 import re
 import threading
@@ -108,35 +109,40 @@ class bridge:
 				raise Exception('[Error] "'+self.bot.nickname+'" is already used in the XMPP MUC or reserved on the XMPP server of bridge "'+str(self)+'"')
 	
 	
-	def addParticipant(self, protocol, nickname):
+	def addParticipant(self, from_protocol, nickname):
 		"""Add a participant to the bridge."""
-		if (protocol == 'irc' and nickname == self.irc_connection.get_nickname()) or (protocol == 'xmpp' and nickname == self.xmpp_room.nickname):
+		if (from_protocol == 'irc' and nickname == self.irc_connection.get_nickname()) or (from_protocol == 'xmpp' and nickname == self.xmpp_room.nickname):
 			self.bot.error('===> Debug: not adding self ('+self.bot.nickname+') to bridge "'+str(self)+'"', debug=True)
 			return
 		try:
 			p = self.getParticipant(nickname)
-			if p.protocol != protocol:
-				if protocol == 'irc':
-					p.createDuplicateOnXMPP()
-				elif protocol == 'xmpp':
-					p.createDuplicateOnIRC()
-				else:
-					raise Exception('[Internal Error] bad protocol')
+			if p.protocol != from_protocol:
+				if from_protocol == 'irc' and isinstance(p.irc_connection, ServerConnection) and p.irc_connection.really_connected == True or from_protocol == 'xmpp' and isinstance(p.muc, xmpp.muc) and p.muc.connected == True:
+					return
+				self.bot.error('===> Debug: "'+nickname+'" is on both sides of bridge "'+str(self)+'"', debug=True)
+				self.say('[Warning] The nickname "'+nickname+'" is used on both sides of the bridge, please avoid that if possible')
+				if isinstance(p.irc_connection, ServerConnection):
+					p.irc_connection.close('')
+					p.irc_connection = 'both'
+				if isinstance(p.muc, xmpp.muc):
+					p.muc.leave('')
+					self.bot.close_xmpp_connection(p.nickname)
+					p.xmpp_c = 'both'
 			return
 		except NoSuchParticipantException:
 			pass
-		self.bot.error('===> Debug: adding participant "'+nickname+'" from "'+protocol+'" to bridge "'+str(self)+'"', debug=True)
+		self.bot.error('===> Debug: adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'"', debug=True)
 		try:
-			p = participant(self, protocol, nickname)
+			p = participant(self, from_protocol, nickname)
 		except IOError:
-			self.bot.error('===> Debug: IOError while adding participant "'+nickname+'" from "'+protocol+'" to bridge "'+str(self)+'", reconnectiong ...', debug=True)
+			self.bot.error('===> Debug: IOError while adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'", reconnectiong ...', debug=True)
 			p.xmpp_c.reconnectAndReauth()
 		except:
-			self.bot.error('===> Debug: unknown error while adding participant "'+nickname+'" from "'+protocol+'" to bridge "'+str(self)+'"', debug=True)
+			self.bot.error('===> Debug: unknown error while adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'"', debug=True)
 			traceback.print_exc()
 			return
 		self.participants.append(p)
-		if self.mode != 'normal' and protocol == 'xmpp':
+		if self.mode != 'normal' and from_protocol == 'xmpp':
 			xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
 			self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
 		return p
@@ -181,7 +187,7 @@ class bridge:
 			if left_protocol == 'irc':
 				was_on_both = True
 			elif left_protocol == 'xmpp':
-				if p.irc_connection == None and self.mode == 'normal':
+				if p.irc_connection == 'both':
 					was_on_both = True
 					p.protocol = 'irc'
 					p.createDuplicateOnXMPP()
@@ -192,7 +198,7 @@ class bridge:
 			if left_protocol == 'xmpp':
 				was_on_both = True
 			elif left_protocol == 'irc':
-				if p.xmpp_c == None and self.mode != 'minimal':
+				if p.xmpp_c == 'both':
 					was_on_both = True
 					p.protocol = 'xmpp'
 					p.createDuplicateOnIRC()
@@ -268,7 +274,7 @@ class bridge:
 		for p in self.participants:
 			if p.protocol == 'xmpp':
 				i += 1
-				if p.irc_connection != None:
+				if isinstance(self.irc_connection, ServerConnection):
 					p.irc_connection.close('Bridge is switching to limited mode')
 					p.irc_connection = None
 		self.irc_connections_limit = i
