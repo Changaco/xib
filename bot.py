@@ -85,7 +85,7 @@ class bot(Thread):
 			except RuntimeError:
 				pass
 			except (xml.parsers.expat.ExpatError, xmpp.protocol.XMLNotWellFormed):
-				self.error('=> Debug: received invalid stanza', debug=True)
+				self.error('=> Debug: invalid stanza', debug=True)
 				continue
 			except:
 				self.error('[Error] Unkonwn exception on XMPP thread:')
@@ -295,6 +295,9 @@ class bot(Thread):
 					self.error('=> Debug: ignoring IRC '+event.eventtype()+' sent by self', debug=True)
 					return
 			
+			if event.eventtype() == 'quit' and connection in self.irc.connections:
+				return
+			
 			# TODO: lock self.bridges for thread safety
 			for bridge in self.bridges:
 				if connection.server != bridge.irc_server:
@@ -333,7 +336,7 @@ class bot(Thread):
 					if event.target().lower() == bridge.irc_room:
 						try:
 							kicked = bridge.getParticipant(event.arguments()[0])
-							if kicked.irc_connection != None:
+							if isinstance(kicked.irc_connection, irclib.ServerConnection):
 								kicked.irc_connection.join(bridge.irc_room)
 							return
 						except NoSuchParticipantException:
@@ -400,8 +403,8 @@ class bot(Thread):
 				else:
 					try:
 						banned = bridge.getParticipant(event.target())
-						if banned.irc_connection != None:
-							banned.irc_connection = None
+						if banned.irc_connection != 'bannedfromchan':
+							banned.irc_connection = 'bannedfromchan'
 							self.error(event_str, debug=True)
 							self.error('[Notice] the nickname "'+event.target()+'" is banned from the IRC chan of bridge "'+str(bridge)+'"')
 							bridge.say('[Warning] the nickname "'+event.target()+'" is banned from the IRC chan')
