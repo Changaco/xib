@@ -447,7 +447,7 @@ class bot(Thread):
 			if event.eventtype() == 'namreply':
 				# TODO: lock self.bridges for thread safety
 				for bridge in self.getBridges(irc_room=event.arguments()[1].lower(), irc_server=connection.server):
-					for nickname in re.split('(?:^[&@\+]?|(?: [&@\+]?)*)', event.arguments()[2].strip()):
+					for nickname in re.split('(?:^[&@\+%]?|(?: [&@\+%]?)*)', event.arguments()[2].strip()):
 						if nickname == '' or nickname == self.nickname:
 							continue
 						bridge.addParticipant('irc', nickname)
