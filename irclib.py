@@ -410,6 +410,14 @@ class ServerConnection(Connection):
         return self.real_nickname+' at '+self.server+':'+str(self.port)
 
 
+    def _ping(self):
+        self.irclibobj.execute_delayed(60, self._ping)
+        if self.connected == False:
+            return
+        self.irclibobj.bot.error('=> Debug: sending IRC ping', debug=True)
+        self.ping(self.get_server_name())
+
+
     def connect(self, password=None, username=None,
                 ircname=None, localaddress="", localport=0, ssl=False, ipv6=False, nick_callback=None):
         """Connect to the server.
@@ -461,6 +469,7 @@ class ServerConnection(Connection):
         self.localhost = socket.gethostname()
 
         self.irclibobj.bot.error('===> Debug: opening new IRC connection for '+self.__str__(), debug=True)
+        self._ping()
 
         if ipv6:
             self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
