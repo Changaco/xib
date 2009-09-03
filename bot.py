@@ -23,7 +23,9 @@ version = 0, 1
 
 
 import irclib
-import xmppony as xmpp
+import muc
+xmpp = muc.xmpp
+del muc
 import threading
 from bridge import *
 from time import sleep
@@ -72,21 +74,31 @@ class bot(Thread):
 	
 	def _xmpp_loop(self):
 		"""[Internal] XMPP infinite loop."""
+		i = 1
 		while True:
 			try:
 				if len(self.xmpp_connections) == 1:
 					sleep(0.5)  # avoid bot connection being locked all the time
+				j = 0
 				for c in self.xmpp_connections.itervalues():
+					i += 1
+					j += 1
 					if hasattr(c, 'lock'):
 						c.lock.acquire()
+						if i == j:
+							ping = xmpp.protocol.Iq(typ='get')
+							ping.addChild(name='ping', namespace='urn:xmpp:ping')
+							self.error('=> Debug: sending XMPP ping', debug=True)
+							c.pings.append(c.send(ping))
 						if hasattr(c, 'Process'):
 							c.Process(0.01)
 						c.lock.release()
+					if i > 5000:
+						i = 0
 			except RuntimeError:
 				pass
 			except (xml.parsers.expat.ExpatError, xmpp.protocol.XMLNotWellFormed):
 				self.error('=> Debug: invalid stanza', debug=True)
-				continue
 			except:
 				self.error('[Error] Unkonwn exception on XMPP thread:')
 				traceback.print_exc()
@@ -150,7 +162,16 @@ class bot(Thread):
 	
 	def _xmpp_iq_handler(self, dispatcher, iq):
 		"""[Internal] Manage XMPP IQs."""
-		self.error('=> Debug: Received XMPP iq.', debug=True)
+		
+		xmpp_c = dispatcher._owner
+		
+		# Ignore pongs
+		if iq.getType() in ['result', 'error'] and iq.getID() in xmpp_c.pings:
+			xmpp_c.pings.remove(iq.getID())
+			self.error('=> Debug: received XMPP pong', debug=True)
+			return
+		
+		self.error('==> Debug: Received XMPP iq.', debug=True)
 		self.error(iq.__str__(fancy=1), debug=True)
 	
 	
@@ -243,7 +264,7 @@ class bot(Thread):
 		if 'all' in event.eventtype() or 'motd' in event.eventtype():
 			return
 		if event.eventtype() in ['pong', 'privnotice', 'ctcp', 'nochanmodes', 'notexttosend', 'currenttopic', 'topicinfo']:
-			self.error('=> Debug: ignoring '+event.eventtype(), debug=True)
+			self.error('=> Debug: ignoring IRC '+event.eventtype(), debug=True)
 			return
 		
 		
@@ -515,6 +536,7 @@ class bot(Thread):
 		self.xmpp_connections[nickname] = c
 		c.used_by = 1
 		c.nickname = nickname
+		c.pings = []
 		c.connect()
 		c.auth(self.bare_jid.getNode(), self.password)
 		c.RegisterHandler('presence', self._xmpp_presence_handler)
