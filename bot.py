@@ -76,6 +76,7 @@ class bot(Thread):
 		"""[Internal] XMPP infinite loop."""
 		i = 1
 		while True:
+			unlock = False
 			try:
 				if len(self.xmpp_connections) == 1:
 					sleep(0.5)  # avoid bot connection being locked all the time
@@ -99,9 +100,13 @@ class bot(Thread):
 				pass
 			except (xml.parsers.expat.ExpatError, xmpp.protocol.XMLNotWellFormed):
 				self.error('=> Debug: invalid stanza', debug=True)
+				unlock = True
 			except:
 				self.error('[Error] Unkonwn exception on XMPP thread:')
 				traceback.print_exc()
+				unlock = True
+			if unlock == True:
+				c.lock.release()
 	
 	
 	def _xmpp_presence_handler(self, dispatcher, presence):
