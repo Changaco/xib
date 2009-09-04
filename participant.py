@@ -204,6 +204,7 @@ class participant:
 			self.muc.leave(auto_decode(message))
 			self.bridge.bot.close_xmpp_connection(self.nickname)
 		if isinstance(self.irc_connection, ServerConnection):
+			self.irc_connection.part(self.bridge.irc_room, message=message)
 			self.irc_connection.used_by -= 1
 			if self.irc_connection.used_by < 1:
 				self.irc_connection.close(message)
