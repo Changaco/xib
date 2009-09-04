@@ -316,9 +316,6 @@ class bot(Thread):
 					self.error('=> Debug: ignoring IRC '+event.eventtype()+' sent by self', debug=True)
 					return
 			
-			if event.eventtype() == 'quit' and connection in self.irc.connections:
-				return
-			
 			# TODO: lock self.bridges for thread safety
 			for bridge in self.bridges:
 				if connection.server != bridge.irc_server:
@@ -369,6 +366,8 @@ class bot(Thread):
 				
 				# Leaving events
 				if event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target().lower() == bridge.irc_room:
+					if event.eventtype() == 'quit' and ( bridge.mode != 'normal' or isinstance(from_.irc_connection, irclib.ServerConnection) ):
+						continue
 					if len(event.arguments()) > 0:
 						leave_message = event.arguments()[0]
 					elif event.eventtype() == 'quit':
