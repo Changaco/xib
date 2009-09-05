@@ -82,18 +82,24 @@ class bridge:
 			self.irc_connection.join(self.irc_room)
 			self.bot.error('===> Debug: successfully connected on IRC side of bridge "'+str(self)+'"', debug=True)
 			self.say('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode', on_xmpp=False)
-		if error == 'nicknameinuse':
-			self.bot.error('[Error] "'+self.bot.nickname+'" is already used in the IRC chan or reserved on the IRC server of bridge "'+str(self)+'"')
-			raise Exception('[Error] "'+self.bot.nickname+'" is already used in the IRC chan or reserved on the IRC server of bridge "'+str(self)+'"')
-		if error == 'nickcollision':
-			self.bot.error('[Error] "'+self.bot.nickname+'" is already used or reserved on the IRC server of bridge "'+str(self)+'"')
-			raise Exception('[Error] "'+self.bot.nickname+'" is already used or reserved on the IRC server of bridge "'+str(self)+'"')
-		elif error == 'erroneusnickname':
-			self.bot.error('[Error] "'+self.bot.nickname+'" got "erroneusnickname" on bridge "'+str(self)+'"')
-			raise Exception('[Error] "'+self.bot.nickname+'" got "erroneusnickname" on bridge "'+str(self)+'"')
-		elif error == 'nicknametoolong':
-			self.bot.error('[Error] "'+self.bot.nickname+'" got "nicknametoolong" on bridge "'+str(self)+'", limit seems to be '+str(arguments[0]))
-			raise Exception('[Error] "'+self.bot.nickname+'" got "nicknametoolong" on bridge "'+str(self)+'", limit seems to be '+str(arguments[0]))
+		else:
+			if self.muc.connected == True:
+				self.say('[Error] failed to connect to the IRC chan, leaving ...', on_irc=False)
+			try:
+				if error == 'nicknameinuse':
+					raise Exception('[Error] "'+self.bot.nickname+'" is already used in the IRC chan or reserved on the IRC server of bridge "'+str(self)+'"')
+				elif error == 'nickcollision':
+					raise Exception('[Error] "'+self.bot.nickname+'" is already used or reserved on the IRC server of bridge "'+str(self)+'"')
+				elif error == 'erroneusnickname':
+					raise Exception('[Error] "'+self.bot.nickname+'" got "erroneusnickname" on bridge "'+str(self)+'"')
+				elif error == 'nicknametoolong':
+					raise Exception('[Error] "'+self.bot.nickname+'" got "nicknametoolong" on bridge "'+str(self)+'", limit seems to be '+str(arguments[0]))
+				else:
+					raise Exception('[Error] unknown error for "'+self.bot.nickname+'" on bridge "'+str(self)+'", limit seems to be '+str(arguments[0]))
+			except:
+				traceback.print_exc()
+			self.bot.error('[Error] failed to connect to the IRC chan of bridge "'+str(self)+'", removing bridge')
+			self.bot.removeBridge(self)
 	
 	
 	def _xmpp_join_callback(self, errors):
@@ -101,12 +107,16 @@ class bridge:
 		if len(errors) == 0:
 			self.bot.error('===> Debug: succesfully connected on XMPP side of bridge "'+str(self)+'"', debug=True)
 			self.say('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode', on_irc=False)
-		for error in errors:
-			try:
-				raise error
-			except xmpp.muc.NicknameConflict:
-				self.bot.error('[Error] "'+self.bot.nickname+'" is already used in the XMPP MUC or reserved on the XMPP server of bridge "'+str(self)+'"')
-				raise Exception('[Error] "'+self.bot.nickname+'" is already used in the XMPP MUC or reserved on the XMPP server of bridge "'+str(self)+'"')
+		else:
+			if self.irc_connection.really_connected == True:
+				self.say('[Error] failed to connect to the XMPP room, leaving ...', on_xmpp=False)
+			for error in errors:
+				try:
+					raise error
+				except:
+					traceback.print_exc()
+			self.bot.error('[Error] failed to connect to the XMPP room of bridge "'+str(self)+'", removing bridge')
+			self.bot.removeBridge(self)
 	
 	
 	def addParticipant(self, from_protocol, nickname):
@@ -123,10 +133,12 @@ class bridge:
 				self.say('[Warning] The nickname "'+nickname+'" is used on both sides of the bridge, please avoid that if possible')
 				if isinstance(p.irc_connection, ServerConnection):
 					p.irc_connection.close('')
+				if p.irc_connection != 'both':
 					p.irc_connection = 'both'
 				if isinstance(p.muc, xmpp.muc):
 					p.muc.leave('')
 					self.bot.close_xmpp_connection(p.nickname)
+				if p.xmpp_c != 'both':
 					p.xmpp_c = 'both'
 			return
 		except NoSuchParticipantException:
@@ -184,26 +196,26 @@ class bridge:
 		was_on_both = None
 		p = self.getParticipant(nickname)
 		if p.protocol == 'xmpp':
-			if left_protocol == 'irc':
+			if p.irc_connection == 'both':
 				was_on_both = True
-			elif left_protocol == 'xmpp':
-				if p.irc_connection == 'both':
-					was_on_both = True
+				if left_protocol == 'xmpp':
 					p.protocol = 'irc'
 					p.createDuplicateOnXMPP()
-				else:
-					was_on_both = False
+				elif left_protocol == 'irc':
+					p.createDuplicateOnIRC()
+			else:
+				was_on_both = False
 		
 		elif p.protocol == 'irc':
-			if left_protocol == 'xmpp':
+			if p.xmpp_c == 'both':
 				was_on_both = True
-			elif left_protocol == 'irc':
-				if p.xmpp_c == 'both':
-					was_on_both = True
+				if left_protocol == 'irc':
 					p.protocol = 'xmpp'
 					p.createDuplicateOnIRC()
-				else:
-					was_on_both = False
+				elif left_protocol == 'xmpp':
+					p.createDuplicateOnXMPP()
+			else:
+				was_on_both = False
 		
 		else:
 			raise Exception('[Internal Error] bad protocol')
@@ -217,12 +229,9 @@ class bridge:
 			self.participants.remove(p)
 			p.leave(leave_message)
 			del p
-			i = 0
-			for p in self.participants:
-				if p.protocol == 'xmpp':
-					i += 1
 			self.lock.release()
 			if left_protocol == 'xmpp':
+				i = len(self.get_participants_nicknames_list(protocols=['xmpp']))
 				if self.irc_connections_limit != -1 and self.irc_connections_limit > i:
 					self.switchFromLimitedToNormalMode()
 				if self.mode != 'normal':
@@ -300,8 +309,7 @@ class bridge:
 		if self.irc_connection.used_by < 1:
 			self.irc_connection.close('Removing bridge')
 		else:
-			self.irc_connection.part('Removing bridge')
-		del self.irc_connection
+			self.irc_connection.part(self.irc_room, message='Removing bridge')
 		
 		# Leave XMPP room
 		self.xmpp_room.leave('Removing bridge')
