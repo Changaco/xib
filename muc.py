@@ -64,30 +64,30 @@ class muc:
 								err = c.getAttr('type')+' '+cc.getName()
 								if err == 'auth not-authorized':
 									# password-protected room
-									errors.append(self.__class__.PasswordNeeded())
+									errors.append(self.__class__.PasswordNeeded(self.jid))
 								elif err == 'auth registration-required':
 									# members-only room
-									errors.append(self.__class__.MembersOnlyRoom())
+									errors.append(self.__class__.MembersOnlyRoom(self.jid))
 								elif err == 'auth forbidden':
 									# banned from room
-									errors.append(self.__class__.BannedFromRoom())
+									errors.append(self.__class__.BannedFromRoom(self.jid))
 								elif err == 'cancel conflict':
 									# nickname conflict
-									errors.append(self.__class__.NicknameConflict())
+									errors.append(self.__class__.NicknameConflict(self.jid))
 								elif err == 'wait service-unavailable':
 									# room is full
-									errors.append(self.__class__.RoomIsFull())
+									errors.append(self.__class__.RoomIsFull(self.jid))
 								elif err == 'cancel item-not-found':
 									# room is locked
-									errors.append(self.__class__.RoomIsLocked())
+									errors.append(self.__class__.RoomIsLocked(self.jid))
 								elif err == 'modify jid-malformed':
 									# forgot to give a nickname
-									errors.append(self.__class__.ForgotNickname())
+									errors.append(self.__class__.ForgotNickname(self.jid))
 								else:
-									errors.append(self.__class__.UnknownError(presence.__str__(fancy=1).decode('utf-8')))
+									errors.append(self.__class__.UnknownError(presence.__str__(fancy=1).encode('utf-8')))
 						break
 				if len(errors) == 0:
-					errors.append(self.__class__.UnknownError(presence.__str__(fancy=1).decode('utf-8')))
+					errors.append(self.__class__.UnknownError(presence.__str__(fancy=1).encode('utf-8')))
 			else:
 				self.connected = True
 				xmpp_c.UnregisterHandler('presence', self._xmpp_presence_handler)
