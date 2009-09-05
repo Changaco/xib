@@ -79,10 +79,13 @@ class bridge:
 	
 	def _irc_nick_callback(self, error, arguments=[]):
 		if error == None:
+			if self.mode == None:
+				return
 			self.irc_connection.join(self.irc_room)
 			self.bot.error('===> Debug: successfully connected on IRC side of bridge "'+str(self)+'"', debug=True)
 			self.say('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode', on_xmpp=False)
 		else:
+			self.mode = None
 			if self.muc.connected == True:
 				self.say('[Error] failed to connect to the IRC chan, leaving ...', on_irc=False)
 			try:
@@ -105,9 +108,12 @@ class bridge:
 	def _xmpp_join_callback(self, errors):
 		"""Called by muc._xmpp_presence_handler"""
 		if len(errors) == 0:
+			if self.mode == None:
+				return
 			self.bot.error('===> Debug: succesfully connected on XMPP side of bridge "'+str(self)+'"', debug=True)
 			self.say('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode', on_irc=False)
 		else:
+			self.mode = None
 			if self.irc_connection.really_connected == True:
 				self.say('[Error] failed to connect to the XMPP room, leaving ...', on_xmpp=False)
 			for error in errors:
