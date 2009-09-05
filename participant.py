@@ -51,14 +51,20 @@ class participant:
 	def _xmpp_join_callback(self, errors):
 		if len(errors) == 0:
 			self.bridge.bot.error('===> Debug: "'+self.nickname+'" duplicate succesfully created on XMPP side of bridge "'+str(self.bridge)+'"', debug=True)
-		else:
+		elif self.xmpp_c != 'both':
 			for error in errors:
 				try:
 					raise error
 				except xmpp.muc.NicknameConflict:
 					self.bridge.bot.error('===> Debug: "'+self.nickname+'" is already used in the XMPP MUC or reserved on the XMPP server of bridge "'+str(self.bridge)+'"', debug=True)
 					self.bridge.say('[Warning] The nickname "'+self.nickname+'" is used on both rooms or reserved on the XMPP server, please avoid that if possible')
-					self.muc.leave('Changed nickname to "'+self.nickname+'"')
+					if self.muc.connected == True:
+						self.muc.leave('Changed nickname to "'+self.nickname+'"')
+					self.bridge.bot.close_xmpp_connection(self.nickname)
+					self.xmpp_c = None
+				except xmpp.muc.RoomIsFull:
+					self.bridge.bot.error('[Warning] XMPP MUC of bridge "'+str(self.bridge)+'" is full', debug=True)
+					self.bridge.say('[Warning] XMPP room is full')
 					self.bridge.bot.close_xmpp_connection(self.nickname)
 					self.xmpp_c = None
 	
@@ -75,31 +81,37 @@ class participant:
 		if error == None:
 			self.irc_connection.join(self.bridge.irc_room)
 			self.bridge.bot.error('===> Debug: "'+self.nickname+'" duplicate succesfully created on IRC side of bridge "'+str(self.bridge)+'"', debug=True)
-		else:
+		elif self.irc_connection != 'both':
 			if error == 'nicknameinuse':
-				self.bridge.bot.error('===> Debug: "'+self.nickname+'" is already used in the IRC chan of bridge "'+str(self.bridge)+'"', debug=True)
-				self.bridge.say('[Warning] The nickname "'+self.nickname+'" is used on both rooms or reserved on the IRC server, please avoid that if possible')
+				self.bridge.bot.error('===> Debug: "'+self.nickname+'" is used or reserved on the IRC server of bridge "'+str(self.bridge)+'"', debug=True)
+				self.bridge.say('[Warning] The nickname "'+self.nickname+'" is used or reserved on the IRC server, please avoid that if possible')
 				if isinstance(self.irc_connection, ServerConnection):
 					self.irc_connection.close('')
-					self.irc_connection = 'nicknameinuse'
+					self.irc_connection = error
 			elif error == 'nickcollision':
-				self.bridge.bot.error('===> Debug: "'+self.nickname+'" is already used or reserved on the IRC server of bridge "'+str(self.bridge)+'"', debug=True)
-				self.bridge.say('[Warning] The nickname "'+self.nickname+'" is already used or reserved on the IRC server, please avoid that if possible')
+				self.bridge.bot.error('===> Debug: "'+self.nickname+'" is used or reserved on the IRC server of bridge "'+str(self.bridge)+'"', debug=True)
+				self.bridge.say('[Warning] The nickname "'+self.nickname+'" is used or reserved on the IRC server, please avoid that if possible')
 				if isinstance(self.irc_connection, ServerConnection):
 					self.irc_connection.close('')
-					self.irc_connection = 'nickcollision'
+					self.irc_connection = error
 			elif error == 'erroneusnickname':
 				self.bridge.bot.error('===> Debug: "'+self.nickname+'" got "erroneusnickname" on bridge "'+str(self.bridge)+'"', debug=True)
 				self.bridge.say('[Warning] The nickname "'+self.nickname+'" contains unauthorized characters and cannot be used in the IRC channel, please avoid that if possible')
 				if isinstance(self.irc_connection, ServerConnection):
 					self.irc_connection.close('')
-					self.irc_connection = 'erroneusnickname'
+					self.irc_connection = error
 			elif error == 'nicknametoolong':
 				self.bridge.bot.error('===> Debug: "'+self.nickname+'" got "nicknametoolong" on bridge "'+str(self.bridge)+'"', debug=True)
 				self.bridge.say('[Warning] The nickname "'+self.nickname+'" is too long (limit seems to be '+str(arguments[0])+') and cannot be used in the IRC channel, please avoid that if possible')
 				if isinstance(self.irc_connection, ServerConnection):
 					self.irc_connection.close('')
-					self.irc_connection = 'nicknametoolong'
+					self.irc_connection = error
+			else:
+				self.bridge.bot.error('===> Debug: unknown error while adding "'+self.nickname+'" to IRC side of bridge "'+str(self.bridge)+'"', debug=True)
+				self.bridge.say('[Warning] unknown error while adding "'+self.nickname+'" to IRC side of bridge')
+				if isinstance(self.irc_connection, ServerConnection):
+					self.irc_connection.close('')
+					self.irc_connection = error
 	
 	
 	def changeNickname(self, newnick, on_protocol):
