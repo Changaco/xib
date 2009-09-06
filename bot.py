@@ -37,7 +37,7 @@ import traceback
 
 class bot(Thread):
 	
-	def __init__(self, jid, password, nickname, error_fd=sys.stderr, debug=False):
+	def __init__(self, jid, password, nickname, admins_jid=[], error_fd=sys.stderr, debug=False):
 		Thread.__init__(self)
 		self.commands = ['!xmpp_participants', '!irc_participants']
 		self.bare_jid = xmpp.protocol.JID(jid=jid)
@@ -46,6 +46,7 @@ class bot(Thread):
 		self.password = password
 		self.error_fd = error_fd
 		self.debug = debug
+		self.admins_jid = admins_jid
 		self.bridges = []
 		self.xmpp_connections = {}
 		self.irc = irclib.IRC()
@@ -63,8 +64,10 @@ class bot(Thread):
 		self.xmpp_thread.start()
 	
 	
-	def error(self, s, debug=False):
+	def error(self, s, debug=False, send_to_admins=False):
 		"""Output an error message."""
+		if send_to_admins == True:
+			self._send_message_to_admins(s)
 		if not debug or debug and self.debug:
 			try:
 				self.error_fd.write(auto_encode(s)+"\n")
@@ -102,8 +105,9 @@ class bot(Thread):
 				self.error('=> Debug: invalid stanza', debug=True)
 				unlock = True
 			except:
-				self.error('[Error] Unkonwn exception on XMPP thread:')
-				traceback.print_exc()
+				error = '[Error] Unkonwn exception on XMPP thread:\n'
+				error += traceback.format_exc()
+				self.error(error, send_to_admins=True)
 				unlock = True
 			if unlock == True:
 				c.lock.release()
@@ -503,6 +507,15 @@ class bot(Thread):
 		
 		# Unhandled events
 		self.error('=> Debug: event not handled', debug=True)
+	
+	
+	def _send_message_to_admins(self, message):
+		"""[Internal] Send XMPP Message to bot admin(s)"""
+		for admin_jid in self.admins_jid:
+			try:
+				self.xmpp_c.send(xmpp.protocol.Message(to=admin_jid, body=message, typ='chat'))
+			except:
+				pass
 	
 	
 	def new_bridge(self, xmpp_room, irc_room, irc_server, mode, say_level, irc_port=6667):

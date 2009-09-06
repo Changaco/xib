@@ -101,7 +101,7 @@ class bridge:
 					raise Exception('[Error] unknown error for "'+self.bot.nickname+'" on bridge "'+str(self)+'", limit seems to be '+str(arguments[0]))
 			except:
 				traceback.print_exc()
-			self.bot.error('[Error] failed to connect to the IRC chan of bridge "'+str(self)+'", removing bridge')
+			self.bot.error('[Error] failed to connect to the IRC chan of bridge "'+str(self)+'", removing bridge', send_to_admins=True)
 			self.bot.removeBridge(self)
 	
 	
@@ -121,7 +121,7 @@ class bridge:
 					raise error
 				except:
 					traceback.print_exc()
-			self.bot.error('[Error] failed to connect to the XMPP room of bridge "'+str(self)+'", removing bridge')
+			self.bot.error('[Error] failed to connect to the XMPP room of bridge "'+str(self)+'", removing bridge', send_to_admins=True)
 			self.bot.removeBridge(self)
 	
 	
@@ -237,11 +237,10 @@ class bridge:
 			del p
 			self.lock.release()
 			if left_protocol == 'xmpp':
-				i = len(self.get_participants_nicknames_list(protocols=['xmpp']))
-				if self.irc_connections_limit != -1 and self.irc_connections_limit > i:
+				xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
+				if self.irc_connections_limit != -1 and self.irc_connections_limit > len(xmpp_participants_nicknames):
 					self.switchFromLimitedToNormalMode()
 				if self.mode != 'normal':
-					xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
 					self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
 			elif left_protocol == 'irc':
 				if self.mode == 'minimal':

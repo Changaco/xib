@@ -198,8 +198,7 @@ class IRC:
                         try:
                             c.process_data()
                         except:
-                            self.bot.error('[Error] Unkonwn exception on IRC thread:')
-                            traceback.print_exc()
+                            self.bot.error('[Error] Unkonwn exception on IRC thread:\n'+traceback.format_exc(), send_to_admins=True)
                     c.lock.release()
 
     def process_timeout(self):

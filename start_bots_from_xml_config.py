@@ -49,7 +49,11 @@ try:
 		if bot_el.hasAttribute('debug'):
 			if bot_el.getAttribute('debug') == 'true':
 				debug = True
-		bot_ = bot(bot_el.getAttribute('jid'), bot_el.getAttribute('password'), bot_el.getAttribute('nickname'), debug=debug)
+		admins_jid = []
+		for admin_el in bot_el.getElementsByTagName('admin'):
+			if admin_el.hasAttribute('jid'):
+				admins_jid.append(admin_el.getAttribute('jid'))
+		bot_ = bot(bot_el.getAttribute('jid'), bot_el.getAttribute('password'), bot_el.getAttribute('nickname'), admins_jid=admins_jid, debug=debug)
 		bots.append(bot_)
 		for bridge_el in bot_el.getElementsByTagName('bridge'):
 			xmpp_room = bridge_el.getElementsByTagName('xmpp-room')[0]

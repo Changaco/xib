@@ -63,7 +63,7 @@ class participant:
 					self.bridge.bot.close_xmpp_connection(self.nickname)
 					self.xmpp_c = None
 				except xmpp.muc.RoomIsFull:
-					self.bridge.bot.error('[Warning] XMPP MUC of bridge "'+str(self.bridge)+'" is full', debug=True)
+					self.bridge.bot.error('[Warning] XMPP MUC of bridge "'+str(self.bridge)+'" is full', send_to_admins=True)
 					self.bridge.say('[Warning] XMPP room is full')
 					self.bridge.bot.close_xmpp_connection(self.nickname)
 					self.xmpp_c = None
