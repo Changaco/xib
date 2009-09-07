@@ -475,7 +475,7 @@ class bot(Thread):
 		self.error(event_str, debug=True)
 		
 		
-		if event.eventtype() == 'disconnect':
+		if event.eventtype() in ['disconnect', 'kill']:
 			if len(event.arguments()) > 0 and event.arguments()[0] == 'Connection reset by peer':
 				return
 			
@@ -484,9 +484,16 @@ class bot(Thread):
 				if connection.server != bridge.irc_server:
 					continue
 				try:
-					bridge.getParticipant(connection.get_nickname())
+					p = bridge.getParticipant(connection.get_nickname())
 					if bridge.mode == 'normal':
 						bridge.switchFromNormalToLimitedMode()
+					else:
+						if p.irc_connection.really_connected == True:
+							p.irc_connection.part(bridge.irc_room, message=message)
+						p.irc_connection.used_by -= 1
+						if p.irc_connection.used_by < 1:
+							p.irc_connection.close(message)
+						p.irc_connection = None
 				except NoSuchParticipantException:
 					pass
 			return
