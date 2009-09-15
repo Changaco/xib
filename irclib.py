@@ -90,7 +90,7 @@ DEBUG = 0
 # ERROR from the server triggers the error event and the disconnect event.
 # dropping of the connection triggers the disconnect event.
 
-strip_formatting_re = re.compile('(?:\x03[0-9]*(?:,[0-9]+)?|\x02)')
+strip_formatting_re = re.compile('(?:\x03[0-9]*(?:,[0-9]+)?|\x02|\x1f)')
 
 class IRCError(Exception):
     """Represents an IRC exception."""
