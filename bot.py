@@ -104,6 +104,11 @@ class bot(Thread):
 			except (xml.parsers.expat.ExpatError, xmpp.protocol.XMLNotWellFormed):
 				self.error('=> Debug: invalid stanza', debug=True)
 				unlock = True
+			except xmpp.Conflict:
+				c.reconnectAndReauth()
+				for m in c.mucs:
+					m.rejoin()
+				unlock = True
 			except:
 				error = '[Error] Unkonwn exception on XMPP thread:\n'
 				error += traceback.format_exc()
