@@ -560,6 +560,7 @@ class bot(Thread):
 		self.xmpp_connections[nickname] = c
 		c.used_by = 1
 		c.nickname = nickname
+		c.mucs = []
 		c.pings = []
 		c.connect()
 		c.auth(self.bare_jid.getNode(), self.password)

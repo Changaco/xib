@@ -36,21 +36,27 @@ class muc:
 		self.participants = {}
 	
 	
+	def _join(self, callback=None):
+		self.callback = callback
+		self.xmpp_c.RegisterHandler('presence', self._xmpp_presence_handler)
+		s = xmpp.protocol.Presence(to=self.jid, status=self.status, payload=[xmpp.simplexml.Node(tag='x', attrs={'xmlns': 'http://jabber.org/protocol/muc'}, payload=[xmpp.simplexml.Node(tag='history', attrs={'maxchars': '0'})])])
+		try:
+			self.xmpp_c.send(s)
+		except IOError, xmpp.Conflict:
+			self.xmpp_c.reconnectAndReauth()
+			for m in self.xmpp_c.mucs:
+				m.rejoin()
+			self.xmpp_c.send(s)
+	
+	
 	def join(self, xmpp_c, nickname, status=None, callback=None):
 		"""Join room on xmpp_c connection using nickname"""
 		self.jid = self.room_jid+'/'+nickname
 		self.nickname = nickname
+		self.status = status
 		self.xmpp_c = xmpp_c
-		self.callback = callback
-		self.xmpp_c.RegisterHandler('presence', self._xmpp_presence_handler)
-		self.xmpp_c.lock.acquire()
-		try:
-			self.xmpp_c.send(xmpp.protocol.Presence(to=self.jid, status=status, payload=[xmpp.simplexml.Node(tag='x', attrs={'xmlns': 'http://jabber.org/protocol/muc'}, payload=[xmpp.simplexml.Node(tag='history', attrs={'maxchars': '0'})])]))
-		except IOError:
-			print 'IOError, reconnecting ...'
-			self.xmpp_c.reconnectAndReauth()
-			self.join(xmpp_c, nickname, status=status, callback=callback)
-		self.xmpp_c.lock.release()
+		self.xmpp_c.mucs.append(self)
+		self._join(callback=callback)
 	
 	
 	def _xmpp_presence_handler(self, xmpp_c, presence):
@@ -98,24 +104,28 @@ class muc:
 	def say(self, message):
 		"""Say message in the room"""
 		self.xmpp_c.lock.acquire()
+		s = xmpp.protocol.Message(to=self.room_jid, typ='groupchat', body=message)
 		try:
-			self.xmpp_c.send(xmpp.protocol.Message(to=self.room_jid, typ='groupchat', body=message))
-		except IOError:
-			print 'IOError, reconnecting ...'
+			self.xmpp_c.send(s)
+		except IOError, xmpp.Conflict:
 			self.xmpp_c.reconnectAndReauth()
-			self.say(message)
+			for m in self.xmpp_c.mucs:
+				m.rejoin()
+			self.xmpp_c.send(s)
 		self.xmpp_c.lock.release()
 	
 	
 	def sayTo(self, to, message):
 		"""Send a private message"""
 		self.xmpp_c.lock.acquire()
+		s = xmpp.protocol.Message(to=self.room_jid+'/'+to, typ='chat', body=message)
 		try:
-			self.xmpp_c.send(xmpp.protocol.Message(to=self.room_jid+'/'+to, typ='chat', body=message))
-		except IOError:
-			print 'IOError, reconnecting ...'
+			self.xmpp_c.send(s)
+		except IOError, xmpp.Conflict:
 			self.xmpp_c.reconnectAndReauth()
-			self.sayTo(to, message)
+			for m in self.xmpp_c.mucs:
+				m.rejoin()
+			self.xmpp_c.send(s)
 		self.xmpp_c.lock.release()
 	
 	
@@ -125,30 +135,42 @@ class muc:
 		self.callback = callback
 		self.xmpp_c.RegisterHandler('presence', self._xmpp_presence_handler)
 		self.xmpp_c.lock.acquire()
+		s = xmpp.protocol.Presence(to=self.jid, status=status)
 		try:
-			self.xmpp_c.send(xmpp.protocol.Presence(to=self.jid, status=status))
-		except IOError:
-			print 'IOError, reconnecting ...'
+			self.xmpp_c.send(s)
+		except IOError, xmpp.Conflict:
 			self.xmpp_c.reconnectAndReauth()
-			self.change_nick(nickname, status=status, callback=callback)
+			for m in self.xmpp_c.mucs:
+				m.rejoin()
+			self.xmpp_c.send(s)
 		self.xmpp_c.lock.release()
 	
 	
 	def leave(self, message=''):
 		"""Leave the room"""
 		self.xmpp_c.lock.acquire()
+		s = xmpp.protocol.Presence(to=self.jid, typ='unavailable', status=message)
 		try:
-			self.xmpp_c.send(xmpp.protocol.Presence(to=self.jid, typ='unavailable', status=message))
-		except IOError:
-			print 'IOError, reconnecting ...'
+			self.xmpp_c.send(s)
+		except IOError, xmpp.Conflict:
 			self.xmpp_c.reconnectAndReauth()
-			self.leave(message=message)
+			for m in self.xmpp_c.mucs:
+				m.rejoin()
+			self.xmpp_c.send(s)
 		self.connected = False
 		self.xmpp_c.lock.release()
+	
+	
+	def rejoin(self, callback=None):
+		"""Rejoin room"""
+		self.connected = False
+		self._join(callback=callback)
 	
 	
 	def __del__(self):
 		if self.connected:
 			self.leave()
+		if self in self.xmpp_c.mucs:
+			self.xmpp_c.mucs.remove(self)
 
 xmpp.muc = muc
