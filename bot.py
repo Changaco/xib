@@ -363,13 +363,18 @@ class bot(Thread):
 							continue
 				
 				
-				# Rejoin on kick
+				# kick handling
 				if event.eventtype() == 'kick':
 					if event.target().lower() == bridge.irc_room:
 						try:
 							kicked = bridge.getParticipant(event.arguments()[0])
 							if isinstance(kicked.irc_connection, irclib.ServerConnection):
 								kicked.irc_connection.join(bridge.irc_room)
+							elif isinstance(kicked.xmpp_c, xmpp.client.Client):
+								if len(event.arguments()) > 1:
+									bridge.removeParticipant('irc', kicked.nickname, 'Kicked by '+nickname+' with reason: '+event.arguments()[1])
+								else:
+									bridge.removeParticipant('irc', kicked.nickname, 'Kicked by '+nickname+' (no reason was given)')
 							return
 						except NoSuchParticipantException:
 							self.error('=> Debug: a participant that was not here has been kicked ? WTF ?')
