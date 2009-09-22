@@ -145,18 +145,30 @@ class bot(Thread):
 				else:
 					# presence comes from a participant of the muc
 					try:
+						p = None
 						p = bridge.getParticipant(resource)
 						
 					except NoSuchParticipantException:
 						if presence.getType() != 'unavailable' and resource != bridge.bot.nickname:
 							bridge.addParticipant('xmpp', resource)
-						return
+							return
+						elif resource == bridge.bot.nickname:
+							pass
+						else:
+							return
 					
 					
-					if p.protocol == 'xmpp' and presence.getType() == 'unavailable':
+					if presence.getType() == 'unavailable':
 						x = presence.getTag('x', namespace='http://jabber.org/protocol/muc#user')
+						item = None
+						if x:
+							item = x.getTag('item')
 						if x and x.getTag('status', attrs={'code': '303'}):
 							# participant changed its nickname
+							if p == None:
+								return
+							if p.protocol != 'xmpp':
+								return
 							item = x.getTag('item')
 							if not item:
 								self.error('=> Debug: bad stanza, no item element', debug=True)
@@ -166,7 +178,59 @@ class bot(Thread):
 								self.error('=> Debug: bad stanza, new nick is not given', debug=True)
 								return
 							p.changeNickname(new_nick, 'irc')
-						
+							
+						elif x and x.getTag('status', attrs={'code': '307'}):
+							# participant was kicked
+							if p == None:
+								bridge.xmpp_room.rejoin()
+								return
+							if isinstance(p.xmpp_c, xmpp.client.Client):
+								p.muc.rejoin()
+							else:
+								if item:
+									reason = item.getTag('reason')
+									actor = item.getTag('actor')
+									if actor and actor.has_attr('jid'):
+										kicker = actor.getAttr('jid')
+										s1 = 'Kicked by '+kicker
+									else:
+										s1 = 'Kicked from XMPP'
+									if reason:
+										s2 = ' with reason: '+reason.getData()
+									else:
+										s2 = ' (no reason was given)'
+								else:
+									s1 = 'Kicked from XMPP'
+									s2 = ' (no reason was given)'
+								
+								bridge.removeParticipant('xmpp', p.nickname, s1+s2)
+							
+						elif x and x.getTag('status', attrs={'code': '301'}):
+							# participant was banned
+							if p == None:
+								m = '[Error] bot got banned from XMPP'
+								self.error(m)
+								bridge.say(m, on_xmpp=False)
+								self.removeBridge(bridge)
+								return
+							if item:
+								reason = item.getTag('reason')
+								actor = item.getTag('actor')
+								if actor and actor.has_attr('jid'):
+									kicker = actor.getAttr('jid')
+									s1 = 'Banned by '+kicker
+								else:
+									s1 = 'Banned from XMPP'
+								if reason:
+									s2 = ' with reason: '+reason.getData()
+								else:
+									s2 = ' (no reason was given)'
+							else:
+								s1 = 'Banned from XMPP'
+								s2 = ' (no reason was given)'
+							
+							bridge.removeParticipant('xmpp', p.nickname, s1+s2)
+							
 						else:
 							# participant left
 							bridge.removeParticipant('xmpp', resource, presence.getStatus())
@@ -370,7 +434,7 @@ class bot(Thread):
 							kicked = bridge.getParticipant(event.arguments()[0])
 							if isinstance(kicked.irc_connection, irclib.ServerConnection):
 								kicked.irc_connection.join(bridge.irc_room)
-							elif isinstance(kicked.xmpp_c, xmpp.client.Client):
+							else:
 								if len(event.arguments()) > 1:
 									bridge.removeParticipant('irc', kicked.nickname, 'Kicked by '+nickname+' with reason: '+event.arguments()[1])
 								else:
@@ -601,7 +665,7 @@ class bot(Thread):
 	
 	def removeBridge(self, bridge):
 		self.bridges.remove(bridge)
-		del bridge
+		bridge.__del__()
 	
 	
 	def respond(self, message, participant=None):
