@@ -121,8 +121,8 @@ class participant:
 		
 		if self.protocol == 'xmpp':
 			if on_protocol == 'xmpp':
-				self.bridge.removeParticipant('irc', self.nickname, '')
-				self.bridge.addParticipant('irc', newnick)
+				self._close_irc_connection('unwanted nick change')
+				self.irc_connection = 'unwanted nick change'
 			
 			else:
 				self.nickname = newnick
@@ -133,8 +133,8 @@ class participant:
 		
 		elif self.protocol == 'irc':
 			if on_protocol == 'irc':
-				self.bridge.removeParticipant('xmpp', self.nickname, '')
-				self.bridge.addParticipant('xmpp', newnick)
+				self._close_xmpp_connection('unwanted nick change')
+				self.xmpp_c = 'unwanted nick change'
 			
 			else:
 				self.nickname = newnick
@@ -212,9 +212,18 @@ class participant:
 	def leave(self, message):
 		if message == None:
 			message = ''
+		self._close_xmpp_connection(message)
+		self._close_irc_connection(message)
+		self.nickname = None
+	
+	
+	def _close_xmpp_connection(self, message):
 		if isinstance(self.xmpp_c, xmpp.client.Client):
 			self.muc.leave(auto_decode(message))
 			self.bridge.bot.close_xmpp_connection(self.nickname)
+	
+	
+	def _close_irc_connection(self, message):
 		if isinstance(self.irc_connection, ServerConnection):
 			if self.irc_connection.really_connected == True:
 				self.irc_connection.part(self.bridge.irc_room, message=message)
@@ -222,7 +231,6 @@ class participant:
 			if self.irc_connection.used_by < 1:
 				self.irc_connection.close(message)
 			self.irc_connection = None
-		self.nickname = None
 	
 	
 	def __del__(self):
