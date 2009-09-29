@@ -159,16 +159,27 @@ class participant:
 	
 	def sayOnIRC(self, message):
 		try:
+			bot_say = False
+			if message[:4] == '/me ':
+				action = True
+				message = message[4:]
+			else:
+				action = False
 			if isinstance(self.irc_connection, ServerConnection):
 				try:
-					if message[:4] == '/me ':
-						self.irc_connection.action(self.bridge.irc_room, message[4:])
+					if action:
+						self.irc_connection.action(self.bridge.irc_room, message)
 					else:
 						self.irc_connection.privmsg(self.bridge.irc_room, message)
 				except ServerNotConnectedError:
-					self.bridge.irc_connection.privmsg(self.bridge.irc_room, '<'+self.nickname+'> '+message)
+					bot_say = True
 			elif not isinstance(self.xmpp_c, xmpp.client.Client):
-				self.bridge.irc_connection.privmsg(self.bridge.irc_room, '<'+self.nickname+'> '+message)
+				bot_say = True
+			if bot_say:
+				if action:
+					self.bridge.irc_connection.privmsg(self.bridge.irc_room, '* '+self.nickname+' '+message)
+				else:
+					self.bridge.irc_connection.privmsg(self.bridge.irc_room, '<'+self.nickname+'> '+message)
 		except EncodingException:
 			self.bridge.say('[Warning] "'+self.nickname+'" is sending messages using an unknown encoding')
 	
@@ -191,7 +202,10 @@ class participant:
 			if isinstance(self.xmpp_c, xmpp.client.Client):
 				self.muc.say(auto_decode(message))
 			elif not isinstance(self.irc_connection, ServerConnection):
-				self.bridge.xmpp_room.say('<'+self.nickname+'> '+auto_decode(message))
+				if message[:4] == '/me ':
+					self.bridge.xmpp_room.say('* '+self.nickname+' '+auto_decode(message[4:]))
+				else:
+					self.bridge.xmpp_room.say('<'+self.nickname+'> '+auto_decode(message))
 		except EncodingException:
 			self.bridge.say('[Warning] "'+self.nickname+'" is sending messages using an unknown encoding')
 	
