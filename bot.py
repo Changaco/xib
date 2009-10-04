@@ -225,7 +225,8 @@ class bot(Thread):
 							
 						else:
 							# participant left
-							bridge.removeParticipant('xmpp', resource, presence.getStatus())
+							if p != None:
+								bridge.removeParticipant('xmpp', resource, presence.getStatus())
 					
 					elif resource != bridge.bot.nickname:
 						bridge.addParticipant('xmpp', resource)
