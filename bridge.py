@@ -133,7 +133,7 @@ class bridge:
 		try:
 			p = self.getParticipant(nickname)
 			if p.protocol != from_protocol:
-				if from_protocol == 'irc' and isinstance(p.irc_connection, ServerConnection) and p.irc_connection.really_connected == True or from_protocol == 'xmpp' and isinstance(p.muc, xmpp.muc) and p.muc.connected == True:
+				if from_protocol == 'irc' and isinstance(p.irc_connection, ServerConnection) and p.irc_connection.really_connected == True or from_protocol == 'xmpp' and isinstance(p.xmpp_c, xmpp.client.Client) and isinstance(p.muc, xmpp.muc):
 					return
 				self.bot.error('===> Debug: "'+nickname+'" is on both sides of bridge "'+str(self)+'"', debug=True)
 				self.say('[Warning] The nickname "'+nickname+'" is used on both sides of the bridge, please avoid that if possible')
@@ -149,6 +149,7 @@ class bridge:
 			return
 		except NoSuchParticipantException:
 			pass
+		self.lock.acquire()
 		self.bot.error('===> Debug: adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'"', debug=True)
 		try:
 			p = participant(self, from_protocol, nickname)
@@ -160,6 +161,7 @@ class bridge:
 			traceback.print_exc()
 			return
 		self.participants.append(p)
+		self.lock.release()
 		if self.mode != 'normal' and from_protocol == 'xmpp':
 			xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
 			self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
