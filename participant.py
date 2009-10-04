@@ -60,11 +60,11 @@ class participant:
 					self.bridge.say('[Warning] The nickname "'+self.nickname+'" is used on both rooms or reserved on the XMPP server, please avoid that if possible')
 					if self.muc.connected == True:
 						self.muc.leave('Changed nickname to "'+self.nickname+'"')
-					self.bridge.bot.close_xmpp_connection(self.nickname)
-					self.xmpp_c = None
 				except xmpp.muc.RoomIsFull:
 					self.bridge.bot.error('[Warning] XMPP MUC of bridge "'+str(self.bridge)+'" is full', send_to_admins=True)
 					self.bridge.say('[Warning] XMPP room is full')
+				
+				if isinstance(self.xmpp_c, xmpp.client.Client):
 					self.bridge.bot.close_xmpp_connection(self.nickname)
 					self.xmpp_c = None
 	
@@ -85,33 +85,22 @@ class participant:
 			if error == 'nicknameinuse':
 				self.bridge.bot.error('===> Debug: "'+self.nickname+'" is used or reserved on the IRC server of bridge "'+str(self.bridge)+'"', debug=True)
 				self.bridge.say('[Warning] The nickname "'+self.nickname+'" is used or reserved on the IRC server, please avoid that if possible')
-				if isinstance(self.irc_connection, ServerConnection):
-					self.irc_connection.close('')
-					self.irc_connection = error
 			elif error == 'nickcollision':
 				self.bridge.bot.error('===> Debug: "'+self.nickname+'" is used or reserved on the IRC server of bridge "'+str(self.bridge)+'"', debug=True)
 				self.bridge.say('[Warning] The nickname "'+self.nickname+'" is used or reserved on the IRC server, please avoid that if possible')
-				if isinstance(self.irc_connection, ServerConnection):
-					self.irc_connection.close('')
-					self.irc_connection = error
 			elif error == 'erroneusnickname':
 				self.bridge.bot.error('===> Debug: "'+self.nickname+'" got "erroneusnickname" on bridge "'+str(self.bridge)+'"', debug=True)
 				self.bridge.say('[Warning] The nickname "'+self.nickname+'" contains unauthorized characters and cannot be used in the IRC channel, please avoid that if possible')
-				if isinstance(self.irc_connection, ServerConnection):
-					self.irc_connection.close('')
-					self.irc_connection = error
 			elif error == 'nicknametoolong':
 				self.bridge.bot.error('===> Debug: "'+self.nickname+'" got "nicknametoolong" on bridge "'+str(self.bridge)+'"', debug=True)
 				self.bridge.say('[Warning] The nickname "'+self.nickname+'" is too long (limit seems to be '+str(arguments[0])+') and cannot be used in the IRC channel, please avoid that if possible')
-				if isinstance(self.irc_connection, ServerConnection):
-					self.irc_connection.close('')
-					self.irc_connection = error
 			else:
 				self.bridge.bot.error('===> Debug: unknown error while adding "'+self.nickname+'" to IRC side of bridge "'+str(self.bridge)+'"', debug=True)
 				self.bridge.say('[Warning] unknown error while adding "'+self.nickname+'" to IRC side of bridge')
-				if isinstance(self.irc_connection, ServerConnection):
-					self.irc_connection.close('')
-					self.irc_connection = error
+			
+			if isinstance(self.irc_connection, ServerConnection):
+				self.irc_connection.close('')
+				self.irc_connection = error
 	
 	
 	def changeNickname(self, newnick, on_protocol):
@@ -127,8 +116,14 @@ class participant:
 			else:
 				self.nickname = newnick
 				if isinstance(self.irc_connection, ServerConnection):
-					self.irc_connection.nick(newnick, callback=self._irc_nick_callback)
+					if self.irc_connection.used_by == 1:
+						self.irc_connection.nick(newnick, callback=self._irc_nick_callback)
+					else:
+						self._close_irc_connection(self, 'Changed nickname')
+						self.createDuplicateOnIRC()
 				else:
+					if self.irc_connection == 'both':
+						self.bridge.addParticipant('irc', oldnick)
 					self.createDuplicateOnIRC()
 		
 		elif self.protocol == 'irc':
@@ -138,7 +133,7 @@ class participant:
 			
 			else:
 				self.nickname = newnick
-				if self.muc != None:
+				if isinstance(self.xmpp_c, xmpp.client.Client):
 					for b in self.bridge.bot.bridges:
 						if b.hasParticipant(oldnick) and b.irc_server != self.bridge.irc_server:
 							self.muc.leave(message='Changed nickname to "'+self.nickname+'"')
@@ -154,6 +149,8 @@ class participant:
 					
 					self.muc.change_nick(newnick, status='From IRC', callback=self._xmpp_join_callback)
 				else:
+					if self.xmpp_c == 'both':
+						self.bridge.addParticipant('xmpp', oldnick)
 					self.createDuplicateOnXMPP()
 	
 	
@@ -245,6 +242,15 @@ class participant:
 			if self.irc_connection.used_by < 1:
 				self.irc_connection.close(message)
 			self.irc_connection = None
+	
+	
+	def __str__(self):
+		r = 'self.protocol='+str(self.protocol)+'\n'+'self.nickname='+str(self.nickname)
+		if isinstance(self.irc_connection, ServerConnection):
+			r += '\nself.irc_connection='+str(self.irc_connection)+'\n'+'self.irc_connection.really_connected='+str(self.irc_connection.really_connected)
+		if isinstance(self.xmpp_c, xmpp.client.Client):
+			r += '\nself.muc.connected='+str(self.muc.connected)
+		return r
 	
 	
 	def __del__(self):
