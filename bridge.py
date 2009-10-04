@@ -212,7 +212,15 @@ class bridge:
 				elif left_protocol == 'irc':
 					p.createDuplicateOnIRC()
 			else:
-				was_on_both = False
+				if left_protocol == 'xmpp':
+					was_on_both = False
+				elif left_protocol == 'irc':
+					try:
+						p.irc_connection.join(self.irc_room)
+					except:
+						p._close_irc_connection()
+						p.createDuplicateOnIRC()
+					return
 		
 		elif p.protocol == 'irc':
 			if p.xmpp_c == 'both':
@@ -223,7 +231,12 @@ class bridge:
 				elif left_protocol == 'xmpp':
 					p.createDuplicateOnXMPP()
 			else:
-				was_on_both = False
+				if left_protocol == 'irc':
+					was_on_both = False
+				elif left_protocol == 'xmpp':
+					if isinstance(p.xmpp_c, xmpp.client.Client):
+						self.bot.reopen_xmpp_connection(p.xmpp_c)
+					return
 		
 		else:
 			raise Exception('[Internal Error] bad protocol')

@@ -105,9 +105,7 @@ class bot(Thread):
 				self.error('=> Debug: invalid stanza', debug=True)
 				unlock = True
 			except xmpp.Conflict:
-				c.reconnectAndReauth()
-				for m in c.mucs:
-					m.rejoin()
+				self.reopen_xmpp_connection(c)
 				unlock = True
 			except:
 				error = '[Error] Unkonwn exception on XMPP thread:\n'
@@ -641,6 +639,31 @@ class bot(Thread):
 		c.sendInitPresence()
 		c.lock.release()
 		return c
+	
+	
+	def reopen_xmpp_connection(self, c):
+		if not isinstance(c, xmpp.client.Client):
+			return
+		mucs = c.mucs
+		nickname = c.nickname
+		used_by = c.used_by
+		participants = []
+		for b in self.bridges:
+			for p in b.participants:
+				if p.xmpp_c == c:
+					participants.append(p)
+					p.xmpp_c = None
+		self.error('===> Debug: reopening XMPP connection for "'+nickname+'"', debug=True)
+		self.xmpp_connections.pop(nickname)
+		c.send(xmpp.protocol.Presence(typ='unavailable'))
+		del c
+		c = self.get_xmpp_connection(nickname)
+		c.used_by = used_by
+		for p in participants:
+			p.xmpp_c = c
+		c.mucs = mucs
+		for m in c.mucs:
+			m.rejoin()
 	
 	
 	def close_xmpp_connection(self, nickname):
