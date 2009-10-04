@@ -144,21 +144,13 @@ class bot(Thread):
 				
 				else:
 					# presence comes from a participant of the muc
-					try:
-						p = None
-						p = bridge.getParticipant(resource)
-						
-					except NoSuchParticipantException:
-						if presence.getType() != 'unavailable' and resource != bridge.bot.nickname:
-							bridge.addParticipant('xmpp', resource)
-							return
-						elif resource == bridge.bot.nickname:
-							pass
-						else:
-							return
-					
 					
 					if presence.getType() == 'unavailable':
+						try:
+							p = bridge.getParticipant(resource)
+						except NoSuchParticipantException:
+							p = None
+						
 						x = presence.getTag('x', namespace='http://jabber.org/protocol/muc#user')
 						item = None
 						if x:
@@ -234,6 +226,10 @@ class bot(Thread):
 						else:
 							# participant left
 							bridge.removeParticipant('xmpp', resource, presence.getStatus())
+					
+					elif resource != bridge.bot.nickname:
+						bridge.addParticipant('xmpp', resource)
+						return
 					
 				return
 	
@@ -527,7 +523,6 @@ class bot(Thread):
 				return
 			
 			if event.eventtype() == 'namreply':
-				# TODO: lock self.bridges for thread safety
 				for bridge in self.getBridges(irc_room=event.arguments()[1].lower(), irc_server=connection.server):
 					for nickname in re.split('(?:^[&@\+%]?|(?: [&@\+%]?)*)', event.arguments()[2].strip()):
 						if nickname == '' or nickname == self.nickname:
@@ -607,6 +602,7 @@ class bot(Thread):
 	
 	
 	def getBridges(self, irc_room=None, irc_server=None, xmpp_room_jid=None):
+		# TODO: lock self.bridges for thread safety
 		bridges = [b for b in self.bridges]
 		for bridge in [b for b in bridges]:
 			if irc_room != None and bridge.irc_room != irc_room:
