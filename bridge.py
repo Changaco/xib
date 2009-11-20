@@ -162,9 +162,13 @@ class bridge:
 			return
 		self.participants.append(p)
 		self.lock.release()
-		if self.mode != 'normal' and from_protocol == 'xmpp':
-			xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
-			self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
+		if self.mode != 'normal':
+			if from_protocol == 'xmpp':
+				xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
+				self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
+			elif self.mode == 'minimal' and from_protocol == 'irc':
+				irc_participants_nicknames = self.get_participants_nicknames_list(protocols=['irc'])
+				self.say('[Info] Participants on IRC: '+'  '.join(irc_participants_nicknames), on_irc=False)
 		return p
 	
 	
