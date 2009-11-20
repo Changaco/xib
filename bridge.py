@@ -86,7 +86,7 @@ class bridge:
 			self.say('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode', on_xmpp=False)
 		else:
 			self.mode = None
-			if self.muc.connected == True:
+			if self.xmpp_room.connected == True:
 				self.say('[Error] failed to connect to the IRC chan, leaving ...', on_irc=False)
 			try:
 				if error == 'nicknameinuse':

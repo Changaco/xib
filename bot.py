@@ -83,10 +83,8 @@ class bot(Thread):
 			try:
 				if len(self.xmpp_connections) == 1:
 					sleep(0.5)  # avoid bot connection being locked all the time
-				j = 0
-				for c in self.xmpp_connections.itervalues():
+				for j, c in enumerate(self.xmpp_connections.itervalues()):
 					i += 1
-					j += 1
 					if hasattr(c, 'lock'):
 						c.lock.acquire()
 						if i == j:
@@ -103,12 +101,14 @@ class bot(Thread):
 				pass
 			except (xml.parsers.expat.ExpatError, xmpp.protocol.XMLNotWellFormed):
 				self.error('=> Debug: invalid stanza', debug=True)
+				self.reopen_xmpp_connection(c)
 				unlock = True
 			except xmpp.Conflict:
+				self.error('=> Debug: conflict', debug=True)
 				self.reopen_xmpp_connection(c)
 				unlock = True
 			except:
-				error = '[Error] Unkonwn exception on XMPP thread:\n'
+				error = '[Error] Unknown exception on XMPP thread:\n'
 				error += traceback.format_exc()
 				self.error(error, send_to_admins=True)
 				unlock = True
