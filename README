@@ -2,13 +2,10 @@
 
 This is the first release of xib so some things are not implemented yet, if you want/need an error-safe bot, don't use this one !
 
-Here is the list of the important things that still need to be implemented:
-- handle kicks
-
-and a list of features that should be implemented but are not critical for usual use case:
+Here is the list of things that still need to be implemented:
+- handle cross-protocol kicks
 - split logs into multiple files
 - handle password-protected rooms
-- handle room deletion and muc server reboot
 
 xib includes its own version of the old irclib.py <http://python-irclib.sourceforge.net/> because this library doesn't correctly handle the different character encodings, I'm sorry about it but I don't have time to contribute to the upstream version right now, I don't know if it still has developers anyway
 
@@ -16,6 +13,7 @@ xib includes its own version of the old irclib.py <http://python-irclib.sourcefo
 > xib dependencies:
 - python 2.6
 - xmppony 0.1
+- argparse (added in xib 0.2 for the new command system)
 
 
 > Contributors:
@@ -23,6 +21,13 @@ Changaco <changaco@changaco.net>
 
 
 > Changelog:
+0.2:
+ - fixed many many bugs
+ - new command system
+ - rejoin on kick and leave on ban
+ - added an ugly ping mechanism to keep the connections open
+ - don't create an XMPP duplicate of ChanServ
+ - "/me" handling
 0.1.1:
  - fixed bug that prevented the bot from connecting to freenode and all other servers that don't send "umode"
  - added optional parameter to start_bots_from_xml_config.py
