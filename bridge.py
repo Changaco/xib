@@ -37,6 +37,7 @@ class bridge:
 	_warning = 3
 	_error = 4
 	_nothing = 5
+	_say_levels = ['all', 'info', 'notice', 'warning', 'error', 'nothing']
 	_modes = ['normal', 'limited', 'minimal']
 	
 	
@@ -46,6 +47,7 @@ class bridge:
 		self.irc_server = irc_server
 		self.irc_port = irc_port
 		self.irc_room = irc_room.lower()
+		self.xmpp_room_jid = xmpp_room_jid
 		if hasattr(self.__class__, '_'+say_level):
 			self.say_level = getattr(self.__class__, '_'+say_level)
 		else:
@@ -57,9 +59,13 @@ class bridge:
 		
 		self.lock = threading.RLock()
 		
+		self.init2()
+	
+	
+	def init2(self):
 		# Join XMPP room
 		try:
-			self.xmpp_room = xmpp.muc(xmpp_room_jid)
+			self.xmpp_room = xmpp.muc(self.xmpp_room_jid)
 			self.xmpp_room.join(self.bot.xmpp_c, self.bot.nickname, callback=self._xmpp_join_callback)
 		except:
 			self.bot.error('[Error] joining XMPP room failed')
@@ -68,13 +74,13 @@ class bridge:
 		# Join IRC room
 		try:
 			self.irc_connections_limit = -1
-			self.irc_connection = self.bot.irc.server(irc_server, irc_port, self.bot.nickname)
+			self.irc_connection = self.bot.irc.server(self.irc_server, self.irc_port, self.bot.nickname)
 			self.irc_connection.connect(nick_callback=self._irc_nick_callback)
 		except:
 			self.bot.error('[Error] joining IRC room failed')
 			raise
 		
-		self.bot.error('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode and a say_level of "'+say_level+'"')
+		self.bot.error('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode and a say_level of "'+self._say_levels[self.say_level]+'"')
 	
 	
 	def _irc_nick_callback(self, error, arguments=[]):
@@ -125,7 +131,7 @@ class bridge:
 			self.bot.removeBridge(self)
 	
 	
-	def addParticipant(self, from_protocol, nickname):
+	def addParticipant(self, from_protocol, nickname, real_jid=None):
 		"""Add a participant to the bridge."""
 		if (from_protocol == 'irc' and nickname == self.irc_connection.get_nickname()) or (from_protocol == 'xmpp' and nickname == self.xmpp_room.nickname):
 			self.bot.error('===> Debug: not adding self ('+self.bot.nickname+') to bridge "'+str(self)+'"', debug=True)
@@ -152,7 +158,7 @@ class bridge:
 		self.lock.acquire()
 		self.bot.error('===> Debug: adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'"', debug=True)
 		try:
-			p = participant(self, from_protocol, nickname)
+			p = participant(self, from_protocol, nickname, real_jid=real_jid)
 		except IOError:
 			self.bot.error('===> Debug: IOError while adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'", reconnectiong ...', debug=True)
 			p.xmpp_c.reconnectAndReauth()
@@ -270,6 +276,16 @@ class bridge:
 			self.bot.error('=> Debug: Bad decision tree,  p.protocol='+p.protocol+'  left_protocol='+left_protocol+'\np.xmpp_c='+str(p.xmpp_c)+'\np.irc_connection='+str(p.irc_connection), debug=True)
 	
 	
+	def restart(self):
+		"""Restart the bridge"""
+		
+		# Stop the bridge
+		self.stop(message='Restarting bridge')
+		
+		# Recreate the bridge
+		self.init2()
+	
+	
 	def say(self, message, on_irc=True, on_xmpp=True):
 		"""Make the bot say something."""
 		if message[0] != '[':
@@ -286,6 +302,28 @@ class bridge:
 			self.xmpp_room.say(message)
 		if on_irc == True:
 			self.irc_connection.privmsg(self.irc_room, message)
+	
+	
+	def stop(self, message='Stopping bridge'):
+		"""Stop the bridge"""
+		
+		# Close IRC connection if not used by an other bridge, just leave the room otherwise
+		self.irc_connection.used_by -= 1
+		if self.irc_connection.used_by < 1:
+			self.irc_connection.close(message)
+		else:
+			self.irc_connection.part(self.irc_room, message=message)
+		
+		# Leave the MUC
+		self.xmpp_room.leave(message=message)
+		self.xmpp_room.__del__()
+		del self.xmpp_room
+		
+		# Delete participants objects
+		for p in self.participants:
+			p.leave(message)
+			del p
+		self.participants = []
 	
 	
 	def switchFromLimitedToNormalMode(self):
@@ -318,22 +356,8 @@ class bridge:
 	
 	
 	def __str__(self):
-		return self.irc_room+'@'+self.irc_server+' <-> '+self.xmpp_room.room_jid
+		return self.irc_room+'@'+self.irc_server+' <-> '+self.xmpp_room_jid
 	
 	
 	def __del__(self):
-		# Delete participants objects
-		for p in self.participants:
-			p.leave('Removing bridge')
-			del p
-		del self.participants
-		
-		# Close IRC connection if not used by an other bridge, just leave the room otherwise
-		self.irc_connection.used_by -= 1
-		if self.irc_connection.used_by < 1:
-			self.irc_connection.close('Removing bridge')
-		else:
-			self.irc_connection.part(self.irc_room, message='Removing bridge')
-		
-		# Leave XMPP room
-		self.xmpp_room.leave('Removing bridge')
+		self.stop(message='Removing bridge')
