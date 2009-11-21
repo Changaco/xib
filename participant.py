@@ -25,7 +25,9 @@ from time import sleep
 
 
 class participant:
-	def __init__(self, owner_bridge, protocol, nickname):
+	def __init__(self, owner_bridge, protocol, nickname, real_jid=None):
+		self.bot_admin = False
+		self.real_jid = real_jid
 		self.bridge = owner_bridge
 		self.protocol = protocol
 		self.nickname = nickname
@@ -44,7 +46,7 @@ class participant:
 		if isinstance(self.xmpp_c, xmpp.client.Client) or isinstance(self.irc_connection, ServerConnection) or self.bridge.mode == 'minimal' or self.nickname == 'ChanServ':
 			return
 		self.xmpp_c = self.bridge.bot.get_xmpp_connection(self.nickname)
-		self.muc = xmpp.muc(self.bridge.xmpp_room.room_jid)
+		self.muc = xmpp.muc(self.bridge.xmpp_room_jid)
 		self.muc.join(self.xmpp_c, self.nickname, status='From IRC', callback=self._xmpp_join_callback)
 	
 	

@@ -33,13 +33,17 @@ import re
 import sys
 import xml.parsers.expat
 import traceback
+from argparse_modified import *
+import shlex
 
 
 class bot(Thread):
+
+	commands = ['xmpp_participants', 'irc_participants', 'bridges']
+	admin_commands = ['add-bridge', 'add-xmpp-admin', 'halt', 'remove-bridge', 'restart-bot', 'restart-bridge']
 	
 	def __init__(self, jid, password, nickname, admins_jid=[], error_fd=sys.stderr, debug=False):
 		Thread.__init__(self)
-		self.commands = ['!xmpp_participants', '!irc_participants']
 		self.bare_jid = xmpp.protocol.JID(jid=jid)
 		self.bare_jid.setResource('')
 		self.nickname = nickname
@@ -131,7 +135,7 @@ class bot(Thread):
 		from_ = xmpp.protocol.JID(presence.getFrom())
 		bare_jid = unicode(from_.getNode()+'@'+from_.getDomain())
 		for bridge in self.bridges:
-			if bare_jid == bridge.xmpp_room.room_jid:
+			if bare_jid == bridge.xmpp_room_jid:
 				# presence comes from a muc
 				resource = unicode(from_.getResource())
 				
@@ -143,16 +147,17 @@ class bot(Thread):
 				else:
 					# presence comes from a participant of the muc
 					
+					x = presence.getTag('x', namespace='http://jabber.org/protocol/muc#user')
+					item = None
+					if x:
+						item = x.getTag('item')
+					
 					if presence.getType() == 'unavailable':
 						try:
 							p = bridge.getParticipant(resource)
 						except NoSuchParticipantException:
 							p = None
 						
-						x = presence.getTag('x', namespace='http://jabber.org/protocol/muc#user')
-						item = None
-						if x:
-							item = x.getTag('item')
 						if x and x.getTag('status', attrs={'code': '303'}):
 							# participant changed its nickname
 							if p == None:
@@ -227,7 +232,19 @@ class bot(Thread):
 								bridge.removeParticipant('xmpp', resource, presence.getStatus())
 					
 					elif resource != bridge.bot.nickname:
-						bridge.addParticipant('xmpp', resource)
+						real_jid = None
+						if item and item.has_attr('jid'):
+							real_jid = item.getAttr('jid')
+						
+						p = bridge.addParticipant('xmpp', resource, real_jid)
+						
+						# if we have the real jid check if the participant is a bot admin
+						if real_jid:
+							for jid in self.admins_jid:
+								if xmpp.protocol.JID(jid).bareMatch(real_jid):
+									p.bot_admin = True
+									break
+						
 						return
 					
 				return
@@ -257,12 +274,13 @@ class bot(Thread):
 			return
 		
 		if message.getType() == 'chat':
-			self.error('==> Debug: Received XMPP chat message.', debug=True)
-			self.error(message.__str__(fancy=1), debug=True)
 			from_bare_jid = unicode(message.getFrom().getNode()+'@'+message.getFrom().getDomain())
 			for bridge in self.bridges:
-				if from_bare_jid == bridge.xmpp_room.room_jid:
+				if from_bare_jid == bridge.xmpp_room_jid:
 					# message comes from a room participant
+					
+					self.error('==> Debug: Received XMPP chat message.', debug=True)
+					self.error(message.__str__(fancy=1), debug=True)
 					
 					try:
 						from_ = bridge.getParticipant(message.getFrom().getResource())
@@ -272,10 +290,40 @@ class bot(Thread):
 						
 					except NoSuchParticipantException:
 						if xmpp_c.nickname == self.nickname:
-							xmpp_c.send(xmpp.protocol.Message(to=message.getFrom(), body=self.respond(message.getBody(), participant=from_), typ='chat'))
+							r = self.respond(str(message.getBody()), participant_=from_)
+							if isinstance(r, basestring) and len(r) > 0:
+								s = xmpp.protocol.Message(to=message.getFrom(), body=r, typ='chat')
+								self.error('==> Debug: Sending', debug=True)
+								self.error(s.__str__(fancy=1), debug=True)
+								xmpp_c.send(s)
+							else:
+								self.error('=> Debug: won\'t answer.', debug=True)
 							return
 						self.error('=> Debug: XMPP chat message not relayed', debug=True)
 						return
+			
+			# message does not come from a room
+			if xmpp_c.nickname == self.nickname:
+				self.error('==> Debug: Received XMPP chat message.', debug=True)
+				self.error(message.__str__(fancy=1), debug=True)
+				
+				# Find out if the message comes from a bot admin
+				bot_admin = False
+				for jid in self.admins_jid:
+					if xmpp.protocol.JID(jid).bareMatch(message.getFrom()):
+						bot_admin = True
+						break
+				
+				# Respond
+				r = self.respond(str(message.getBody()), bot_admin=bot_admin)
+				if isinstance(r, basestring) and len(r) > 0:
+					s = xmpp.protocol.Message(to=message.getFrom(), body=r, typ='chat')
+					self.error('==> Debug: Sending', debug=True)
+					self.error(s.__str__(fancy=1), debug=True)
+					xmpp_c.send(s)
+			
+			else:
+				self.error('=> Debug: Ignoring XMPP chat message not received on bot connection.', debug=True)
 		
 		elif message.getType() == 'groupchat':
 			# message comes from a room
@@ -298,7 +346,7 @@ class bot(Thread):
 			
 			room_jid = unicode(from_.getNode()+'@'+from_.getDomain())
 			for bridge in self.bridges:
-				if room_jid == bridge.xmpp_room.room_jid:
+				if room_jid == bridge.xmpp_room_jid:
 					resource = unicode(from_.getResource())
 					if resource == '':
 						# message comes from the room itself
@@ -600,6 +648,17 @@ class bot(Thread):
 		return b
 	
 	
+	def findBridges(self, str_array):
+		# TODO: lock self.bridges for thread safety
+		bridges = [b for b in self.bridges]
+		for bridge in [b for b in bridges]:
+			for s in str_array:
+				if not s in str(bridge):
+					bridges.remove(bridge)
+					break
+		return bridges
+	
+	
 	def getBridges(self, irc_room=None, irc_server=None, xmpp_room_jid=None):
 		# TODO: lock self.bridges for thread safety
 		bridges = [b for b in self.bridges]
@@ -610,7 +669,7 @@ class bot(Thread):
 			if irc_server != None and bridge.irc_server != irc_server:
 				bridges.remove(bridge)
 				continue
-			if xmpp_room_jid != None and bridge.xmpp_room.room_jid != xmpp_room_jid:
+			if xmpp_room_jid != None and bridge.xmpp_room_jid != xmpp_room_jid:
 				bridges.remove(bridge)
 				continue
 		return bridges
@@ -637,6 +696,8 @@ class bot(Thread):
 		c.RegisterHandler('iq', self._xmpp_iq_handler)
 		c.RegisterHandler('message', self._xmpp_message_handler)
 		c.sendInitPresence()
+		if nickname == self.nickname:
+			c.send(xmpp.protocol.Presence(priority=127))
 		c.lock.release()
 		return c
 	
@@ -644,6 +705,9 @@ class bot(Thread):
 	def reopen_xmpp_connection(self, c):
 		if not isinstance(c, xmpp.client.Client):
 			return
+		bot_connection = False
+		if c == self.xmpp_c:
+			bot_connection = True
 		mucs = c.mucs
 		nickname = c.nickname
 		used_by = c.used_by
@@ -659,6 +723,8 @@ class bot(Thread):
 		del c
 		c = self.get_xmpp_connection(nickname)
 		c.used_by = used_by
+		if bot_connection:
+			self.xmpp_c = c
 		for p in participants:
 			p.xmpp_c = c
 		c.mucs = mucs
@@ -688,28 +754,146 @@ class bot(Thread):
 		bridge.__del__()
 	
 	
-	def respond(self, message, participant=None):
+	def respond(self, message, participant_=None, bot_admin=False):
 		ret = ''
-		if message.strip() == '!xmpp_participants':
-			if participant == None:
-				for bridge in self.bridges:
-					xmpp_participants_nicknames = bridge.get_participants_nicknames_list(protocols=['xmpp'])
-					ret += '\nparticipants on '+bridge.xmpp_room.room_jid+': '+' '.join(xmpp_participants_nicknames)
+		command = shlex.split(message)
+		args_array = []
+		if len(command) > 1:
+			args_array = command[1:]
+		command = command[0]
+		
+		if isinstance(participant_, participant) and bot_admin != participant_.bot_admin:
+			bot_admin = participant_.bot_admin
+		
+		if command == 'xmpp_participants':
+			if not isinstance(participant_, participant):
+				for b in self.bridges:
+					xmpp_participants_nicknames = b.get_participants_nicknames_list(protocols=['xmpp'])
+					ret += '\nparticipants on '+b.xmpp_room_jid+' ('+str(len(xmpp_participants_nicknames))+'): '+' '.join(xmpp_participants_nicknames)
 				return ret
 			else:
-				xmpp_participants_nicknames = participant.bridge.get_participants_nicknames_list(protocols=['xmpp'])
-				return 'participants on '+participant.bridge.xmpp_room.room_jid+': '+' '.join(xmpp_participants_nicknames)
-		elif message.strip() == '!irc_participants':
-			if participant == None:
-				for bridge in self.bridges:
-					irc_participants_nicknames = bridge.get_participants_nicknames_list(protocols=['irc'])
-					ret += '\nparticipants on '+bridge.irc_room+' at '+bridge.irc_server+': '+' '.join(irc_participants_nicknames)
+				xmpp_participants_nicknames = participant_.bridge.get_participants_nicknames_list(protocols=['xmpp'])
+				return 'participants on '+participant_.bridge.xmpp_room_jid+' ('+str(len(xmpp_participants_nicknames))+'): '+' '.join(xmpp_participants_nicknames)
+		
+		elif command == 'irc_participants':
+			if not isinstance(participant_, participant):
+				for b in self.bridges:
+					irc_participants_nicknames = b.get_participants_nicknames_list(protocols=['irc'])
+					ret += '\nparticipants on '+b.irc_room+' at '+b.irc_server+' ('+str(len(irc_participants_nicknames))+'): '+' '.join(irc_participants_nicknames)
 				return ret
 			else:
-				irc_participants_nicknames = participant.bridge.get_participants_nicknames_list(protocols=['irc'])
-				return 'participants on '+participant.bridge.irc_room+' at '+participant.bridge.irc_server+': '+' '.join(irc_participants_nicknames)
+				irc_participants_nicknames = participant_.bridge.get_participants_nicknames_list(protocols=['irc'])
+				return 'participants on '+participant_.bridge.irc_room+' at '+participant_.bridge.irc_server+' ('+str(len(irc_participants_nicknames))+'): '+' '.join(irc_participants_nicknames)
+		
+		elif command == 'bridges':
+			parser = ArgumentParser(prog=command)
+			parser.add_argument('--show-mode', default=False, action='store_true')
+			try:
+				args = parser.parse_args(args_array)
+			except ParseException as e:
+				return '\n'+e.args[1]
+			ret = 'List of bridges:'
+			for i, b in enumerate(self.bridges):
+				ret += '\n'+str(i+1)+' - '+str(b)
+				if args.show_mode:
+					ret += ' - '+b.mode+' mode'
+			return ret
+		
+		elif command in bot.admin_commands:
+			if bot_admin == False:
+				return 'You have to be a bot admin to use this command.'
+			
+			if command == 'add-bridge':
+				parser = ArgumentParser(prog=command)
+				parser.add_argument('xmpp_room_jid', type=str)
+				parser.add_argument('irc_chan', type=str)
+				parser.add_argument('irc_server', type=str)
+				parser.add_argument('--mode', choices=bridge._modes, default='normal')
+				parser.add_argument('--say-level', choices=bridge._say_levels, default='all')
+				parser.add_argument('--irc-port', type=int, default=6667)
+				try:
+					args = parser.parse_args(args_array)
+				except ParseException as e:
+					return '\n'+e.args[1]
+				
+				self.new_bridge(args.xmpp_room_jid, args.irc_chan, args.irc_server, args.mode, args.say_level, irc_port=args.irc_port)
+				
+				return 'Bridge added.'
+			
+			elif command == 'add-xmpp-admin':
+				parser = ArgumentParser(prog=command)
+				parser.add_argument('jid', type=str)
+				try:
+					args = parser.parse_args(args_array)
+				except ParseException as e:
+					return '\n'+e.args[1]
+				self.admins_jid.append(args.jid)
+				for b in self.bridges:
+					for p in b.participants:
+						if p.real_jid != None and xmpp.protocol.JID(args.jid).bareMatch(p.real_jid):
+							p.bot_admin = True
+				
+				return 'XMPP admin added.'
+				
+			elif command == 'restart-bot':
+				self.restart()
+				return 'Bot restarted.'
+			elif command == 'halt':
+				self.__del__()
+			
+			
+			elif command in ['remove-bridge', 'restart-bridge']:
+				# we need to know which bridge the command is for
+				if len(args_array) == 0:
+					if isinstance(participant_, participant):
+						b = participant_.bridge
+					else:
+						return 'You must specify a bridge. '+self.respond('bridges')
+				else:
+					try:
+						bn = int(args_array[0])
+						if bn < 1:
+							raise IndexError
+						b = self.bridges[bn-1]
+					except IndexError:
+						return 'Invalid bridge number "'+str(bn)+'". '+self.respond('bridges')
+					except ValueError:
+						bridges = self.findBridges(args_array)
+						if len(bridges) == 0:
+							return 'No bridge found matching "'+' '.join(args_array)+'". '+self.respond('bridges')
+						elif len(bridges) == 1:
+							b = bridges[0]
+						elif len(bridges) > 1:
+							return 'More than one bridge matches "'+' '.join(args_array)+'", please be more specific. '+self.respond('bridges')
+					
+				if command == 'remove-bridge':
+					self.removeBridge(b)
+					return 'Bridge removed.'
+				elif command == 'restart-bridge':
+					b.restart()
+					return 'Bridge restarted.'
+		
 		else:
-			return 'commands: '+' '.join(self.commands)
+			ret = 'Error: "'+command+'" is not a valid command.\ncommands:  '+'  '.join(bot.commands)
+			if bot_admin == True:
+				return ret+'\n'+'admin commands:  '+'  '.join(bot.admin_commands)
+			else:
+				return ret
+	
+	
+	def restart(self):
+		# Stop the bridges
+		for b in self.bridges:
+			b.stop(message='Restarting bridge')
+		
+		# Reopen the bot's XMPP connection
+		self.reopen_xmpp_connection(self.xmpp_c)
+		
+		# Restart the bridges
+		for b in self.bridges:
+			b.init2()
+		
+		sleep(1)
 	
 	
 	def __del__(self):
