@@ -367,6 +367,33 @@ class bot(Thread):
 						participant_.sayOnIRC(message.getBody())
 						return
 		
+		elif message.getType() == 'error':
+			for b in self.bridges:
+				if message.getFrom() == b.xmpp_room_jid:
+					# message comes from a room
+					for c in message.getChildren():
+						if c.getName() == 'error':
+							for cc in c.getChildren():
+								if cc.getNamespace() == 'urn:ietf:params:xml:ns:xmpp-stanzas' and cc.getName() != 'text':
+									err = cc.getName()
+									if err == 'not-acceptable':
+										# we sent a message to a room we are not in
+										# probable cause is a MUC server restart
+										# let's restart the bot
+										self.restart()
+									elif err == 'forbidden':
+										# we don't have the permission to speak
+										# let's remove the bridge and tell admins
+										self.error('[Error] Not allowed to speak on the XMPP MUC of bridge '+str(b)+', removing it', send_to_admins=True)
+										self.removeBridge(b, message='Not allowed to speak on the XMPP MUC, removing bridge.')
+									else:
+										self.error('==> Debug: recevied unknown error message', debug=True)
+										self.error(message.__str__(fancy=1), debug=True)
+					return
+			
+			self.error('==> Debug: recevied unknown error message', debug=True)
+			self.error(message.__str__(fancy=1), debug=True)
+		
 		else:
 			self.error('==> Debug: Received XMPP message of unknown type "'+message.getType()+'".', debug=True)
 			self.error(message.__str__(fancy=1), debug=True)
@@ -749,9 +776,9 @@ class bot(Thread):
 			self.error('===> Debug: XMPP connection for "'+nickname+'" is now used by '+str(c.used_by)+' bridges', debug=True)
 	
 	
-	def removeBridge(self, bridge):
+	def removeBridge(self, bridge, message='Removing bridge'):
 		self.bridges.remove(bridge)
-		bridge.__del__()
+		bridge.stop(message)
 	
 	
 	def respond(self, message, participant_=None, bot_admin=False):
@@ -837,9 +864,10 @@ class bot(Thread):
 				
 			elif command == 'restart-bot':
 				self.restart()
-				return 'Bot restarted.'
+				return
 			elif command == 'halt':
 				self.__del__()
+				return
 			
 			
 			elif command in ['remove-bridge', 'restart-bridge']:
@@ -884,7 +912,7 @@ class bot(Thread):
 	def restart(self):
 		# Stop the bridges
 		for b in self.bridges:
-			b.stop(message='Restarting bridge')
+			b.stop(message='Restarting bot')
 		
 		# Reopen the bot's XMPP connection
 		self.reopen_xmpp_connection(self.xmpp_c)
@@ -893,7 +921,7 @@ class bot(Thread):
 		for b in self.bridges:
 			b.init2()
 		
-		sleep(1)
+		self.error('Bot restarted.', send_to_admins=True)
 	
 	
 	def __del__(self):
