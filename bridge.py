@@ -279,6 +279,9 @@ class bridge:
 	def restart(self):
 		"""Restart the bridge"""
 		
+		# Tell admins
+		self.bot.error('Restarting bridge '+str(self), send_to_admins=True)
+		
 		# Stop the bridge
 		self.stop(message='Restarting bridge')
 		
