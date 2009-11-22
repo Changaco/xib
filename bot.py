@@ -141,8 +141,34 @@ class bot(Thread):
 				
 				if resource == '':
 					# presence comes from the muc itself
-					# TODO: handle room deletion and muc server reboot
 					pass
+				
+				elif resource == xmpp_c.nickname:
+					# presence comes from self
+					x = presence.getTag('x', namespace='http://jabber.org/protocol/muc#user')
+					if x:
+						d = x.getTag('destroy')
+						if d:
+							# room was destroyed
+							# problem is that this is used by some MUC servers when they shut down or restart
+							# considering this lack of semantic we have no choice but to do a check on the reason
+							reason = d.getTag('reason')
+							if reason:
+								r = reason.getData()
+								if r == 'The conference component is shutting down':
+									# MUC server is going down, try to restart the bridge in 1 minute
+									self.error('[Warning] The MUC server '+from_.getDomain()+' seems to be going down, the bot will try to recreate the bridge '+str(bridge)+' in 1 minute', send_to_admins=True)
+									bridge.stop(message='MUC server seems to be going down, will try to recreate the bridge in 1 minute')
+									self.irc.execute_delayed(60, bridge.init2)
+									return
+								elif r == '':
+									r = 'None given'
+							else:
+								r = 'None given'
+							
+							# room has been destroyed, stop the bridge
+							self.error('[Error] The MUC room of the bridge '+str(bridge)+' has been destroyed with reason "'+r+'", stopping the bridge', send_to_admins=True)
+							bridge.stop(message='The MUC room of the bridge has been destroyed with reason "'+r+'", stopping the bridge')
 				
 				else:
 					# presence comes from a participant of the muc
@@ -824,6 +850,8 @@ class bot(Thread):
 				ret += '\n'+str(i+1)+' - '+str(b)
 				if args.show_mode:
 					ret += ' - '+b.mode+' mode'
+				if b.irc_connection == None:
+					ret += ' - this bridge is stopped, use "restart-bridge '+str(i+1)+'" to restart it'
 			return ret
 		
 		elif command in bot.admin_commands:
