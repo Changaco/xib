@@ -152,7 +152,7 @@ class bridge:
 					self.bot.close_xmpp_connection(p.nickname)
 				if p.xmpp_c != 'both':
 					p.xmpp_c = 'both'
-			return
+			return p
 		except NoSuchParticipantException:
 			pass
 		self.lock.acquire()
@@ -311,16 +311,19 @@ class bridge:
 		"""Stop the bridge"""
 		
 		# Close IRC connection if not used by an other bridge, just leave the room otherwise
-		self.irc_connection.used_by -= 1
-		if self.irc_connection.used_by < 1:
-			self.irc_connection.close(message)
-		else:
-			self.irc_connection.part(self.irc_room, message=message)
+		if isinstance(self.irc_connection, ServerConnection):
+			self.irc_connection.used_by -= 1
+			if self.irc_connection.used_by < 1:
+				self.irc_connection.close(message)
+			else:
+				self.irc_connection.part(self.irc_room, message=message)
+			self.irc_connection = None
 		
 		# Leave the MUC
-		self.xmpp_room.leave(message=message)
-		self.xmpp_room.__del__()
-		del self.xmpp_room
+		if isinstance(self.xmpp_room, xmpp.muc):
+			self.xmpp_room.leave(message=message)
+			self.xmpp_room.__del__()
+			self.xmpp_room = None
 		
 		# Delete participants objects
 		for p in self.participants:
