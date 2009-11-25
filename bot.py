@@ -40,7 +40,7 @@ import shlex
 class bot(Thread):
 
 	commands = ['xmpp_participants', 'irc_participants', 'bridges']
-	admin_commands = ['add-bridge', 'add-xmpp-admin', 'halt', 'remove-bridge', 'restart-bot', 'restart-bridge']
+	admin_commands = ['add-bridge', 'add-xmpp-admin', 'halt', 'remove-bridge', 'restart-bot', 'restart-bridge', 'stop-bridge']
 	
 	def __init__(self, jid, password, nickname, admins_jid=[], error_fd=sys.stderr, debug=False):
 		Thread.__init__(self)
@@ -898,7 +898,7 @@ class bot(Thread):
 				return
 			
 			
-			elif command in ['remove-bridge', 'restart-bridge']:
+			elif command in ['remove-bridge', 'restart-bridge', 'stop-bridge']:
 				# we need to know which bridge the command is for
 				if len(args_array) == 0:
 					if isinstance(participant_, participant):
@@ -928,6 +928,9 @@ class bot(Thread):
 				elif command == 'restart-bridge':
 					b.restart()
 					return 'Bridge restarted.'
+				elif command == 'stop-bridge':
+					b.stop()
+					return 'Bridge stopped.'
 		
 		else:
 			ret = 'Error: "'+command+'" is not a valid command.\ncommands:  '+'  '.join(bot.commands)
