@@ -107,8 +107,8 @@ class bridge:
 					raise Exception('[Error] unknown error for "'+self.bot.nickname+'" on bridge "'+str(self)+'", limit seems to be '+str(arguments[0]))
 			except:
 				traceback.print_exc()
-			self.bot.error('[Error] failed to connect to the IRC chan of bridge "'+str(self)+'", removing bridge', send_to_admins=True)
-			self.bot.removeBridge(self)
+			self.bot.error('[Error] failed to connect to the IRC chan of bridge "'+str(self)+'", stopping bridge', send_to_admins=True)
+			self.stop(message='failed to connect to the IRC chan')
 	
 	
 	def _xmpp_join_callback(self, errors):
@@ -129,8 +129,8 @@ class bridge:
 					raise error
 				except:
 					traceback.print_exc()
-			self.bot.error('[Error] failed to connect to the XMPP room of bridge "'+str(self)+'", removing bridge', send_to_admins=True)
-			self.bot.removeBridge(self)
+			self.bot.error('[Error] failed to connect to the XMPP room of bridge "'+str(self)+'", stopping bridge', send_to_admins=True)
+			self.stop(message='failed to connect to the XMPP room')
 	
 	
 	def addParticipant(self, from_protocol, nickname, real_jid=None):
