@@ -439,8 +439,8 @@ class bot(Thread):
 									elif err == 'forbidden':
 										# we don't have the permission to speak
 										# let's remove the bridge and tell admins
-										self.error('[Error] Not allowed to speak on the XMPP MUC of bridge '+str(b)+', removing it', send_to_admins=True)
-										self.removeBridge(b, message='Not allowed to speak on the XMPP MUC, removing bridge.')
+										self.error('[Error] Not allowed to speak on the XMPP MUC of bridge '+str(b)+', stopping it', send_to_admins=True)
+										b.stop(message='Not allowed to speak on the XMPP MUC, stopping bridge.')
 									else:
 										self.error('==> Debug: recevied unknown error message', debug=True)
 										self.error(message.__str__(fancy=1), debug=True)
