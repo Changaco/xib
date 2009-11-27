@@ -29,6 +29,7 @@ class muc:
 	class RoomIsLocked(Exception): pass
 	class ForgotNickname(Exception): pass
 	class UnknownError(Exception): pass
+	class RemoteServerNotFound(Exception): pass
 	
 	def __init__(self, room_jid):
 		self.room_jid = room_jid
@@ -89,6 +90,9 @@ class muc:
 								elif err == 'modify jid-malformed':
 									# forgot to give a nickname
 									errors.append(self.__class__.ForgotNickname(self.jid))
+								elif err == 'cancel remote-server-not-found':
+									# MUC server is down or doesn't exist
+									errors.append(self.__class__.RemoteServerNotFound(self.jid))
 								else:
 									errors.append(self.__class__.UnknownError(presence.__str__(fancy=1).encode('utf-8')))
 						break
