@@ -39,7 +39,7 @@ import shlex
 
 class bot(Thread):
 
-	commands = ['xmpp_participants', 'irc_participants', 'bridges']
+	commands = ['xmpp-participants', 'irc-participants', 'bridges']
 	admin_commands = ['add-bridge', 'add-xmpp-admin', 'halt', 'remove-bridge', 'restart-bot', 'restart-bridge', 'stop-bridge']
 	
 	def __init__(self, jid, password, nickname, admins_jid=[], error_fd=sys.stderr, debug=False):
@@ -847,7 +847,7 @@ class bot(Thread):
 		if isinstance(participant_, participant) and bot_admin != participant_.bot_admin:
 			bot_admin = participant_.bot_admin
 		
-		if command == 'xmpp_participants':
+		if command == 'xmpp-participants':
 			if not isinstance(participant_, participant):
 				for b in self.bridges:
 					xmpp_participants_nicknames = b.get_participants_nicknames_list(protocols=['xmpp'])
@@ -855,9 +855,9 @@ class bot(Thread):
 				return ret
 			else:
 				xmpp_participants_nicknames = participant_.bridge.get_participants_nicknames_list(protocols=['xmpp'])
-				return 'participants on '+participant_.bridge.xmpp_room_jid+' ('+str(len(xmpp_participants_nicknames))+'): '+' '.join(xmpp_participants_nicknames)
+				return '\nparticipants on '+participant_.bridge.xmpp_room_jid+' ('+str(len(xmpp_participants_nicknames))+'): '+' '.join(xmpp_participants_nicknames)
 		
-		elif command == 'irc_participants':
+		elif command == 'irc-participants':
 			if not isinstance(participant_, participant):
 				for b in self.bridges:
 					irc_participants_nicknames = b.get_participants_nicknames_list(protocols=['irc'])
@@ -865,11 +865,13 @@ class bot(Thread):
 				return ret
 			else:
 				irc_participants_nicknames = participant_.bridge.get_participants_nicknames_list(protocols=['irc'])
-				return 'participants on '+participant_.bridge.irc_room+' at '+participant_.bridge.irc_server+' ('+str(len(irc_participants_nicknames))+'): '+' '.join(irc_participants_nicknames)
+				return '\nparticipants on '+participant_.bridge.irc_room+' at '+participant_.bridge.irc_server+' ('+str(len(irc_participants_nicknames))+'): '+' '.join(irc_participants_nicknames)
 		
 		elif command == 'bridges':
 			parser = ArgumentParser(prog=command)
 			parser.add_argument('--show-mode', default=False, action='store_true')
+			parser.add_argument('--show-say-level', default=False, action='store_true')
+			parser.add_argument('--show-participants', default=False, action='store_true')
 			try:
 				args = parser.parse_args(args_array)
 			except ParseException as e:
@@ -878,7 +880,14 @@ class bot(Thread):
 			for i, b in enumerate(self.bridges):
 				ret += '\n'+str(i+1)+' - '+str(b)
 				if args.show_mode:
-					ret += ' - '+b.mode+' mode'
+					ret += ' - mode='+b.mode
+				if args.show_say_level:
+					ret += ' - say_level='+bridge._say_levels[b.say_level]
+				if args.show_participants:
+					xmpp_participants_nicknames = b.get_participants_nicknames_list(protocols=['xmpp'])
+					ret += '\nparticipants on XMPP ('+str(len(xmpp_participants_nicknames))+'): '+' '.join(xmpp_participants_nicknames)
+					irc_participants_nicknames = b.get_participants_nicknames_list(protocols=['irc'])
+					ret += '\nparticipants on IRC ('+str(len(irc_participants_nicknames))+'): '+' '.join(irc_participants_nicknames)
 				if b.irc_connection == None:
 					ret += ' - this bridge is stopped, use "restart-bridge '+str(i+1)+'" to restart it'
 			return ret
