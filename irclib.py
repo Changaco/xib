@@ -71,6 +71,7 @@ import time
 import types
 import threading
 import traceback
+import math
 
 VERSION = 0, 4, 8
 DEBUG = 0
@@ -456,6 +457,7 @@ class ServerConnection(Connection):
 
 
         self.nick_callbacks = []
+        self.irc_id = None
         self.previous_buffer = ""
         self.handlers = {}
         self.real_server_name = ""
@@ -852,15 +854,21 @@ class ServerConnection(Connection):
 
     def privmsg(self, target, text):
         """Send a PRIVMSG command."""
-        # Should limit len(text) here!
         for l in text.split('\n'):
-            self.send_raw("PRIVMSG %s :%s" % (target, l))
+            l_size = len(l.encode('utf-8'))
+            available_size = float(510-len('%s PRIVMSG %s :' % (self.irc_id, target)))  # 510 is the size limit for IRC messages defined in RFC 2812
+            e = 0
+            for i in range(math.ceil(l_size/available_size)):
+                s = e
+                e = s+int(available_size)
+                while len(l[s:e].encode('utf-8')) >= available_size:
+                    e -= 1
+                self.send_raw("PRIVMSG %s :%s" % (target, l[s:e]))
 
     def privmsg_many(self, targets, text):
         """Send a PRIVMSG command to multiple targets."""
-        # Should limit len(text) here!
-        for l in text.split('\n'):
-            self.send_raw("PRIVMSG %s :%s" % (",".join(targets), l))
+        # Size of targets should be limited
+        self.privmsg(','.join(targets), text)
 
     def quit(self, message=""):
         """Send a QUIT command."""

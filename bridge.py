@@ -133,7 +133,7 @@ class bridge:
 			self.stop(message='failed to connect to the XMPP room')
 	
 	
-	def addParticipant(self, from_protocol, nickname, real_jid=None):
+	def addParticipant(self, from_protocol, nickname, real_jid=None, irc_id=None):
 		"""Add a participant to the bridge."""
 		if (from_protocol == 'irc' and nickname == self.irc_connection.get_nickname()) or (from_protocol == 'xmpp' and nickname == self.xmpp_room.nickname):
 			self.bot.error('===> Debug: not adding self ('+self.bot.nickname+') to bridge "'+str(self)+'"', debug=True)
@@ -142,6 +142,8 @@ class bridge:
 			p = self.getParticipant(nickname)
 			if p.protocol != from_protocol:
 				if from_protocol == 'irc' and isinstance(p.irc_connection, ServerConnection) and p.irc_connection.really_connected == True or from_protocol == 'xmpp' and isinstance(p.xmpp_c, xmpp.client.Client) and isinstance(p.muc, xmpp.muc):
+					if irc_id:
+						p.irc_connection.irc_id = irc_id
 					return
 				self.bot.error('===> Debug: "'+nickname+'" is on both sides of bridge "'+str(self)+'"', debug=True)
 				self.say('[Warning] The nickname "'+nickname+'" is used on both sides of the bridge, please avoid that if possible')

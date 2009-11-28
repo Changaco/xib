@@ -665,7 +665,7 @@ class bot(Thread):
 					self.error('===> Debug: no bridge found for "'+event.target().lower()+' at '+connection.server+'"', debug=True)
 					return
 				for bridge in bridges:
-					bridge.addParticipant('irc', nickname)
+					bridge.addParticipant('irc', nickname, irc_id=event.source())
 				return
 		
 		
