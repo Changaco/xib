@@ -21,6 +21,8 @@ Changaco <changaco@changaco.net>
 
 
 > Changelog:
+0.3:
+ - new mode "bypass", this allows to connect more than one bot for each IRC server without having so many nickname conflicts that the bot looks like it is in limited mode
 0.2:
  - fixed many many bugs
  - new command system
@@ -52,6 +54,10 @@ Copy "example_config.xml" and modify it to fit your needs.
 - 'normal':
 The bot connects on IRC on behalf of XMPP users and connects on XMPP on behalf of IRC users.
 In this mode the bot automatically switches from normal to limited mode and back again when the IRC server clones limit is crossed.
+- 'bypass':
+The bot connects on IRC on behalf of XMPP users and connects on XMPP on behalf of IRC users.
+If a nickname is already used the bot tries to connect with a slightly different nickname, adding a "_" to the original nickname.
+In this mode the bot automatically switches to limited mode and back again when the IRC server clones limit is crossed.
 - 'limited':
 The bot only connects on XMPP on behalf of IRC users but NOT on IRC on behalf of XMPP.
 - 'minimal':

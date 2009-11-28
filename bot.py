@@ -294,7 +294,7 @@ class bot(Thread):
 						p = bridge.addParticipant('xmpp', resource, real_jid)
 						
 						# if we have the real jid check if the participant is a bot admin
-						if real_jid:
+						if real_jid and isinstance(p, participant):
 							for jid in self.admins_jid:
 								if xmpp.protocol.JID(jid).bareMatch(real_jid):
 									p.bot_admin = True
@@ -683,8 +683,8 @@ class bot(Thread):
 					continue
 				try:
 					p = bridge.getParticipant(connection.get_nickname())
-					if bridge.mode == 'normal':
-						bridge.switchFromNormalToLimitedMode()
+					if bridge.mode in ['normal', 'bypass']:
+						bridge.changeMode('limited')
 					else:
 						if p.irc_connection.really_connected == True:
 							p.irc_connection.part(bridge.irc_room, message=message)
@@ -700,13 +700,13 @@ class bot(Thread):
 		# Nickname callbacks
 		# TODO: move this into irclib.py
 		if event.eventtype() == 'nicknameinuse':
-			connection._call_nick_callbacks('nicknameinuse')
+			connection._call_nick_callbacks('nicknameinuse', arguments=[event])
 			return
 		if event.eventtype() == 'nickcollision':
-			connection._call_nick_callbacks('nickcollision')
+			connection._call_nick_callbacks('nickcollision', arguments=[event])
 			return
 		if event.eventtype() == 'erroneusnickname':
-			connection._call_nick_callbacks('erroneusnickname')
+			connection._call_nick_callbacks('erroneusnickname', arguments=[event])
 			return
 		
 		

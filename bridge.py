@@ -38,7 +38,7 @@ class bridge:
 	_error = 4
 	_nothing = 5
 	_say_levels = ['all', 'info', 'notice', 'warning', 'error', 'nothing']
-	_modes = ['normal', 'limited', 'minimal']
+	_modes = ['normal', 'bypass', 'limited', 'minimal']
 	
 	
 	def __init__(self, owner_bot, xmpp_room_jid, irc_room, irc_server, mode, say_level, irc_port=6667):
@@ -144,7 +144,7 @@ class bridge:
 				if from_protocol == 'irc' and isinstance(p.irc_connection, ServerConnection) and p.irc_connection.really_connected == True or from_protocol == 'xmpp' and isinstance(p.xmpp_c, xmpp.client.Client) and isinstance(p.muc, xmpp.muc):
 					if irc_id:
 						p.irc_connection.irc_id = irc_id
-					return
+					return p
 				self.bot.error('===> Debug: "'+nickname+'" is on both sides of bridge "'+str(self)+'"', debug=True)
 				self.say('[Warning] The nickname "'+nickname+'" is used on both sides of the bridge, please avoid that if possible')
 				if isinstance(p.irc_connection, ServerConnection):
@@ -159,6 +159,10 @@ class bridge:
 			return p
 		except NoSuchParticipantException:
 			pass
+		
+		if nickname == 'ChanServ' and from_protocol == 'irc':
+			return
+		
 		self.lock.acquire()
 		self.bot.error('===> Debug: adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'"', debug=True)
 		try:
@@ -172,7 +176,7 @@ class bridge:
 			return
 		self.participants.append(p)
 		self.lock.release()
-		if self.mode != 'normal':
+		if self.mode not in ['normal', 'bypass']:
 			if from_protocol == 'xmpp':
 				xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
 				self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
@@ -182,13 +186,71 @@ class bridge:
 		return p
 	
 	
+	def changeMode(self, new_mode):
+		if new_mode == self.mode:
+			return 'Mode is already equal to '+self.mode
+		
+		unhandled = 'Error: unhandled mode changing from '+self.mode+' to '+new_mode
+		
+		if new_mode in ['normal', 'bypass']:
+			
+			if self.mode[-7:] == 'limited':
+				# From  [{normal,bypass}-]limited  to  {normal,bypass}
+				pass  # duplicates of XMPP users are created below
+			
+			elif self.mode == 'minimal':
+				# From  minimal  to  {normal,bypass}
+				# create duplicates of IRC users, duplicates of XMPP users are created below
+				for p in self.participants:
+					if p.protocol == 'irc':
+						p.createDuplicateOnXMPP()
+			
+			else:
+				# Unhandled mode changing
+				return unhandled
+			
+			# create duplicates of XMPP users
+			for p in self.participants:
+				if p.protocol == 'xmpp':
+					p.createDuplicateOnIRC()
+			
+		elif new_mode[-7:] == 'limited':
+			
+			i = 0
+			for p in self.participants:
+				if p.protocol == 'xmpp':
+					i += 1
+					p._close_irc_connection('Bridge is switching to limited mode')
+			
+			if new_mode[-8:] == '-limited':
+				# to {normal,bypass}-limited
+				self.irc_connections_limit = i
+				self.bot.error('===> Bridge is switching to limited mode. Limit seems to be '+str(self.irc_connections_limit)+' on "'+self.irc_server+'".')
+				self.say('[Warning] Bridge is switching to limited mode, it means that it will be transparent for XMPP users but not for IRC users, this is due to the IRC servers\' per-IP-address connections\' limit number which seems to be '+str(self.irc_connections_limit)+' on "'+self.irc_server+'".')
+				xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
+				self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
+				return
+		
+		elif new_mode == 'minimal':
+			for p in self.participants:
+				p.leave('Bridge is switching to limited mode')
+		
+		else:
+			# Unhandled mode changing
+			return unhandled
+		
+		self.mode = new_mode
+		self.bot.error('===> Bridge is switching from '+self.mode+' to '+new_mode+' mode.')
+		self.say('[Notice] Bridge is switching from '+self.mode+' to '+new_mode+' mode.')
+	
+	
 	def getParticipant(self, nickname):
 		"""Returns a participant object if there is a participant using nickname in the bridge. Raises a NoSuchParticipantException otherwise."""
 		self.lock.acquire()
-		for participant_ in self.participants:
-			if participant_.nickname == nickname:
+		for p in self.participants:
+			if nickname in [p.nickname, p.duplicate_nickname]:
 				self.lock.release()
-				return participant_
+				return p
 		self.lock.release()
 		raise NoSuchParticipantException('there is no participant using the nickname "'+nickname+'" in this bridge')
 	
@@ -268,8 +330,8 @@ class bridge:
 			if left_protocol == 'xmpp':
 				xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
 				if self.irc_connections_limit != -1 and self.irc_connections_limit > len(xmpp_participants_nicknames):
-					self.switchFromLimitedToNormalMode()
-				if self.mode != 'normal':
+					self.changeMode(self.mode[:-8])
+				if self.mode not in ['normal', 'bypass']:
 					self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
 			elif left_protocol == 'irc':
 				if self.mode == 'minimal':
@@ -334,35 +396,6 @@ class bridge:
 			p.leave(message)
 			del p
 		self.participants = []
-	
-	
-	def switchFromLimitedToNormalMode(self):
-		if self.mode != 'normal-limited':
-			return
-		self.bot.error('===> Bridge is switching to normal mode.')
-		self.say('[Notice] Bridge is switching to normal mode.')
-		self.mode = 'normal'
-		for p in self.participants:
-			if p.protocol == 'xmpp':
-				p.createDuplicateOnIRC()
-	
-	
-	def switchFromNormalToLimitedMode(self):
-		if self.mode != 'normal':
-			return
-		self.mode = 'normal-limited'
-		i = 0
-		for p in self.participants:
-			if p.protocol == 'xmpp':
-				i += 1
-				if isinstance(self.irc_connection, ServerConnection):
-					p.irc_connection.close('Bridge is switching to limited mode')
-					p.irc_connection = None
-		self.irc_connections_limit = i
-		self.bot.error('===> Bridge is switching to limited mode. Limit seems to be '+str(self.irc_connections_limit)+' on "'+self.irc_server+'".')
-		self.say('[Warning] Bridge is switching to limited mode, it means that it will be transparent for XMPP users but not for IRC users, this is due to the IRC servers\' per-IP-address connections\' limit number which seems to be '+str(self.irc_connections_limit)+' on "'+self.irc_server+'".')
-		xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
-		self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
 	
 	
 	def __str__(self):
