@@ -28,6 +28,7 @@ Changaco <changaco@changaco.net>
  - added an ugly ping mechanism to keep the connections open
  - don't create an XMPP duplicate of ChanServ
  - "/me" handling
+ - split long messages when sending on IRC
 0.1.1:
  - fixed bug that prevented the bot from connecting to freenode and all other servers that don't send "umode"
  - added optional parameter to start_bots_from_xml_config.py
