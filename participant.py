@@ -121,7 +121,7 @@ class participant:
 					if self.irc_connection.used_by == 1:
 						self.irc_connection.nick(newnick, callback=self._irc_nick_callback)
 					else:
-						self._close_irc_connection(self, 'Changed nickname')
+						self._close_irc_connection('Changed nickname')
 						self.createDuplicateOnIRC()
 				else:
 					if self.irc_connection == 'both':
