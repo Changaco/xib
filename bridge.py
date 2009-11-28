@@ -80,7 +80,7 @@ class bridge:
 			self.bot.error('[Error] joining IRC room failed')
 			raise
 		
-		self.bot.error('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode and a say_level of "'+self._say_levels[self.say_level]+'"')
+		self.bot.error('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode and a say_level of "'+self.__class__._say_levels[self.say_level]+'"')
 	
 	
 	def _irc_nick_callback(self, error, arguments=[]):
