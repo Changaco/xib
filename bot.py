@@ -15,13 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-# *** Versioning ***
-# Major will pass to 1 when xib will be considered fault-tolerant
-# After that major will only be changed if the new version is not retro-compatible (e.g. requires changes in config file)
-
-version = 0, 1
-
-
 import irclib
 import muc
 xmpp = muc.xmpp
