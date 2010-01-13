@@ -149,10 +149,11 @@ class bot(Thread):
 							if reason:
 								r = reason.getData()
 								if r == 'The conference component is shutting down':
-									# MUC server is going down, try to restart the bridge in 1 minute
-									self.error('[Warning] The MUC server '+from_.getDomain()+' seems to be going down, the bot will try to recreate the bridge '+str(bridge)+' in 1 minute', send_to_admins=True)
-									bridge.stop(message='MUC server seems to be going down, will try to recreate the bridge in 1 minute')
-									self.irc.execute_delayed(60, bridge.init2)
+									# MUC server is going down, try to restart the bridges in 1 minute
+									bridges = self.findBridges([from_.getDomain()])
+									error_message = '[Warning] The MUC server '+from_.getDomain()+' seems to be going down, the bot will try to recreate all bridges related to this server in 1 minute'
+									self.restart_bridges_delayed(bridges, 60, error_message)
+									self.error(presence.__str__(fancy=1).encode('utf-8'), debug=True)
 									return
 								elif r == '':
 									r = 'None given'
@@ -258,23 +259,10 @@ class bot(Thread):
 									err = error.getAttr('type')+' '+c.getName()
 									if err == 'cancel remote-server-not-found':
 										# Remote server not found
-										error_message = '[Error] XMPP Remote server not found: '+from_.getDomain()
-										
 										# Stop bridges that depend on this server
 										bridges = self.findBridges([from_.getDomain()])
-										if len(bridges) > 0:
-											error_message += '\nThese bridges will be stopped:'
-											for b in bridges:
-												error_message += '\n'+str(b)
-												if hasattr(b, 'reconnecting'):
-													leave_message = 'MUC server seems to be down'
-												else:
-													leave_message = 'MUC server seems to be down, will try to recreate the bridge in 1 minute'
-													self.reconnecting = True
-													self.irc.execute_delayed(60, b.init2)
-												b.stop(message=leave_message)
-										
-										self.error(error_message, send_to_admins=True)
+										error_message = '[Error] XMPP Remote server not found: '+from_.getDomain()
+										self.restart_bridges_delayed(bridges, 60, error_message)
 										self.error(presence.__str__(fancy=1).encode('utf-8'), debug=True)
 									else:
 										raise Exception(presence.__str__(fancy=1).encode('utf-8'))
@@ -984,6 +972,22 @@ class bot(Thread):
 			b.init2()
 		
 		self.error('Bot restarted.', send_to_admins=True)
+	
+	
+	def restart_bridges_delayed(self, bridges, delay, error_message):
+		if len(bridges) > 0:
+			error_message += '\nThese bridges will be stopped:'
+			for b in bridges:
+				error_message += '\n'+str(b)
+				if hasattr(b, 'reconnecting'):
+					leave_message = 'MUC server seems to be down'
+				else:
+					leave_message = 'MUC server seems to be down, will try to recreate the bridge in '+str(delay)+' seconds'
+					self.reconnecting = True
+					self.irc.execute_delayed(delay, b.init2)
+				b.stop(message=leave_message)
+		
+		self.error(error_message, send_to_admins=True)
 	
 	
 	def __del__(self):
