@@ -781,7 +781,8 @@ class bot(Thread):
 					participants.append(p)
 					p.xmpp_c = None
 		self.error('===> Debug: reopening XMPP connection for "'+nickname+'"', debug=True)
-		self.xmpp_connections.pop(nickname)
+		if self.xmpp_connections.has_key(nickname):
+			self.xmpp_connections.pop(nickname)
 		c.send(xmpp.protocol.Presence(typ='unavailable'))
 		del c
 		c = self.get_xmpp_connection(nickname)
@@ -793,6 +794,7 @@ class bot(Thread):
 		c.mucs = mucs
 		for m in c.mucs:
 			m.rejoin()
+		return c
 	
 	
 	def close_xmpp_connection(self, nickname):

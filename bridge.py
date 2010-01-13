@@ -294,7 +294,7 @@ class bridge:
 					try:
 						p.irc_connection.join(self.irc_room)
 					except:
-						p._close_irc_connection()
+						p._close_irc_connection(leave_message)
 						p.createDuplicateOnIRC()
 					return
 		
