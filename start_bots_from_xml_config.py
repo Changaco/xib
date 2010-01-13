@@ -17,12 +17,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from bot import bot
-from time import sleep
 from xml.dom.minidom import parse
+from time import sleep
 import sys
 import traceback
 
+from bot import Bot
 
 
 try:
@@ -53,8 +53,8 @@ try:
 		for admin_el in bot_el.getElementsByTagName('admin'):
 			if admin_el.hasAttribute('jid'):
 				admins_jid.append(admin_el.getAttribute('jid'))
-		bot_ = bot(bot_el.getAttribute('jid'), bot_el.getAttribute('password'), bot_el.getAttribute('nickname'), admins_jid=admins_jid, debug=debug)
-		bots.append(bot_)
+		bot = Bot(bot_el.getAttribute('jid'), bot_el.getAttribute('password'), bot_el.getAttribute('nickname'), admins_jid=admins_jid, debug=debug)
+		bots.append(bot)
 		for bridge_el in bot_el.getElementsByTagName('bridge'):
 			xmpp_room = bridge_el.getElementsByTagName('xmpp-room')[0]
 			irc = bridge_el.getElementsByTagName('irc')[0]
@@ -65,7 +65,7 @@ try:
 				mode = bridge_el.getAttribute('mode')
 			else:
 				mode = 'normal'
-			bridge_ = bot_.new_bridge(xmpp_room.getAttribute('jid'), irc.getAttribute('chan'), irc.getAttribute('server'), mode, say_level)
+			bot.new_bridge(xmpp_room.getAttribute('jid'), irc.getAttribute('chan'), irc.getAttribute('server'), mode, say_level)
 	
 	
 	while True:

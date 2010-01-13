@@ -15,21 +15,20 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import re
+import threading
+import traceback
+
+from encoding import *
+from irclib import ServerConnection
 import muc
 xmpp = muc.xmpp
 del muc
-from participant import *
-from encoding import *
-from irclib import ServerConnection
-import traceback
-import re
-import threading
+
+from participant import Participant
 
 
-class NoSuchParticipantException(Exception): pass
-
-
-class bridge:
+class Bridge:
 	
 	_all = 0
 	_info = 1
@@ -39,6 +38,9 @@ class bridge:
 	_nothing = 5
 	_say_levels = ['all', 'info', 'notice', 'warning', 'error', 'nothing']
 	_modes = ['normal', 'bypass', 'limited', 'minimal']
+	
+	
+	class NoSuchParticipantException(Exception): pass
 	
 	
 	def __init__(self, owner_bot, xmpp_room_jid, irc_room, irc_server, mode, say_level, irc_port=6667):
@@ -147,7 +149,7 @@ class bridge:
 					return p
 				p.set_both_sides()
 			return p
-		except NoSuchParticipantException:
+		except self.NoSuchParticipantException:
 			pass
 		
 		if nickname == 'ChanServ' and from_protocol == 'irc':
@@ -156,7 +158,7 @@ class bridge:
 		self.lock.acquire()
 		self.bot.error('===> Debug: adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'"', debug=True)
 		try:
-			p = participant(self, from_protocol, nickname, real_jid=real_jid)
+			p = Participant(self, from_protocol, nickname, real_jid=real_jid)
 		except IOError:
 			self.bot.error('===> Debug: IOError while adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'", reconnectiong ...', debug=True)
 			p.xmpp_c.reconnectAndReauth()
@@ -242,7 +244,7 @@ class bridge:
 				self.lock.release()
 				return p
 		self.lock.release()
-		raise NoSuchParticipantException('there is no participant using the nickname "'+nickname+'" in this bridge')
+		raise self.NoSuchParticipantException('there is no participant using the nickname "'+nickname+'" in this bridge')
 	
 	
 	def get_participants_nicknames_list(self, protocols=['irc', 'xmpp']):
@@ -260,7 +262,7 @@ class bridge:
 		try:
 			self.getParticipant(nickname)
 			return True
-		except NoSuchParticipantException:
+		except self.NoSuchParticipantException:
 			return False
 	
 	

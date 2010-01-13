@@ -16,9 +16,9 @@
 
 from argparse import ArgumentParser as OriginalArgumentParser
 
-class ParseException(Exception): pass
-
 class ArgumentParser(OriginalArgumentParser):
+	
+	class ParseException(Exception): pass
 	
 	def _print_message(self, message, file=None):
 		if not hasattr(self, 'ret'):
@@ -27,6 +27,6 @@ class ArgumentParser(OriginalArgumentParser):
 	
 	def exit(self, status=0, message=''):
 		if hasattr(self, 'ret') and isinstance(self.ret, basestring):
-			raise ParseException(status, self.ret+message)
+			raise self.ParseException(status, self.ret+message)
 		else:
-			raise ParseException(status, message)
+			raise self.ParseException(status, message)

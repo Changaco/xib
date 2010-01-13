@@ -15,17 +15,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import re
+from time import sleep
+
+from encoding import *
+from irclib import ServerNotConnectedError, ServerConnection
 import muc
 xmpp = muc.xmpp
 del muc
-from irclib import ServerNotConnectedError, ServerConnection
-from encoding import *
-from threading import Thread
-from time import sleep
-import re
 
 
-class participant:
+class Participant:
 	def __init__(self, owner_bridge, protocol, nickname, real_jid=None):
 		self.bot_admin = False
 		self.real_jid = real_jid

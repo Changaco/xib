@@ -15,28 +15,32 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import re
+import shlex
+import sys
+import threading
+from time import sleep
+import traceback
+import xml.parsers.expat
+
+from argparse_modified import ArgumentParser
+from encoding import *
 import irclib
 import muc
 xmpp = muc.xmpp
 del muc
-import threading
-from bridge import *
-from time import sleep
-import re
-import sys
-import xml.parsers.expat
-import traceback
-from argparse_modified import *
-import shlex
+
+from bridge import Bridge
+from participant import Participant
 
 
-class bot(Thread):
-
+class Bot(threading.Thread):
+	
 	commands = ['xmpp-participants', 'irc-participants', 'bridges']
 	admin_commands = ['add-bridge', 'add-xmpp-admin', 'halt', 'remove-bridge', 'restart-bot', 'restart-bridge', 'stop-bridge']
 	
 	def __init__(self, jid, password, nickname, admins_jid=[], error_fd=sys.stderr, debug=False):
-		Thread.__init__(self)
+		threading.Thread.__init__(self)
 		self.bare_jid = xmpp.protocol.JID(jid=jid)
 		self.bare_jid.setResource('')
 		self.nickname = nickname
@@ -49,7 +53,7 @@ class bot(Thread):
 		self.irc = irclib.IRC()
 		self.irc.bot = self
 		self.irc.add_global_handler('all_events', self._irc_event_handler)
-		self.irc_thread = Thread(target=self.irc.process_forever)
+		self.irc_thread = threading.Thread(target=self.irc.process_forever)
 		self.irc_thread.start()
 		# Open connection with XMPP server
 		try:
@@ -57,7 +61,7 @@ class bot(Thread):
 		except:
 			self.error('[Error] XMPP Connection failed')
 			raise
-		self.xmpp_thread = Thread(target=self._xmpp_loop)
+		self.xmpp_thread = threading.Thread(target=self._xmpp_loop)
 		self.xmpp_thread.start()
 	
 	
@@ -175,7 +179,7 @@ class bot(Thread):
 					if presence.getType() == 'unavailable':
 						try:
 							p = bridge.getParticipant(resource)
-						except NoSuchParticipantException:
+						except Bridge.NoSuchParticipantException:
 							p = None
 						
 						if x and x.getTag('status', attrs={'code': '303'}):
@@ -275,7 +279,7 @@ class bot(Thread):
 						p = bridge.addParticipant('xmpp', resource, real_jid)
 						
 						# if we have the real jid check if the participant is a bot admin
-						if real_jid and isinstance(p, participant):
+						if real_jid and isinstance(p, Participant):
 							for jid in self.admins_jid:
 								if xmpp.protocol.JID(jid).bareMatch(real_jid):
 									p.bot_admin = True
@@ -324,9 +328,9 @@ class bot(Thread):
 						
 						from_.sayOnIRCTo(to_.nickname, message.getBody())
 						
-					except NoSuchParticipantException:
+					except Bridge.NoSuchParticipantException:
 						if xmpp_c.nickname == self.nickname:
-							r = self.respond(str(message.getBody()), participant_=from_)
+							r = self.respond(str(message.getBody()), participant=from_)
 							if isinstance(r, basestring) and len(r) > 0:
 								s = xmpp.protocol.Message(to=message.getFrom(), body=r, typ='chat')
 								self.error('==> Debug: Sending', debug=True)
@@ -394,13 +398,13 @@ class bot(Thread):
 						self.error(message.__str__(fancy=1), debug=True)
 						
 						try:
-							participant_ = bridge.getParticipant(resource)
-						except NoSuchParticipantException:
+							participant = bridge.getParticipant(resource)
+						except Bridge.NoSuchParticipantException:
 							if resource != self.nickname:
 								self.error('=> Debug: NoSuchParticipantException "'+resource+'" on "'+str(bridge)+'", WTF ?', debug=True)
 							return
 						
-						participant_.sayOnIRC(message.getBody())
+						participant.sayOnIRC(message.getBody())
 						return
 		
 		elif message.getType() == 'error':
@@ -508,7 +512,7 @@ class bot(Thread):
 				try:
 					from_ = bridge.getParticipant(nickname)
 					
-				except NoSuchParticipantException:
+				except Bridge.NoSuchParticipantException:
 					continue
 				
 				
@@ -523,7 +527,7 @@ class bot(Thread):
 						from_.sayOnXMPPTo(to_.nickname, event.arguments()[0])
 						return
 						
-					except NoSuchParticipantException:
+					except Bridge.NoSuchParticipantException:
 						if event.target().split('!')[0] == self.nickname:
 							# Message is for the bot
 							self.error(event_str, debug=True)
@@ -546,7 +550,7 @@ class bot(Thread):
 								else:
 									bridge.removeParticipant('irc', kicked.nickname, 'Kicked by '+nickname+' (no reason was given)')
 							return
-						except NoSuchParticipantException:
+						except Bridge.NoSuchParticipantException:
 							self.error('=> Debug: a participant that was not here has been kicked ? WTF ?')
 							return
 					else:
@@ -619,7 +623,7 @@ class bot(Thread):
 							bridge.say('[Warning] the nickname "'+event.target()+'" is banned from the IRC chan')
 						else:
 							self.error('=> Debug: ignoring '+event.eventtype(), debug=True)
-					except NoSuchParticipantException:
+					except Bridge.NoSuchParticipantException:
 						self.error('=> Debug: no such participant. WTF ?')
 						return
 			
@@ -673,7 +677,7 @@ class bot(Thread):
 						if p.irc_connection.used_by < 1:
 							p.irc_connection.close(message)
 						p.irc_connection = None
-				except NoSuchParticipantException:
+				except Bridge.NoSuchParticipantException:
 					pass
 			return
 		
@@ -706,7 +710,7 @@ class bot(Thread):
 	
 	def new_bridge(self, xmpp_room, irc_room, irc_server, mode, say_level, irc_port=6667):
 		"""Create a bridge between xmpp_room and irc_room at irc_server."""
-		b = bridge(self, xmpp_room, irc_room, irc_server, mode, say_level, irc_port=irc_port)
+		b = Bridge(self, xmpp_room, irc_room, irc_server, mode, say_level, irc_port=irc_port)
 		self.bridges.append(b)
 		return b
 	
@@ -819,7 +823,7 @@ class bot(Thread):
 		bridge.stop(message)
 	
 	
-	def respond(self, message, participant_=None, bot_admin=False):
+	def respond(self, message, participant=None, bot_admin=False):
 		ret = ''
 		command = shlex.split(message)
 		args_array = []
@@ -827,28 +831,28 @@ class bot(Thread):
 			args_array = command[1:]
 		command = command[0]
 		
-		if isinstance(participant_, participant) and bot_admin != participant_.bot_admin:
-			bot_admin = participant_.bot_admin
+		if isinstance(participant, participant) and bot_admin != participant.bot_admin:
+			bot_admin = participant.bot_admin
 		
 		if command == 'xmpp-participants':
-			if not isinstance(participant_, participant):
+			if not isinstance(participant, participant):
 				for b in self.bridges:
 					xmpp_participants_nicknames = b.get_participants_nicknames_list(protocols=['xmpp'])
 					ret += '\nparticipants on '+b.xmpp_room_jid+' ('+str(len(xmpp_participants_nicknames))+'): '+' '.join(xmpp_participants_nicknames)
 				return ret
 			else:
-				xmpp_participants_nicknames = participant_.bridge.get_participants_nicknames_list(protocols=['xmpp'])
-				return '\nparticipants on '+participant_.bridge.xmpp_room_jid+' ('+str(len(xmpp_participants_nicknames))+'): '+' '.join(xmpp_participants_nicknames)
+				xmpp_participants_nicknames = participant.bridge.get_participants_nicknames_list(protocols=['xmpp'])
+				return '\nparticipants on '+participant.bridge.xmpp_room_jid+' ('+str(len(xmpp_participants_nicknames))+'): '+' '.join(xmpp_participants_nicknames)
 		
 		elif command == 'irc-participants':
-			if not isinstance(participant_, participant):
+			if not isinstance(participant, participant):
 				for b in self.bridges:
 					irc_participants_nicknames = b.get_participants_nicknames_list(protocols=['irc'])
 					ret += '\nparticipants on '+b.irc_room+' at '+b.irc_server+' ('+str(len(irc_participants_nicknames))+'): '+' '.join(irc_participants_nicknames)
 				return ret
 			else:
-				irc_participants_nicknames = participant_.bridge.get_participants_nicknames_list(protocols=['irc'])
-				return '\nparticipants on '+participant_.bridge.irc_room+' at '+participant_.bridge.irc_server+' ('+str(len(irc_participants_nicknames))+'): '+' '.join(irc_participants_nicknames)
+				irc_participants_nicknames = participant.bridge.get_participants_nicknames_list(protocols=['irc'])
+				return '\nparticipants on '+participant.bridge.irc_room+' at '+participant.bridge.irc_server+' ('+str(len(irc_participants_nicknames))+'): '+' '.join(irc_participants_nicknames)
 		
 		elif command == 'bridges':
 			parser = ArgumentParser(prog=command)
@@ -857,7 +861,7 @@ class bot(Thread):
 			parser.add_argument('--show-participants', default=False, action='store_true')
 			try:
 				args = parser.parse_args(args_array)
-			except ParseException as e:
+			except ArgumentParser.ParseException as e:
 				return '\n'+e.args[1]
 			ret = 'List of bridges:'
 			for i, b in enumerate(self.bridges):
@@ -889,7 +893,7 @@ class bot(Thread):
 				parser.add_argument('--irc-port', type=int, default=6667)
 				try:
 					args = parser.parse_args(args_array)
-				except ParseException as e:
+				except ArgumentParser.ParseException as e:
 					return '\n'+e.args[1]
 				
 				self.new_bridge(args.xmpp_room_jid, args.irc_chan, args.irc_server, args.mode, args.say_level, irc_port=args.irc_port)
@@ -901,7 +905,7 @@ class bot(Thread):
 				parser.add_argument('jid', type=str)
 				try:
 					args = parser.parse_args(args_array)
-				except ParseException as e:
+				except ArgumentParser.ParseException as e:
 					return '\n'+e.args[1]
 				self.admins_jid.append(args.jid)
 				for b in self.bridges:
@@ -922,8 +926,8 @@ class bot(Thread):
 			elif command in ['remove-bridge', 'restart-bridge', 'stop-bridge']:
 				# we need to know which bridge the command is for
 				if len(args_array) == 0:
-					if isinstance(participant_, participant):
-						b = participant_.bridge
+					if isinstance(participant, participant):
+						b = participant.bridge
 					else:
 						return 'You must specify a bridge. '+self.respond('bridges')
 				else:
