@@ -145,17 +145,7 @@ class bridge:
 					if irc_id:
 						p.irc_connection.irc_id = irc_id
 					return p
-				self.bot.error('===> Debug: "'+nickname+'" is on both sides of bridge "'+str(self)+'"', debug=True)
-				self.say('[Warning] The nickname "'+nickname+'" is used on both sides of the bridge, please avoid that if possible')
-				if isinstance(p.irc_connection, ServerConnection):
-					p.irc_connection.close('')
-				if p.irc_connection != 'both':
-					p.irc_connection = 'both'
-				if isinstance(p.muc, xmpp.muc):
-					p.muc.leave('')
-					self.bot.close_xmpp_connection(p.nickname)
-				if p.xmpp_c != 'both':
-					p.xmpp_c = 'both'
+				p.set_both_sides()
 			return p
 		except NoSuchParticipantException:
 			pass

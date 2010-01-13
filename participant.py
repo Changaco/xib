@@ -170,6 +170,20 @@ class participant:
 				self.irc_connection = error
 	
 	
+	def set_both_sides(self):
+		self.bridge.bot.error('===> Debug: "'+self.nickname+'" is on both sides of bridge "'+str(self.bridge)+'"', debug=True)
+		self.bridge.say('[Warning] The nickname "'+self.nickname+'" is used on both sides of the bridge, please avoid that if possible')
+		if isinstance(self.irc_connection, ServerConnection):
+			self.irc_connection.close('')
+		if self.irc_connection != 'both':
+			self.irc_connection = 'both'
+		if isinstance(self.muc, xmpp.muc):
+			self.muc.leave('')
+			self.bridge.bot.close_xmpp_connection(self.nickname)
+		if self.xmpp_c != 'both':
+			self.xmpp_c = 'both'
+	
+	
 	def changeNickname(self, newnick, on_protocol):
 		"""Change participant's nickname."""
 		
