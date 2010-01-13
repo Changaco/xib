@@ -116,8 +116,8 @@ class IRC:
     Here is an example:
 
         irc = irclib.IRC()
-        server = irc.server()
-        server.connect(\"irc.some.where\", 6667, \"my_nickname\")
+        server = irc.open_connection(\"irc.some.where\", 6667, \"my_nickname\")
+        server.connect()
         server.privmsg(\"a_nickname\", \"Hi there!\")
         irc.process_forever()
 
@@ -166,7 +166,18 @@ class IRC:
 
         self.add_global_handler("ping", _ping_ponger, -42)
 
-    def server(self, server, port, nickname):
+    def get_connection(self, server, port, nickname):
+        for c in self.connections:
+            if c.server == server and c.port == port and c.real_nickname == nickname:
+                return c
+        return None
+
+    def has_connection(self, server, port, nickname):
+        if self.get_connection(server, port, nickname):
+            return True
+        return False
+
+    def open_connection(self, server, port, nickname):
         """Creates or returns an existing ServerConnection object for nickname at server:port.
 
             server -- Server name.
@@ -175,9 +186,9 @@ class IRC:
 
             nickname -- The nickname."""
 
-        for c in self.connections:
-            if c.server == server and c.port == port and c.real_nickname == nickname:
-                return c
+        c = self.get_connection(server, port, nickname)
+        if c:
+            return c
         c = ServerConnection(self, server, port, nickname)
         self.connections.append(c)
         return c
@@ -1113,105 +1124,6 @@ class DCCConnection(Connection):
         except socket.error, x:
             # Ouch!
             self.disconnect("Connection reset by peer.")
-
-class SimpleIRCClient:
-    """A simple single-server IRC client class.
-
-    This is an example of an object-oriented wrapper of the IRC
-    framework.  A real IRC client can be made by subclassing this
-    class and adding appropriate methods.
-
-    The method on_join will be called when a "join" event is created
-    (which is done when the server sends a JOIN messsage/command),
-    on_privmsg will be called for "privmsg" events, and so on.  The
-    handler methods get two arguments: the connection object (same as
-    self.connection) and the event object.
-
-    Instance attributes that can be used by sub classes:
-
-        ircobj -- The IRC instance.
-
-        connection -- The ServerConnection instance.
-
-        dcc_connections -- A list of DCCConnection instances.
-    """
-    def __init__(self):
-        self.ircobj = IRC()
-        self.connection = self.ircobj.server()
-        self.dcc_connections = []
-        self.ircobj.add_global_handler("all_events", self._dispatcher, -10)
-        self.ircobj.add_global_handler("dcc_disconnect", self._dcc_disconnect, -10)
-
-    def _dispatcher(self, c, e):
-        """[Internal]"""
-        m = "on_" + e.eventtype()
-        if hasattr(self, m):
-            getattr(self, m)(c, e)
-
-    def _dcc_disconnect(self, c, e):
-        self.dcc_connections.remove(c)
-
-    def connect(self, server, port, nickname, password=None, username=None,
-                ircname=None, localaddress="", localport=0, ssl=False, ipv6=False):
-        """Connect/reconnect to a server.
-
-        Arguments:
-
-            server -- Server name.
-
-            port -- Port number.
-
-            nickname -- The nickname.
-
-            password -- Password (if any).
-
-            username -- The username.
-
-            ircname -- The IRC name.
-
-            localaddress -- Bind the connection to a specific local IP address.
-
-            localport -- Bind the connection to a specific local port.
-
-            ssl -- Enable support for ssl.
-
-            ipv6 -- Enable support for ipv6.
-
-        This function can be called to reconnect a closed connection.
-        """
-        self.connection.connect(server, port, nickname,
-                                password, username, ircname,
-                                localaddress, localport, ssl, ipv6)
-
-    def dcc_connect(self, address, port, dcctype="chat"):
-        """Connect to a DCC peer.
-
-        Arguments:
-
-            address -- IP address of the peer.
-
-            port -- Port to connect to.
-
-        Returns a DCCConnection instance.
-        """
-        dcc = self.ircobj.dcc(dcctype)
-        self.dcc_connections.append(dcc)
-        dcc.connect(address, port)
-        return dcc
-
-    def dcc_listen(self, dcctype="chat"):
-        """Listen for connections from a DCC peer.
-
-        Returns a DCCConnection instance.
-        """
-        dcc = self.ircobj.dcc(dcctype)
-        self.dcc_connections.append(dcc)
-        dcc.listen()
-        return dcc
-
-    def start(self):
-        """Start the IRC client."""
-        self.ircobj.process_forever()
 
 
 class Event:

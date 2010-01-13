@@ -76,7 +76,7 @@ class Bridge:
 		# Join IRC room
 		try:
 			self.irc_connections_limit = -1
-			self.irc_connection = self.bot.irc.server(self.irc_server, self.irc_port, self.bot.nickname)
+			self.irc_connection = self.bot.irc.open_connection(self.irc_server, self.irc_port, self.bot.nickname)
 			self.irc_connection.connect(nick_callback=self._irc_nick_callback)
 		except:
 			self.bot.error('[Error] joining IRC room failed')

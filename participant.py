@@ -109,7 +109,7 @@ class Participant:
 		if isinstance(self.xmpp_c, xmpp.client.Client) or isinstance(self.irc_connection, ServerConnection):
 			return
 		sleep(1) # try to prevent "reconnecting too fast" shit
-		self.irc_connection = self.bridge.bot.irc.server(self.bridge.irc_server, self.bridge.irc_port, self.duplicate_nickname)
+		self.irc_connection = self.bridge.bot.irc.open_connection(self.bridge.irc_server, self.bridge.irc_port, self.duplicate_nickname)
 		self.irc_connection.connect(nick_callback=self._irc_nick_callback)
 	
 	
@@ -195,18 +195,23 @@ class Participant:
 				self.irc_connection = 'unwanted nick change'
 			
 			else:
-				self.nickname = newnick
-				self.duplicate_nickname = newnick
-				if isinstance(self.irc_connection, ServerConnection):
-					if self.irc_connection.used_by == 1:
-						self.irc_connection.nick(newnick, callback=self._irc_nick_callback)
+				try:
+					p = self.bridge.getParticipant(newnick)
+				except self.bridge.NoSuchParticipantException:
+					self.nickname = newnick
+					self.duplicate_nickname = newnick
+					has_connection = self.bridge.bot.irc.has_connection(self.bridge.irc_server, self.bridge.irc_port, self.duplicate_nickname)
+					if isinstance(self.irc_connection, ServerConnection):
+						if not has_connection and self.irc_connection.used_by == 1:
+							self.irc_connection.nick(newnick, callback=self._irc_nick_callback)
+						else:
+							self._close_irc_connection('Changed nickname')
+							self.createDuplicateOnIRC()
 					else:
-						self._close_irc_connection('Changed nickname')
+						if self.irc_connection == 'both':
+							self.bridge.addParticipant('irc', oldnick)
 						self.createDuplicateOnIRC()
-				else:
-					if self.irc_connection == 'both':
-						self.bridge.addParticipant('irc', oldnick)
-					self.createDuplicateOnIRC()
+					return
 		
 		elif self.protocol == 'irc':
 			if on_protocol == 'irc':
@@ -214,27 +219,58 @@ class Participant:
 				self.xmpp_c = 'unwanted nick change'
 			
 			else:
-				self.nickname = newnick
-				self.duplicate_nickname = newnick
-				if isinstance(self.xmpp_c, xmpp.client.Client):
-					for b in self.bridge.bot.bridges:
-						if b.hasParticipant(oldnick) and b.irc_server != self.bridge.irc_server:
-							self.muc.leave(message='Changed nickname to "'+self.nickname+'"')
-							self.xmpp_c = None
-							self.bridge.bot.close_xmpp_connection(oldnick)
-							self.createDuplicateOnXMPP()
-							return
-					
-					if not self.bridge.bot.xmpp_connections.has_key(newnick):
-						if self.bridge.bot.xmpp_connections.has_key(oldnick):
-							self.bridge.bot.xmpp_connections.pop(oldnick)
-						self.bridge.bot.xmpp_connections[newnick] = self.xmpp_c
-					
-					self.muc.change_nick(newnick, status='From IRC', callback=self._xmpp_join_callback)
+				try:
+					p = self.bridge.getParticipant(newnick)
+				except self.bridge.NoSuchParticipantException:
+					self.nickname = newnick
+					self.duplicate_nickname = newnick
+					if isinstance(self.xmpp_c, xmpp.client.Client):
+						for b in self.bridge.bot.bridges:
+							if b.hasParticipant(oldnick) and b.irc_server != self.bridge.irc_server:
+								self.muc.leave(message='Changed nickname to "'+self.nickname+'"')
+								self.xmpp_c = None
+								self.bridge.bot.close_xmpp_connection(oldnick)
+								self.createDuplicateOnXMPP()
+								return
+						
+						if not self.bridge.bot.xmpp_connections.has_key(newnick):
+							if self.bridge.bot.xmpp_connections.has_key(oldnick):
+								self.bridge.bot.xmpp_connections.pop(oldnick)
+							self.bridge.bot.xmpp_connections[newnick] = self.xmpp_c
+						
+						self.muc.change_nick(newnick, status='From IRC', callback=self._xmpp_join_callback)
+					else:
+						if self.xmpp_c == 'both':
+							self.bridge.addParticipant('xmpp', oldnick)
+						self.createDuplicateOnXMPP()
+					return
+		
+		self.nickname = newnick
+		self.duplicate_nickname = newnick
+		if p.nickname == newnick:
+			if p.protocol == self.protocol:
+				# should never happen
+				raise Exception('WTF ?')
+			else:
+				self.set_both_sides()
+		elif p.duplicate_nickname == newnick:
+			if p.protocol != self.protocol:
+				# should never happen
+				raise Exception('WTF ?')
+			else:
+				if self.protocol == 'xmpp':
+					self.irc_connection = p.irc_connection
+					p.irc_connection = None
 				else:
-					if self.xmpp_c == 'both':
-						self.bridge.addParticipant('xmpp', oldnick)
-					self.createDuplicateOnXMPP()
+					self.xmpp_c = p.xmpp_c
+					self.muc = p.muc
+					p.xmpp_c = None
+					p.muc = None
+				p.duplicate_nickname = p._get_new_duplicate_nickname()
+				p.createDuplicateOnXMPP()
+		else:
+			# should never happen
+			raise Exception('WTF ?')
 	
 	
 	def sayOnIRC(self, message):
