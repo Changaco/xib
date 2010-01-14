@@ -879,7 +879,7 @@ class Bot(threading.Thread):
 					ret += ' - this bridge is stopped, use "restart-bridge '+str(i+1)+'" to restart it'
 			return ret
 		
-		elif command in bot.admin_commands:
+		elif command in Bot.admin_commands:
 			if bot_admin == False:
 				return 'You have to be a bot admin to use this command.'
 			
@@ -958,9 +958,9 @@ class Bot(threading.Thread):
 					return 'Bridge stopped.'
 		
 		else:
-			ret = 'Error: "'+command+'" is not a valid command.\ncommands:  '+'  '.join(bot.commands)
+			ret = 'Error: "'+command+'" is not a valid command.\ncommands:  '+'  '.join(Bot.commands)
 			if bot_admin == True:
-				return ret+'\n'+'admin commands:  '+'  '.join(bot.admin_commands)
+				return ret+'\n'+'admin commands:  '+'  '.join(Bot.admin_commands)
 			else:
 				return ret
 	
