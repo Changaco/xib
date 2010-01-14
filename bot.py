@@ -831,11 +831,11 @@ class Bot(threading.Thread):
 			args_array = command[1:]
 		command = command[0]
 		
-		if isinstance(participant, participant) and bot_admin != participant.bot_admin:
+		if isinstance(participant, Participant) and bot_admin != participant.bot_admin:
 			bot_admin = participant.bot_admin
 		
 		if command == 'xmpp-participants':
-			if not isinstance(participant, participant):
+			if not isinstance(participant, Participant):
 				for b in self.bridges:
 					xmpp_participants_nicknames = b.get_participants_nicknames_list(protocols=['xmpp'])
 					ret += '\nparticipants on '+b.xmpp_room_jid+' ('+str(len(xmpp_participants_nicknames))+'): '+' '.join(xmpp_participants_nicknames)
@@ -845,7 +845,7 @@ class Bot(threading.Thread):
 				return '\nparticipants on '+participant.bridge.xmpp_room_jid+' ('+str(len(xmpp_participants_nicknames))+'): '+' '.join(xmpp_participants_nicknames)
 		
 		elif command == 'irc-participants':
-			if not isinstance(participant, participant):
+			if not isinstance(participant, Participant):
 				for b in self.bridges:
 					irc_participants_nicknames = b.get_participants_nicknames_list(protocols=['irc'])
 					ret += '\nparticipants on '+b.irc_room+' at '+b.irc_server+' ('+str(len(irc_participants_nicknames))+'): '+' '.join(irc_participants_nicknames)
@@ -926,7 +926,7 @@ class Bot(threading.Thread):
 			elif command in ['remove-bridge', 'restart-bridge', 'stop-bridge']:
 				# we need to know which bridge the command is for
 				if len(args_array) == 0:
-					if isinstance(participant, participant):
+					if isinstance(participant, Participant):
 						b = participant.bridge
 					else:
 						return 'You must specify a bridge. '+self.respond('bridges')
