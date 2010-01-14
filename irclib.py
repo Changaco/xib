@@ -532,8 +532,8 @@ class ServerConnection(Connection):
         been called, the object is unusable.
         """
 
-        self.disconnect(message, volontary)
         self.irclibobj._remove_connection(self)
+        self.disconnect(message=message, volontary=volontary)
 
     def _get_socket(self):
         """[Internal]"""
@@ -566,8 +566,10 @@ class ServerConnection(Connection):
         try:
             if self.ssl:
                 new_data = self.ssl.read(2**14)
-            else:
+            elif self.socket:
                 new_data = self.socket.recv(2**14)
+            else:
+                return
         except socket.error, x:
             # The server hung up.
             self.disconnect("Connection reset by peer")
