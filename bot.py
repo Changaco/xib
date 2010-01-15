@@ -16,14 +16,12 @@
 
 
 import re
-import shlex
 import sys
 import threading
 from time import sleep
 import traceback
 import xml.parsers.expat
 
-from argparse_modified import ArgumentParser
 from encoding import *
 import irclib
 import muc
@@ -32,12 +30,10 @@ del muc
 
 from bridge import Bridge
 from participant import Participant
+import commands
 
 
 class Bot(threading.Thread):
-	
-	commands = ['xmpp-participants', 'irc-participants', 'bridges']
-	admin_commands = ['add-bridge', 'add-xmpp-admin', 'change-bridge-mode', 'halt', 'remove-bridge', 'restart-bot', 'restart-bridge', 'stop-bridge']
 	
 	def __init__(self, jid, password, nickname, admins_jid=[], error_fd=sys.stderr, debug=False):
 		threading.Thread.__init__(self)
@@ -824,153 +820,14 @@ class Bot(threading.Thread):
 	
 	
 	def respond(self, message, participant=None, bot_admin=False):
-		ret = ''
-		command = shlex.split(message)
-		args_array = []
-		if len(command) > 1:
-			args_array = command[1:]
-		command = command[0]
-		
-		if isinstance(participant, Participant) and bot_admin != participant.bot_admin:
-			bot_admin = participant.bot_admin
-		
-		if command == 'xmpp-participants':
-			if not isinstance(participant, Participant):
-				for b in self.bridges:
-					xmpp_participants_nicknames = b.get_participants_nicknames_list(protocols=['xmpp'])
-					ret += '\nparticipants on '+b.xmpp_room_jid+' ('+str(len(xmpp_participants_nicknames))+'): '+' '.join(xmpp_participants_nicknames)
-				return ret
-			else:
-				xmpp_participants_nicknames = participant.bridge.get_participants_nicknames_list(protocols=['xmpp'])
-				return '\nparticipants on '+participant.bridge.xmpp_room_jid+' ('+str(len(xmpp_participants_nicknames))+'): '+' '.join(xmpp_participants_nicknames)
-		
-		elif command == 'irc-participants':
-			if not isinstance(participant, Participant):
-				for b in self.bridges:
-					irc_participants_nicknames = b.get_participants_nicknames_list(protocols=['irc'])
-					ret += '\nparticipants on '+b.irc_room+' at '+b.irc_server+' ('+str(len(irc_participants_nicknames))+'): '+' '.join(irc_participants_nicknames)
-				return ret
-			else:
-				irc_participants_nicknames = participant.bridge.get_participants_nicknames_list(protocols=['irc'])
-				return '\nparticipants on '+participant.bridge.irc_room+' at '+participant.bridge.irc_server+' ('+str(len(irc_participants_nicknames))+'): '+' '.join(irc_participants_nicknames)
-		
-		elif command == 'bridges':
-			parser = ArgumentParser(prog=command)
-			parser.add_argument('--show-mode', default=False, action='store_true')
-			parser.add_argument('--show-say-level', default=False, action='store_true')
-			parser.add_argument('--show-participants', default=False, action='store_true')
-			try:
-				args = parser.parse_args(args_array)
-			except ArgumentParser.ParseException as e:
-				return '\n'+e.args[1]
-			ret = 'List of bridges:'
-			for i, b in enumerate(self.bridges):
-				ret += '\n'+str(i+1)+' - '+str(b)
-				if args.show_mode:
-					ret += ' - mode='+b.mode
-				if args.show_say_level:
-					ret += ' - say_level='+Bridge._say_levels[b.say_level]
-				if args.show_participants:
-					xmpp_participants_nicknames = b.get_participants_nicknames_list(protocols=['xmpp'])
-					ret += '\nparticipants on XMPP ('+str(len(xmpp_participants_nicknames))+'): '+' '.join(xmpp_participants_nicknames)
-					irc_participants_nicknames = b.get_participants_nicknames_list(protocols=['irc'])
-					ret += '\nparticipants on IRC ('+str(len(irc_participants_nicknames))+'): '+' '.join(irc_participants_nicknames)
-				if b.irc_connection == None:
-					ret += ' - this bridge is stopped, use "restart-bridge '+str(i+1)+'" to restart it'
-			return ret
-		
-		elif command in Bot.admin_commands:
-			if bot_admin == False:
-				return 'You have to be a bot admin to use this command.'
-			
-			if command == 'add-bridge':
-				parser = ArgumentParser(prog=command)
-				parser.add_argument('xmpp_room_jid', type=str)
-				parser.add_argument('irc_chan', type=str)
-				parser.add_argument('irc_server', type=str)
-				parser.add_argument('--mode', choices=Bridge._modes, default='normal')
-				parser.add_argument('--say-level', choices=Bridge._say_levels, default='all')
-				parser.add_argument('--irc-port', type=int, default=6667)
-				try:
-					args = parser.parse_args(args_array)
-				except ArgumentParser.ParseException as e:
-					return '\n'+e.args[1]
-				
-				self.new_bridge(args.xmpp_room_jid, args.irc_chan, args.irc_server, args.mode, args.say_level, irc_port=args.irc_port)
-				
-				return 'Bridge added.'
-			
-			elif command == 'add-xmpp-admin':
-				parser = ArgumentParser(prog=command)
-				parser.add_argument('jid', type=str)
-				try:
-					args = parser.parse_args(args_array)
-				except ArgumentParser.ParseException as e:
-					return '\n'+e.args[1]
-				self.admins_jid.append(args.jid)
-				for b in self.bridges:
-					for p in b.participants:
-						if p.real_jid != None and xmpp.protocol.JID(args.jid).bareMatch(p.real_jid):
-							p.bot_admin = True
-				
-				return 'XMPP admin added.'
-				
-			elif command == 'restart-bot':
-				self.restart()
-				return
-			elif command == 'halt':
-				self.stop()
-				return
-			
-			
-			elif command in ['change-bridge-mode', 'remove-bridge', 'restart-bridge', 'stop-bridge']:
-				# we need to know which bridge the command is for
-				if len(args_array) == 0:
-					if isinstance(participant, Participant):
-						b = participant.bridge
-					else:
-						return 'You must specify a bridge. '+self.respond('bridges')
-				else:
-					try:
-						bn = int(args_array[0])
-						if bn < 1:
-							raise IndexError
-						b = self.bridges[bn-1]
-					except IndexError:
-						return 'Invalid bridge number "'+str(bn)+'". '+self.respond('bridges')
-					except ValueError:
-						bridges = self.findBridges(args_array[0])
-						if len(bridges) == 0:
-							return 'No bridge found matching "'+args_array[0]+'". '+self.respond('bridges')
-						elif len(bridges) == 1:
-							b = bridges[0]
-						elif len(bridges) > 1:
-							return 'More than one bridge matches "'+args_array[0]+'", please be more specific. '+self.respond('bridges')
-					
-				if command == 'change-bridge-mode':
-					new_mode = args_array[1]
-					if not new_mode in Bridge._modes:
-						return '"'+new_mode+'" is not a valid mode, list of modes: '+' '.join(Bridge._modes)
-					r = b.changeMode(new_mode)
-					if r:
-						return r
-					return 'Mode changed.'
-				elif command == 'remove-bridge':
-					self.removeBridge(b)
-					return 'Bridge removed.'
-				elif command == 'restart-bridge':
-					b.restart()
-					return 'Bridge restarted.'
-				elif command == 'stop-bridge':
-					b.stop()
-					return 'Bridge stopped.'
-		
+		if isinstance(participant, Participant):
+			bridge = participant.bridge
+			if bot_admin != participant.bot_admin:
+				bot_admin = participant.bot_admin
 		else:
-			ret = 'Error: "'+command+'" is not a valid command.\ncommands:  '+'  '.join(Bot.commands)
-			if bot_admin == True:
-				return ret+'\n'+'admin commands:  '+'  '.join(Bot.admin_commands)
-			else:
-				return ret
+			bridge = None
+		
+		return commands.execute(self, message, bot_admin, bridge)
 	
 	
 	def restart(self):
