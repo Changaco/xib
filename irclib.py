@@ -415,6 +415,7 @@ class ServerConnection(Connection):
         self.port = port
         self.nickname = nickname
         self.lock = threading.RLock()
+        self.left_channels = []
 
 
     def __str__(self):
@@ -782,6 +783,8 @@ class ServerConnection(Connection):
 
     def join(self, channel, key=""):
         """Send a JOIN command."""
+        if channel in self.left_channels:
+            self.left_channels.remove(channel)
         self.send_raw("JOIN %s%s" % (channel, (key and (" " + key))))
 
     def kick(self, channel, nick, comment=""):
@@ -849,8 +852,11 @@ class ServerConnection(Connection):
     def part(self, channels, message=""):
         """Send a PART command."""
         if isinstance(channels, basestring):
+            self.left_channels.append(channels)
             self.send_raw("PART " + channels + (message and (" " + message)))
         else:
+            for channel in channels:
+                self.left_channels.append(channel)
             self.send_raw("PART " + ",".join(channels) + (message and (" " + message)))
 
     def pass_(self, password):

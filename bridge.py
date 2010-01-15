@@ -283,11 +283,13 @@ class Bridge:
 				if left_protocol == 'xmpp':
 					was_on_both = False
 				elif left_protocol == 'irc':
-					try:
+					if isinstance(p.irc_connection, ServerConnection):
 						p.irc_connection.join(self.irc_room)
-					except:
-						p._close_irc_connection(leave_message)
-						p.createDuplicateOnIRC()
+					else:
+						c = self.bot.irc.get_connection(self.irc_server, self.irc_port, p.duplicate_nickname)
+						if not (c and self.irc_room in c.left_channels):
+							p._close_irc_connection(leave_message)
+							p.createDuplicateOnIRC()
 					return
 		
 		elif p.protocol == 'irc':
