@@ -178,33 +178,40 @@ class Bridge:
 		return p
 	
 	
+	def createDuplicatesOn(self, protocols):
+		for p in self.participants:
+			if p.protocol == 'xmpp' and 'irc' in protocols:
+				p.createDuplicateOnIRC()
+			elif p.protocol == 'irc' and 'xmpp' in protocols:
+				p.createDuplicateOnXMPP()
+	
+	
 	def changeMode(self, new_mode):
 		if new_mode == self.mode:
 			return 'Mode is already equal to '+self.mode
 		
-		unhandled = 'Error: unhandled mode changing from '+self.mode+' to '+new_mode
+		old_mode = self.mode
+		self.mode = new_mode
+		
+		unhandled = False
 		
 		if new_mode in ['normal', 'bypass']:
 			
-			if self.mode[-7:] == 'limited':
+			if old_mode[-7:] == 'limited':
 				# From  [{normal,bypass}-]limited  to  {normal,bypass}
-				pass  # duplicates of XMPP users are created below
+				self.createDuplicatesOn(['irc'])
 			
-			elif self.mode == 'minimal':
-				# From  minimal  to  {normal,bypass}
-				# create duplicates of IRC users, duplicates of XMPP users are created below
-				for p in self.participants:
-					if p.protocol == 'irc':
-						p.createDuplicateOnXMPP()
+			elif old_mode in ['minimal', 'normal']:
+				# From  {minimal,normal}  to  {normal,bypass}
+				self.createDuplicatesOn(['irc', 'xmpp'])
+			
+			elif old_mode == 'bypass':
+				# From  bypass  to  normal
+				pass  # Handled below
 			
 			else:
 				# Unhandled mode changing
-				return unhandled
-			
-			# create duplicates of XMPP users
-			for p in self.participants:
-				if p.protocol == 'xmpp':
-					p.createDuplicateOnIRC()
+				unhandled = True
 			
 		elif new_mode[-7:] == 'limited':
 			
@@ -225,15 +232,24 @@ class Bridge:
 		
 		elif new_mode == 'minimal':
 			for p in self.participants:
-				p.leave('Bridge is switching to limited mode')
+				p.leave('Bridge is switching to minimal mode')
 		
 		else:
 			# Unhandled mode changing
-			return unhandled
+			unhandled = True
 		
-		self.mode = new_mode
-		self.bot.error('===> Bridge is switching from '+self.mode+' to '+new_mode+' mode.')
-		self.say('[Notice] Bridge is switching from '+self.mode+' to '+new_mode+' mode.')
+		if unhandled:
+			self.mode = old_mode
+			return 'Error: unhandled mode changing from '+self.mode+' to '+new_mode
+		
+		if old_mode == 'bypass':
+			# From  bypass  to  *
+			for p in self.participants:
+				if p.nickname != p.duplicate_nickname:
+					p.leave('Bridge is switching to '+new_mode+' mode')
+		
+		self.bot.error('===> Bridge is switching from '+old_mode+' to '+new_mode+' mode.')
+		self.say('[Notice] Bridge is switching from '+old_mode+' to '+new_mode+' mode.')
 	
 	
 	def getParticipant(self, nickname):

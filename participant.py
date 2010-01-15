@@ -349,6 +349,7 @@ class Participant:
 	def _close_xmpp_connection(self, message):
 		if isinstance(self.xmpp_c, xmpp.client.Client):
 			self.muc.leave(auto_decode(message))
+			self.xmpp_c = None
 			self.bridge.bot.close_xmpp_connection(self.nickname)
 	
 	
