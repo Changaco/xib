@@ -37,7 +37,7 @@ from participant import Participant
 class Bot(threading.Thread):
 	
 	commands = ['xmpp-participants', 'irc-participants', 'bridges']
-	admin_commands = ['add-bridge', 'add-xmpp-admin', 'halt', 'remove-bridge', 'restart-bot', 'restart-bridge', 'stop-bridge']
+	admin_commands = ['add-bridge', 'add-xmpp-admin', 'change-bridge-mode', 'halt', 'remove-bridge', 'restart-bot', 'restart-bridge', 'stop-bridge']
 	
 	def __init__(self, jid, password, nickname, admins_jid=[], error_fd=sys.stderr, debug=False):
 		threading.Thread.__init__(self)
@@ -923,7 +923,7 @@ class Bot(threading.Thread):
 				return
 			
 			
-			elif command in ['remove-bridge', 'restart-bridge', 'stop-bridge']:
+			elif command in ['change-bridge-mode', 'remove-bridge', 'restart-bridge', 'stop-bridge']:
 				# we need to know which bridge the command is for
 				if len(args_array) == 0:
 					if isinstance(participant, Participant):
@@ -947,7 +947,15 @@ class Bot(threading.Thread):
 						elif len(bridges) > 1:
 							return 'More than one bridge matches "'+args_array[0]+'", please be more specific. '+self.respond('bridges')
 					
-				if command == 'remove-bridge':
+				if command == 'change-bridge-mode':
+					new_mode = args_array[1]
+					if not new_mode in Bridge._modes:
+						return '"'+new_mode+'" is not a valid mode, list of modes: '+' '.join(Bridge._modes)
+					r = b.changeMode(new_mode)
+					if r:
+						return r
+					return 'Mode changed.'
+				elif command == 'remove-bridge':
 					self.removeBridge(b)
 					return 'Bridge removed.'
 				elif command == 'restart-bridge':
