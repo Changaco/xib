@@ -919,7 +919,7 @@ class Bot(threading.Thread):
 				self.restart()
 				return
 			elif command == 'halt':
-				self.__del__()
+				self.stop()
 				return
 			
 			
@@ -996,6 +996,10 @@ class Bot(threading.Thread):
 		self.error(error_message, send_to_admins=True)
 	
 	
-	def __del__(self):
+	def stop(self, message='Stopping bot'):
 		for bridge in self.bridges:
-			self.removeBridge(bridge)
+			self.removeBridge(bridge, message=message)
+	
+	
+	def __del__(self):
+		self.stop()
