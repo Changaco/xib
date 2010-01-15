@@ -869,7 +869,7 @@ class Bot(threading.Thread):
 				if args.show_mode:
 					ret += ' - mode='+b.mode
 				if args.show_say_level:
-					ret += ' - say_level='+bridge._say_levels[b.say_level]
+					ret += ' - say_level='+Bridge._say_levels[b.say_level]
 				if args.show_participants:
 					xmpp_participants_nicknames = b.get_participants_nicknames_list(protocols=['xmpp'])
 					ret += '\nparticipants on XMPP ('+str(len(xmpp_participants_nicknames))+'): '+' '.join(xmpp_participants_nicknames)
@@ -888,8 +888,8 @@ class Bot(threading.Thread):
 				parser.add_argument('xmpp_room_jid', type=str)
 				parser.add_argument('irc_chan', type=str)
 				parser.add_argument('irc_server', type=str)
-				parser.add_argument('--mode', choices=bridge._modes, default='normal')
-				parser.add_argument('--say-level', choices=bridge._say_levels, default='all')
+				parser.add_argument('--mode', choices=Bridge._modes, default='normal')
+				parser.add_argument('--say-level', choices=Bridge._say_levels, default='all')
 				parser.add_argument('--irc-port', type=int, default=6667)
 				try:
 					args = parser.parse_args(args_array)
@@ -939,13 +939,13 @@ class Bot(threading.Thread):
 					except IndexError:
 						return 'Invalid bridge number "'+str(bn)+'". '+self.respond('bridges')
 					except ValueError:
-						bridges = self.findBridges(args_array)
+						bridges = self.findBridges(args_array[0])
 						if len(bridges) == 0:
-							return 'No bridge found matching "'+' '.join(args_array)+'". '+self.respond('bridges')
+							return 'No bridge found matching "'+args_array[0]+'". '+self.respond('bridges')
 						elif len(bridges) == 1:
 							b = bridges[0]
 						elif len(bridges) > 1:
-							return 'More than one bridge matches "'+' '.join(args_array)+'", please be more specific. '+self.respond('bridges')
+							return 'More than one bridge matches "'+args_array[0]+'", please be more specific. '+self.respond('bridges')
 					
 				if command == 'remove-bridge':
 					self.removeBridge(b)
