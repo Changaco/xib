@@ -224,6 +224,9 @@ class Bridge:
 			
 		elif new_mode[-7:] == 'limited':
 			
+			if old_mode == 'minimal':
+				self.createDuplicatesOn(['xmpp'])
+			
 			i = 0
 			for p in self.participants:
 				if p.protocol == 'xmpp':
