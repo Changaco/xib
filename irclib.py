@@ -209,6 +209,8 @@ class IRC:
                     if hasattr(c, 'socket'):
                         try:
                             c.process_data()
+                        except ServerNotConnectedError:
+                            self.bot.restart()
                         except:
                             self.bot.error('[Error] Unkonwn exception on IRC thread:\n'+traceback.format_exc(), send_to_admins=True)
                     c.lock.release()
@@ -467,21 +469,24 @@ class ServerConnection(Connection):
             self.lock.release()
             return self
 
+        if self.socket != 'closed':
+            self.nick_callbacks = []
+            self.irc_id = None
+            self.previous_buffer = ""
+            self.handlers = {}
+            self.real_server_name = ""
+            self.real_nickname = self.nickname
+            self.username = username or self.nickname
+            self.ircname = ircname or self.nickname
+            self.password = password
+            self.localaddress = localaddress
+            self.localport = localport
+            self.localhost = socket.gethostname()
 
-        self.nick_callbacks = []
-        self.irc_id = None
-        self.previous_buffer = ""
-        self.handlers = {}
-        self.real_server_name = ""
-        self.real_nickname = self.nickname
-        self.username = username or self.nickname
-        self.ircname = ircname or self.nickname
-        self.password = password
-        self.localaddress = localaddress
-        self.localport = localport
-        self.localhost = socket.gethostname()
+            self.irclibobj.bot.error('===> Debug: opening new IRC connection for '+self.__str__(), debug=True)
+        else:
+            self.irclibobj.bot.error('===> Debug: reopening IRC connection for '+self.__str__(), debug=True)
 
-        self.irclibobj.bot.error('===> Debug: opening new IRC connection for '+self.__str__(), debug=True)
         self._ping()
 
         if ipv6:
@@ -495,7 +500,7 @@ class ServerConnection(Connection):
                 self.ssl = socket.ssl(self.socket)
         except socket.error, x:
             self.socket.close()
-            self.socket = None
+            self.socket = 'closed'
             raise ServerConnectionError, "Couldn't connect to socket: %s" % x
         self.connected = True
         if self.irclibobj.fn_to_add_socket:
@@ -754,7 +759,7 @@ class ServerConnection(Connection):
             self.socket.close()
         except socket.error, x:
             pass
-        self.socket = None
+        self.socket = 'closed'
         self.lock.release()
 
         if volontary == False:
@@ -901,7 +906,7 @@ class ServerConnection(Connection):
         The string will be padded with appropriate CR LF.
         """
         if self.socket is None:
-            raise ServerNotConnectedError, "Not connected."
+            raise ServerNotConnectedError, self
         try:
             if self.ssl:
                 self.ssl.write(string.encode('utf-8') + "\r\n")
@@ -1051,7 +1056,7 @@ class DCCConnection(Connection):
             self.socket.close()
         except socket.error, x:
             pass
-        self.socket = None
+        self.socket = 'closed'
         self.irclibobj._handle_event(
             self,
             Event("dcc_disconnect", self.peeraddress, "", [message]))

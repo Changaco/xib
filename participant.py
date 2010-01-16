@@ -290,6 +290,7 @@ class Participant:
 					else:
 						self.irc_connection.privmsg(self.bridge.irc_room, message)
 				except ServerNotConnectedError:
+					self.irc_connection.connect()
 					bot_say = True
 			elif not isinstance(self.xmpp_c, xmpp.client.Client):
 				bot_say = True
