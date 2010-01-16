@@ -882,7 +882,7 @@ class ServerConnection(Connection):
             l_size = len(l.encode('utf-8'))
             available_size = float(510-len('%s PRIVMSG %s :' % (self.irc_id, target)))  # 510 is the size limit for IRC messages defined in RFC 2812
             e = 0
-            for i in range(math.ceil(l_size/available_size)):
+            for i in range(int(math.ceil(l_size/available_size))):
                 s = e
                 e = s+int(available_size)
                 while len(l[s:e].encode('utf-8')) >= available_size:
