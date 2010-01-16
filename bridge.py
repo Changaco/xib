@@ -233,8 +233,7 @@ class Bridge:
 			if new_mode[-8:] == '-limited':
 				# to {normal,bypass}-limited
 				self.irc_connections_limit = i
-				self.bot.error('===> Bridge is switching to limited mode. Limit seems to be '+str(self.irc_connections_limit)+' on "'+self.irc_server+'".')
-				self.say('[Warning] Bridge is switching to limited mode, it means that it will be transparent for XMPP users but not for IRC users, this is due to the IRC servers\' per-IP-address connections\' limit number which seems to be '+str(self.irc_connections_limit)+' on "'+self.irc_server+'".')
+				self.say('[Warning] Bridge is switching to limited mode, it means that it will be transparent for XMPP users but not for IRC users, this is due to the IRC servers\' per-IP-address connections\' limit number which seems to be '+str(self.irc_connections_limit)+' on "'+self.irc_server+'".', log=True)
 				xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
 				self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
 				return
@@ -257,8 +256,7 @@ class Bridge:
 				if p.nickname != p.duplicate_nickname:
 					p.leave('Bridge is switching to '+new_mode+' mode')
 		
-		self.bot.error('===> Bridge is switching from '+old_mode+' to '+new_mode+' mode.')
-		self.say('[Notice] Bridge is switching from '+old_mode+' to '+new_mode+' mode.')
+		self.say('[Notice] Bridge is switching from '+old_mode+' to '+new_mode+' mode.', log=True)
 	
 	
 	def getParticipant(self, nickname):
@@ -374,10 +372,12 @@ class Bridge:
 		self.init2()
 	
 	
-	def say(self, message, on_irc=True, on_xmpp=True):
+	def say(self, message, on_irc=True, on_xmpp=True, log=False):
 		"""Make the bot say something."""
 		if message[0] != '[':
 			raise Exception('[Internal Error] message does not start with "["')
+		if log:
+			self.bot.error(message+' ('+str(self)+')')
 		if self.say_level == self.__class__._nothing:
 			return
 		level = re.findall('^\[(Info|Notice|Warning|Error)\]', message)

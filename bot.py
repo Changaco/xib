@@ -615,8 +615,7 @@ class Bot(threading.Thread):
 						if banned.irc_connection != 'bannedfromchan':
 							banned.irc_connection = 'bannedfromchan'
 							self.error(event_str, debug=True)
-							self.error('[Notice] the nickname "'+event.target()+'" is banned from the IRC chan of bridge "'+str(bridge)+'"')
-							bridge.say('[Warning] the nickname "'+event.target()+'" is banned from the IRC chan')
+							bridge.say('[Warning] the nickname "'+event.target()+'" is banned from the IRC chan', log=True)
 						else:
 							self.error('=> Debug: ignoring '+event.eventtype(), debug=True)
 					except Bridge.NoSuchParticipantException:
