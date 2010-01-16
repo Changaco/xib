@@ -113,6 +113,13 @@ class Bridge:
 			self.stop(message='failed to connect to the IRC chan')
 	
 	
+	def _RemoteServerNotFound_handler(self):
+		server = xmpp.protocol.JID(self.xmpp_room_jid).getDomain()
+		bridges = self.bot.findBridges([server])
+		error_message = '[Warning] The MUC server '+server+' seems to be down, the bot will try to recreate all bridges related to this server in 5 minutes'
+		self.bot.restart_bridges_delayed(bridges, 300, error_message)
+	
+	
 	def _xmpp_join_callback(self, errors):
 		"""Called by muc._xmpp_presence_handler"""
 		if len(errors) == 0:
@@ -129,6 +136,8 @@ class Bridge:
 			for error in errors:
 				try:
 					raise error
+				except xmpp.muc.RemoteServerNotFound:
+					self._RemoteServerNotFound_handler()
 				except:
 					traceback.print_exc()
 			self.bot.error('[Error] failed to connect to the XMPP room of bridge "'+str(self)+'", stopping bridge', send_to_admins=True)

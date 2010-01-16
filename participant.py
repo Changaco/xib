@@ -99,6 +99,8 @@ class Participant:
 				except xmpp.muc.RoomIsFull:
 					self.bridge.bot.error('[Warning] XMPP MUC of bridge "'+str(self.bridge)+'" is full', send_to_admins=True)
 					self.bridge.say('[Warning] XMPP room is full')
+				except xmpp.muc.RemoteServerNotFound:
+					self.bridge._RemoteServerNotFound_handler()
 				
 				if isinstance(self.xmpp_c, xmpp.client.Client):
 					self.bridge.bot.close_xmpp_connection(self.nickname)
