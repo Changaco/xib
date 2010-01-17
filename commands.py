@@ -26,7 +26,7 @@ from bridge import Bridge
 
 
 commands = ['xmpp-participants', 'irc-participants', 'xmpp-connections', 'irc-connections', 'connections', 'bridges']
-admin_commands = ['add-bridge', 'add-xmpp-admin', 'change-bridge-mode', 'halt', 'remove-bridge', 'restart-bot', 'restart-bridge', 'stop-bridge']
+admin_commands = ['add-bridge', 'add-xmpp-admin', 'change-bridge-mode', 'debug', 'halt', 'remove-bridge', 'restart-bot', 'restart-bridge', 'stop-bridge']
 
 def execute(bot, command_line, bot_admin, bridge):
 	ret = ''
@@ -155,6 +155,28 @@ def connections(bot, command, args_array, bot_admin, bridge):
 	except ArgumentParser.ParseException as e:
 		return '\n'+e.args[1]
 	return irc_connections(bot, 'irc-connections', args_array, bot_admin, bridge)+'\n'+xmpp_connections(bot, 'xmpp-connections', args_array, bot_admin, bridge)
+
+
+def debug(bot, command, args_array, bot_admin, bridge):
+	parser = ArgumentParser(prog=command)
+	parser.add_argument('mode', choices=['on', 'off'])
+	try:
+		args = parser.parse_args(args_array)
+	except ArgumentParser.ParseException as e:
+		if len(args_array) == 0:
+			if bot.debug:
+				return 'Debugging is on'
+			else:
+				return 'Debugging is off'
+		else:
+			return '\n'+e.args[1]
+	
+	if args.mode == 'on':
+		bot.debug = True
+		return 'Debugging is now on'
+	else:
+		bot.debug = False
+		return 'Debugging is now off'
 
 
 def halt(bot, command, args_array, bot_admin, bridge):
