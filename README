@@ -3,6 +3,7 @@
 This is the first release of xib so some things are not implemented yet, if you want/need an error-safe bot, don't use this one !
 
 Here is the list of things that still need to be implemented:
+- internationalization
 - handle cross-protocol kicks
 - split logs into multiple files
 - handle password-protected rooms
@@ -25,6 +26,14 @@ Changaco <changaco@changaco.net>
  - new mode "bypass", this allows to connect more than one bot for each IRC server without having so many nickname conflicts that the bot looks like it is in limited mode
  - new bridge attribute "irc_connection_interval" (in seconds)
  - removed automatic switching to limited mode
+ - created 5 commands:
+   - change-bridge-mode
+   - connections
+   - irc-connections
+   - xmpp-connections
+   - debug
+ - improved the quality of the code
+ - finally, as usual, fixed many bugs and introduced new ones
 0.2:
  - fixed many many bugs
  - new command system
