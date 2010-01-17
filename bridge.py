@@ -180,11 +180,9 @@ class Bridge:
 		self.lock.release()
 		if self.mode not in ['normal', 'bypass']:
 			if from_protocol == 'xmpp':
-				xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
-				self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
+				self.show_participants_list_on(protocols=['irc'])
 			elif self.mode == 'minimal' and from_protocol == 'irc':
-				irc_participants_nicknames = self.get_participants_nicknames_list(protocols=['irc'])
-				self.say('[Info] Participants on IRC: '+'  '.join(irc_participants_nicknames), on_irc=False)
+				self.show_participants_list_on(protocols=['xmpp'])
 		return p
 	
 	
@@ -207,8 +205,8 @@ class Bridge:
 		
 		if new_mode in ['normal', 'bypass']:
 			
-			if old_mode[-7:] == 'limited':
-				# From  [{normal,bypass}-]limited  to  {normal,bypass}
+			if old_mode == 'limited':
+				# From  limited  to  {normal,bypass}
 				self.createDuplicatesOn(['irc'])
 			
 			elif old_mode in ['minimal', 'normal']:
@@ -223,7 +221,7 @@ class Bridge:
 				# Unhandled mode changing
 				unhandled = True
 			
-		elif new_mode[-7:] == 'limited':
+		elif new_mode == 'limited':
 			
 			if old_mode == 'minimal':
 				self.createDuplicatesOn(['xmpp'])
@@ -234,13 +232,7 @@ class Bridge:
 					i += 1
 					p._close_irc_connection('Bridge is switching to limited mode')
 			
-			if new_mode[-8:] == '-limited':
-				# to {normal,bypass}-limited
-				self.irc_connections_limit = i
-				self.say('[Warning] Bridge is switching to limited mode, it means that it will be transparent for XMPP users but not for IRC users, this is due to the IRC servers\' per-IP-address connections\' limit number which seems to be '+str(self.irc_connections_limit)+' on "'+self.irc_server+'".', log=True)
-				xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
-				self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
-				return
+			self.show_participants_list_on(protocols=['irc'])
 		
 		elif new_mode == 'minimal':
 			for p in self.participants:
@@ -349,15 +341,11 @@ class Bridge:
 			del p
 			self.lock.release()
 			if left_protocol == 'xmpp':
-				xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
-				if self.irc_connections_limit != -1 and self.irc_connections_limit > len(xmpp_participants_nicknames):
-					self.changeMode(self.mode[:-8])
 				if self.mode not in ['normal', 'bypass']:
-					self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
+					self.show_participants_list_on(protocols=['irc'])
 			elif left_protocol == 'irc':
 				if self.mode == 'minimal':
-					irc_participants_nicknames = self.get_participants_nicknames_list(protocols=['irc'])
-					self.say('[Info] Participants on IRC: '+'  '.join(irc_participants_nicknames), on_irc=False)
+					self.show_participants_list_on(protocols=['xmpp'])
 		
 		else:
 			self.bot.error('=> Debug: Bad decision tree,  p.protocol='+p.protocol+'  left_protocol='+left_protocol+'\np.xmpp_c='+str(p.xmpp_c)+'\np.irc_connection='+str(p.irc_connection), debug=True)
@@ -394,6 +382,15 @@ class Bridge:
 			self.xmpp_room.say(message)
 		if on_irc == True:
 			self.irc_connection.privmsg(self.irc_room, message)
+	
+	
+	def show_participants_list_on(self, protocols=[]):
+		if 'irc' in protocols:
+			xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
+			self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
+		if 'xmpp' in protocols:
+			irc_participants_nicknames = self.get_participants_nicknames_list(protocols=['irc'])
+			self.say('[Info] Participants on IRC: '+'  '.join(irc_participants_nicknames), on_irc=False)
 	
 	
 	def stop(self, message='Stopping bridge'):

@@ -649,32 +649,16 @@ class Bot(threading.Thread):
 				return
 		
 		
+		if event.eventtype() in ['disconnect', 'kill', 'error']:
+			if len(event.arguments()) > 0 and event.arguments()[0] == 'Connection reset by peer':
+				self.error(event_str, debug=True)
+			else:
+				self.error(event_str, send_to_admins=True)
+			return
+		
+		
 		# From here the event is shown
 		self.error(event_str, debug=True)
-		
-		
-		if event.eventtype() in ['disconnect', 'kill']:
-			if len(event.arguments()) > 0 and event.arguments()[0] == 'Connection reset by peer':
-				return
-			
-			# TODO: lock self.bridges for thread safety
-			for bridge in self.bridges:
-				if connection.server != bridge.irc_server:
-					continue
-				try:
-					p = bridge.getParticipant(connection.get_nickname())
-					if bridge.mode in ['normal', 'bypass']:
-						bridge.changeMode('limited')
-					else:
-						if p.irc_connection.really_connected == True:
-							p.irc_connection.part(bridge.irc_room, message=message)
-						p.irc_connection.used_by -= 1
-						if p.irc_connection.used_by < 1:
-							p.irc_connection.close(message)
-						p.irc_connection = None
-				except Bridge.NoSuchParticipantException:
-					pass
-			return
 		
 		
 		# Nickname callbacks
