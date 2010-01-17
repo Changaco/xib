@@ -1154,9 +1154,9 @@ class Event:
 
             arguments -- Any event specific arguments.
         """
-        self._eventtype = eventtype.strip()
-        self._source = source.strip()
-        self._target = target.strip()
+        self._eventtype = eventtype
+        self._source = source
+        self._target = target
         if arguments:
             self._arguments = arguments
         else:
