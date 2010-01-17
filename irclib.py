@@ -905,12 +905,12 @@ class ServerConnection(Connection):
 
         The string will be padded with appropriate CR LF.
         """
-        if self.socket is None:
+        if not self.socket or self.socket == 'closed':
             raise ServerNotConnectedError, self
         try:
             if self.ssl:
                 self.ssl.write(string.encode('utf-8') + "\r\n")
-            else:
+            elif self.socket and self.socket != 'closed':
                 self.socket.send(string.encode('utf-8') + "\r\n")
             if DEBUG:
                 print "TO SERVER:", string
