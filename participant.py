@@ -182,6 +182,7 @@ class Participant:
 	def changeNickname(self, newnick, on_protocol):
 		"""Change participant's nickname."""
 		
+		p = None
 		oldnick = self.nickname
 		
 		if self.protocol == 'xmpp':
@@ -242,6 +243,10 @@ class Participant:
 		
 		self.nickname = newnick
 		self.duplicate_nickname = newnick
+		
+		if not isinstance(p, Participant):
+			return
+		
 		if p.nickname == newnick:
 			if p.protocol == self.protocol:
 				# should never happen
