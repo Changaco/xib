@@ -241,7 +241,7 @@ class IRC:
         at the process_forever method.
         """
         sockets = map(lambda x: x._get_socket(), self.connections)
-        sockets = filter(lambda x: x != None, sockets)
+        sockets = filter(lambda x: x and not isinstance(x, basestring), sockets)
         if sockets:
             (i, o, e) = select.select(sockets, [], [], timeout)
             self.process_data(i)
@@ -905,12 +905,12 @@ class ServerConnection(Connection):
 
         The string will be padded with appropriate CR LF.
         """
-        if not self.socket or self.socket == 'closed':
+        if not self.socket or isinstance(self.socket, basestring):
             raise ServerNotConnectedError, self
         try:
             if self.ssl:
                 self.ssl.write(string.encode('utf-8') + "\r\n")
-            elif self.socket and self.socket != 'closed':
+            else:
                 self.socket.send(string.encode('utf-8') + "\r\n")
             if DEBUG:
                 print "TO SERVER:", string
