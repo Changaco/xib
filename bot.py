@@ -703,9 +703,9 @@ class Bot(threading.Thread):
 				pass
 	
 	
-	def new_bridge(self, xmpp_room, irc_room, irc_server, mode, say_level, irc_port=6667):
+	def new_bridge(self, xmpp_room, irc_room, irc_server, mode, say_level, irc_port=6667, irc_connection_interval=1):
 		"""Create a bridge between xmpp_room and irc_room at irc_server."""
-		b = Bridge(self, xmpp_room, irc_room, irc_server, mode, say_level, irc_port=irc_port)
+		b = Bridge(self, xmpp_room, irc_room, irc_server, mode, say_level, irc_port=irc_port, irc_connection_interval=irc_connection_interval)
 		self.bridges.append(b)
 		return b
 	
