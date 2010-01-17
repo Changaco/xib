@@ -25,7 +25,7 @@ del muc
 from bridge import Bridge
 
 
-commands = ['xmpp-participants', 'irc-participants', 'bridges']
+commands = ['xmpp-participants', 'irc-participants', 'xmpp-connections', 'irc-connections', 'connections', 'bridges']
 admin_commands = ['add-bridge', 'add-xmpp-admin', 'change-bridge-mode', 'halt', 'remove-bridge', 'restart-bot', 'restart-bridge', 'stop-bridge']
 
 def execute(bot, command_line, bot_admin, bridge):
@@ -147,9 +147,36 @@ def change_bridge_mode(bot, command, args_array, bot_admin, bridge):
 	return 'Mode changed.'
 
 
+def connections(bot, command, args_array, bot_admin, bridge):
+	parser = ArgumentParser(prog=command)
+	parser.add_argument('--verbose', '-v', default=False, action='store_true')
+	try:
+		args = parser.parse_args(args_array)
+	except ArgumentParser.ParseException as e:
+		return '\n'+e.args[1]
+	return irc_connections(bot, 'irc-connections', args_array, bot_admin, bridge)+'\n'+xmpp_connections(bot, 'xmpp-connections', args_array, bot_admin, bridge)
+
+
 def halt(bot, command, args_array, bot_admin, bridge):
 	bot.stop()
 	return
+
+
+def irc_connections(bot, command, args_array, bot_admin, bridge):
+	parser = ArgumentParser(prog=command)
+	parser.add_argument('--verbose', '-v', default=False, action='store_true')
+	try:
+		args = parser.parse_args(args_array)
+	except ArgumentParser.ParseException as e:
+		return '\n'+e.args[1]
+	n = len(bot.irc.connections)
+	if args.verbose:
+		ret = 'List of IRC connections ('+str(n)+'):'
+		for c in bot.irc.connections:
+			ret += '\n\t'+str(c)
+	else:
+		ret = 'Number of IRC connections: '+str(n)
+	return ret
 
 
 def irc_participants(bot, command, args_array, bot_admin, bridge):
@@ -181,6 +208,23 @@ def restart_bridge(bot, command, args_array, bot_admin, bridge):
 def stop_bridge(bot, command, args_array, bot_admin, bridge):
 	bridge.stop()
 	return 'Bridge stopped.'
+
+
+def xmpp_connections(bot, command, args_array, bot_admin, bridge):
+	parser = ArgumentParser(prog=command)
+	parser.add_argument('--verbose', '-v', default=False, action='store_true')
+	try:
+		args = parser.parse_args(args_array)
+	except ArgumentParser.ParseException as e:
+		return '\n'+e.args[1]
+	n = len(bot.xmpp_connections)
+	if args.verbose:
+		ret = 'List of XMPP connections ('+str(n)+'):'
+		for nickname in bot.xmpp_connections.iterkeys():
+			ret += '\n\t'+nickname
+	else:
+		ret = 'Number of XMPP connections: '+str(n)
+	return ret
 
 
 def xmpp_participants(bot, command, args_array, bot_admin, bridge):
