@@ -180,7 +180,7 @@ def debug(bot, command, args_array, bot_admin, bridge):
 
 
 def halt(bot, command, args_array, bot_admin, bridge):
-	bot.stop()
+	bot.__del__()
 	return
 
 

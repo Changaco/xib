@@ -37,6 +37,7 @@ class Bot(threading.Thread):
 	
 	def __init__(self, jid, password, nickname, admins_jid=[], error_fd=sys.stderr, debug=False):
 		threading.Thread.__init__(self)
+		self.halt = False
 		self.bare_jid = xmpp.protocol.JID(jid=jid)
 		self.bare_jid.setResource('')
 		self.nickname = nickname
@@ -76,6 +77,11 @@ class Bot(threading.Thread):
 		"""[Internal] XMPP infinite loop."""
 		i = 1
 		while True:
+			if self.halt:
+				s = len(self.xmpp_connections)
+				for i in range(s):
+					self.close_xmpp_connection(self.xmpp_connections.keys()[s-i-1], force=True)
+				break
 			unlock = False
 			try:
 				if len(self.xmpp_connections) == 1:
@@ -780,13 +786,13 @@ class Bot(threading.Thread):
 		return c
 	
 	
-	def close_xmpp_connection(self, nickname):
+	def close_xmpp_connection(self, nickname, force=False):
 		if not self.xmpp_connections.has_key(nickname):
 			return
 		c = self.xmpp_connections[nickname]
 		c.lock.acquire()
 		c.used_by -= 1
-		if c.used_by < 1:
+		if c.used_by < 1 or force:
 			self.error('===> Debug: closing XMPP connection for "'+nickname+'"', debug=True)
 			self.xmpp_connections.pop(nickname)
 			c.send(xmpp.protocol.Presence(typ='unavailable'))
@@ -846,8 +852,10 @@ class Bot(threading.Thread):
 	
 	def stop(self, message='Stopping bot'):
 		for bridge in self.bridges:
-			self.removeBridge(bridge, message=message)
+			bridge.stop(message=message)
 	
 	
 	def __del__(self):
-		self.stop()
+		for bridge in self.bridges:
+			self.removeBridge(bridge, message=message)
+		self.halt = True

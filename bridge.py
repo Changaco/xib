@@ -414,7 +414,6 @@ class Bridge:
 		# Delete participants objects
 		for p in self.participants:
 			p.leave(message)
-			del p
 		self.participants = []
 	
 	

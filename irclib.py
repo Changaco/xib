@@ -254,6 +254,9 @@ class IRC:
             timeout -- Parameter to pass to process_once.
         """
         while 1:
+            if self.bot.halt:
+                self.disconnect_all(message='Stopping bot')
+                break
             try:
                 self.process_once(timeout)
             except ServerNotConnectedError:
