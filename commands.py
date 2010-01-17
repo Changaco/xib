@@ -153,6 +153,7 @@ def halt(bot, command, args_array, bot_admin, bridge):
 
 
 def irc_participants(bot, command, args_array, bot_admin, bridge):
+	ret = ''
 	if not bridge:
 		for b in bot.bridges:
 			irc_participants_nicknames = b.get_participants_nicknames_list(protocols=['irc'])
@@ -183,6 +184,7 @@ def stop_bridge(bot, command, args_array, bot_admin, bridge):
 
 
 def xmpp_participants(bot, command, args_array, bot_admin, bridge):
+	ret = ''
 	if not bridge:
 		for b in bot.bridges:
 			xmpp_participants_nicknames = b.get_participants_nicknames_list(protocols=['xmpp'])
