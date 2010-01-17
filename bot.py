@@ -431,7 +431,7 @@ class Bot(threading.Thread):
 			self.error(message.__str__(fancy=1), debug=True)
 		
 		else:
-			self.error('==> Debug: Received XMPP message of unknown type "'+message.getType()+'".', debug=True)
+			self.error('==> Debug: Received XMPP message of unknown type "'+str(message.getType())+'".', debug=True)
 			self.error(message.__str__(fancy=1), debug=True)
 	
 	
