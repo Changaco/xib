@@ -58,6 +58,12 @@ try:
 		for bridge_el in bot_el.getElementsByTagName('bridge'):
 			xmpp_room = bridge_el.getElementsByTagName('xmpp-room')[0]
 			irc = bridge_el.getElementsByTagName('irc')[0]
+			irc_connection_interval = 1
+			if irc.hasAttribute('connection_interval'):
+				try:
+					irc_connection_interval = float(irc.getAttribute('connection_interval'))
+				except ValueError:
+					print '[Error] the value of connection_interval must be a number'
 			say_level = 'all'
 			if bridge_el.hasAttribute('say_level'):
 				say_level = bridge_el.getAttribute('say_level')
@@ -65,7 +71,7 @@ try:
 				mode = bridge_el.getAttribute('mode')
 			else:
 				mode = 'normal'
-			bot.new_bridge(xmpp_room.getAttribute('jid'), irc.getAttribute('chan'), irc.getAttribute('server'), mode, say_level)
+			bot.new_bridge(xmpp_room.getAttribute('jid'), irc.getAttribute('chan'), irc.getAttribute('server'), mode, say_level, irc_connection_interval=irc_connection_interval)
 	
 	
 	while True:

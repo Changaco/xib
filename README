@@ -23,6 +23,7 @@ Changaco <changaco@changaco.net>
 > Changelog:
 0.3:
  - new mode "bypass", this allows to connect more than one bot for each IRC server without having so many nickname conflicts that the bot looks like it is in limited mode
+ - new bridge attribute "irc_connection_interval" (in seconds)
 0.2:
  - fixed many many bugs
  - new command system

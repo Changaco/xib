@@ -10,7 +10,7 @@
 		</bridge>
 		<bridge mode='minimal' say_level='nothing'>
 			<xmpp-room jid='room@chat.example.com'/>
-			<irc chan='#chan' server='irc.example.org'/>
+			<irc chan='#chan' server='irc.example.org' connection_interval='2'/> <!-- connection_interval is in seconds -->
 		</bridge>
 	</bot>
 	<!-- WARNING: do NOT start two bots with the same JID or the same nickname -->
