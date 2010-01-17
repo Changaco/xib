@@ -207,12 +207,7 @@ class IRC:
                 if s == c._get_socket():
                     c.lock.acquire()
                     if hasattr(c, 'socket'):
-                        try:
-                            c.process_data()
-                        except ServerNotConnectedError:
-                            self.bot.restart()
-                        except:
-                            self.bot.error('[Error] Unkonwn exception on IRC thread:\n'+traceback.format_exc(), send_to_admins=True)
+                        c.process_data()
                     c.lock.release()
 
     def process_timeout(self):
@@ -259,7 +254,12 @@ class IRC:
             timeout -- Parameter to pass to process_once.
         """
         while 1:
-            self.process_once(timeout)
+            try:
+                self.process_once(timeout)
+            except ServerNotConnectedError:
+                self.bot.restart()
+            except:
+                self.bot.error('[Error] Unkonwn exception on IRC thread:\n'+traceback.format_exc(), send_to_admins=True)
 
     def disconnect_all(self, message=""):
         """Disconnects all connections."""
