@@ -26,10 +26,9 @@ from bridge import Bridge
 
 
 commands = ['xmpp-participants', 'irc-participants', 'xmpp-connections', 'irc-connections', 'connections', 'bridges']
-admin_commands = ['add-bridge', 'add-xmpp-admin', 'change-bridge-mode', 'debug', 'halt', 'remove-bridge', 'restart-bot', 'restart-bridge', 'stop-bot', 'stop-bridge']
+admin_commands = ['add-bridge', 'add-xmpp-admin', 'change-bridges-mode', 'debug', 'halt', 'remove-bridges', 'restart-bot', 'restart-bridges', 'stop-bot', 'stop-bridges']
 
 def execute(bot, command_line, bot_admin, bridge):
-	ret = ''
 	command = shlex.split(command_line)
 	if len(command) > 1:
 		args_array = command[1:]
@@ -47,37 +46,36 @@ def execute(bot, command_line, bot_admin, bridge):
 	elif command in admin_commands and not bot_admin:
 		return 'You have to be a bot admin to use this command.'
 	
-	b = bridge
-	
-	if command in ['change-bridge-mode', 'remove-bridge', 'restart-bridge', 'stop-bridge']:
-		# we need to know which bridge the command is for
-		if len(args_array) == 0:
-			if bridge:
-				b = bridge
+	return globals()[command_func](bot, command, args_array, bridge)
+
+
+def _find_bridges(bot, args_array):
+	ret = ''
+	b = []
+	for arg in args_array:
+		try:
+			bn = int(arg)
+			if bn < 1:
+				raise IndexError
+			b.append(bot.bridges[bn-1])
+		except IndexError:
+			ret += '\nInvalid bridge number "'+str(bn)+'".'
+		except ValueError:
+			found_bridges = bot.findBridges(arg)
+			if len(found_bridges) == 0:
+				ret += '\nNo bridge found matching "'+arg+'".'
 			else:
-				return 'You must specify a bridge. '+bridges(bot, 'bridges', [], bot_admin, None)
-		else:
-			try:
-				bn = int(args_array[0])
-				if bn < 1:
-					raise IndexError
-				b = bot.bridges[bn-1]
-			except IndexError:
-				return 'Invalid bridge number "'+str(bn)+'". '+bridges(bot, 'bridges', [], bot_admin, None)
-			except ValueError:
-				bridges = bot.findBridges(args_array[0])
-				if len(bridges) == 0:
-					return 'No bridge found matching "'+args_array[0]+'". '+bridges(bot, 'bridges', [], bot_admin, None)
-				elif len(bridges) == 1:
-					b = bridges[0]
-				elif len(bridges) > 1:
-					return 'More than one bridge matches "'+args_array[0]+'", please be more specific. '+bridges(bot, 'bridges', [], bot_admin, None)
+				b.extend(found_bridges)
 	
+	if ret != '' or len(b) == 0:
+		if ret != '':
+			ret += '\n\n'
+		ret += bridges(bot, 'bridges', [], None)+'\n\n'
 	
-	return globals()[command_func](bot, command, args_array, bot_admin, b)
+	return (b, ret)
 
 
-def add_bridge(bot, command, args_array, bot_admin, bridge):
+def add_bridge(bot, command, args_array, bridge):
 	parser = ArgumentParser(prog=command)
 	parser.add_argument('xmpp_room_jid', type=str)
 	parser.add_argument('irc_chan', type=str)
@@ -95,7 +93,7 @@ def add_bridge(bot, command, args_array, bot_admin, bridge):
 	return 'Bridge added.'
 
 
-def add_xmpp_admin(bot, command, args_array, bot_admin, bridge):
+def add_xmpp_admin(bot, command, args_array, bridge):
 	parser = ArgumentParser(prog=command)
 	parser.add_argument('jid', type=str)
 	try:
@@ -111,7 +109,7 @@ def add_xmpp_admin(bot, command, args_array, bot_admin, bridge):
 	return 'XMPP admin added.'
 
 
-def bridges(bot, command, args_array, bot_admin, bridge):
+def bridges(bot, command, args_array, bridge):
 	parser = ArgumentParser(prog=command)
 	parser.add_argument('--show-mode', default=False, action='store_true')
 	parser.add_argument('--show-say-level', default=False, action='store_true')
@@ -133,31 +131,41 @@ def bridges(bot, command, args_array, bot_admin, bridge):
 			irc_participants_nicknames = b.get_participants_nicknames_list(protocols=['irc'])
 			ret += '\nparticipants on IRC ('+str(len(irc_participants_nicknames))+'): '+' '.join(irc_participants_nicknames)
 		if b.irc_connection == None:
-			ret += ' - this bridge is stopped, use "restart-bridge '+str(i+1)+'" to restart it'
+			ret += ' - this bridge is stopped, use "restart-bridges '+str(i+1)+'" to restart it'
 	return ret
 
 
-def change_bridge_mode(bot, command, args_array, bot_admin, bridge):
-	new_mode = args_array[1]
-	if not new_mode in Bridge._modes:
-		return '"'+new_mode+'" is not a valid mode, list of modes: '+' '.join(Bridge._modes)
-	r = bridge.changeMode(new_mode)
-	if r:
-		return r
-	return 'Mode changed.'
+def change_bridges_mode(bot, command, args_array, bridge):
+	parser = ArgumentParser(prog=command)
+	parser.add_argument('bridge_id', nargs='+')
+	parser.add_argument('new_mode', choices=Bridge._modes)
+	try:
+		args = parser.parse_args(args_array)
+	except ArgumentParser.ParseException as e:
+		return '\n'+e.args[1]
+	
+	found_bridges, ret = _find_bridges(bot, args.bridge_id)
+	for found_bridge in found_bridges:
+		r = found_bridge.changeMode(args.new_mode)
+		if r:
+			ret += r
+	
+	if ret:
+		return ret
+	return 'Modes changed.'
 
 
-def connections(bot, command, args_array, bot_admin, bridge):
+def connections(bot, command, args_array, bridge):
 	parser = ArgumentParser(prog=command)
 	parser.add_argument('--verbose', '-v', default=False, action='store_true')
 	try:
 		args = parser.parse_args(args_array)
 	except ArgumentParser.ParseException as e:
 		return '\n'+e.args[1]
-	return irc_connections(bot, 'irc-connections', args_array, bot_admin, bridge)+'\n'+xmpp_connections(bot, 'xmpp-connections', args_array, bot_admin, bridge)
+	return irc_connections(bot, 'irc-connections', args_array, bridge)+'\n'+xmpp_connections(bot, 'xmpp-connections', args_array, bridge)
 
 
-def debug(bot, command, args_array, bot_admin, bridge):
+def debug(bot, command, args_array, bridge):
 	parser = ArgumentParser(prog=command)
 	parser.add_argument('mode', choices=['on', 'off'])
 	try:
@@ -179,12 +187,12 @@ def debug(bot, command, args_array, bot_admin, bridge):
 		return 'Debugging is now off'
 
 
-def halt(bot, command, args_array, bot_admin, bridge):
+def halt(bot, command, args_array, bridge):
 	bot.__del__()
 	return
 
 
-def irc_connections(bot, command, args_array, bot_admin, bridge):
+def irc_connections(bot, command, args_array, bridge):
 	parser = ArgumentParser(prog=command)
 	parser.add_argument('--verbose', '-v', default=False, action='store_true')
 	try:
@@ -201,7 +209,7 @@ def irc_connections(bot, command, args_array, bot_admin, bridge):
 	return ret
 
 
-def irc_participants(bot, command, args_array, bot_admin, bridge):
+def irc_participants(bot, command, args_array, bridge):
 	ret = ''
 	if not bridge:
 		for b in bot.bridges:
@@ -213,31 +221,62 @@ def irc_participants(bot, command, args_array, bot_admin, bridge):
 		return '\nparticipants on '+bridge.irc_room+' at '+bridge.irc_server+' ('+str(len(irc_participants_nicknames))+'): '+' '.join(irc_participants_nicknames)
 
 
-def remove_bridge(bot, command, args_array, bot_admin, bridge):
-	bot.removeBridge(bridge)
-	return 'Bridge removed.'
+def remove_bridges(bot, command, args_array, bridge):
+	parser = ArgumentParser(prog=command)
+	parser.add_argument('bridge_id', nargs='+')
+	try:
+		args = parser.parse_args(args_array)
+	except ArgumentParser.ParseException as e:
+		return '\n'+e.args[1]
+	
+	found_bridges, ret = _find_bridges(bot, args.bridge_id)
+	
+	for found_bridge in found_bridges:
+		bot.removeBridge(found_bridge)
+	
+	return ret+'Bridges removed.'
 
 
-def restart_bot(bot, command, args_array, bot_admin, bridge):
+def restart_bot(bot, command, args_array, bridge):
 	bot.restart()
 	return
 
-def restart_bridge(bot, command, args_array, bot_admin, bridge):
-	bridge.restart()
-	return 'Bridge restarted.'
+def restart_bridges(bot, command, args_array, bridge):
+	parser = ArgumentParser(prog=command)
+	parser.add_argument('bridge_id', nargs='+')
+	try:
+		args = parser.parse_args(args_array)
+	except ArgumentParser.ParseException as e:
+		return '\n'+e.args[1]
+	
+	found_bridges, ret = _find_bridges(bot, args.bridge_id)
+	for found_bridge in found_bridges:
+		found_bridge.restart()
+	
+	return ret+'Bridges restarted.'
 
 
-def stop_bot(bot, command, args_array, bot_admin, bridge):
+def stop_bot(bot, command, args_array, bridge):
 	bot.stop()
 	return 'Bot stopped.'
 
 
-def stop_bridge(bot, command, args_array, bot_admin, bridge):
-	bridge.stop()
-	return 'Bridge stopped.'
+def stop_bridges(bot, command, args_array, bridge):
+	parser = ArgumentParser(prog=command)
+	parser.add_argument('bridge_id', nargs='+')
+	try:
+		args = parser.parse_args(args_array)
+	except ArgumentParser.ParseException as e:
+		return '\n'+e.args[1]
+	
+	found_bridges, ret = _find_bridges(bot, args.bridge_id)
+	for found_bridge in found_bridges:
+		found_bridge.stop()
+	
+	return ret+'Bridges stopped.'
 
 
-def xmpp_connections(bot, command, args_array, bot_admin, bridge):
+def xmpp_connections(bot, command, args_array, bridge):
 	parser = ArgumentParser(prog=command)
 	parser.add_argument('--verbose', '-v', default=False, action='store_true')
 	try:
@@ -254,7 +293,7 @@ def xmpp_connections(bot, command, args_array, bot_admin, bridge):
 	return ret
 
 
-def xmpp_participants(bot, command, args_array, bot_admin, bridge):
+def xmpp_participants(bot, command, args_array, bridge):
 	ret = ''
 	if not bridge:
 		for b in bot.bridges:
