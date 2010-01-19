@@ -26,7 +26,7 @@ from bridge import Bridge
 
 
 commands = ['xmpp-participants', 'irc-participants', 'xmpp-connections', 'irc-connections', 'connections', 'bridges']
-admin_commands = ['add-bridge', 'add-xmpp-admin', 'change-bridge-mode', 'debug', 'halt', 'remove-bridge', 'restart-bot', 'restart-bridge', 'stop-bridge']
+admin_commands = ['add-bridge', 'add-xmpp-admin', 'change-bridge-mode', 'debug', 'halt', 'remove-bridge', 'restart-bot', 'restart-bridge', 'stop-bot', 'stop-bridge']
 
 def execute(bot, command_line, bot_admin, bridge):
 	ret = ''
@@ -225,6 +225,11 @@ def restart_bot(bot, command, args_array, bot_admin, bridge):
 def restart_bridge(bot, command, args_array, bot_admin, bridge):
 	bridge.restart()
 	return 'Bridge restarted.'
+
+
+def stop_bot(bot, command, args_array, bot_admin, bridge):
+	bot.stop()
+	return 'Bot stopped.'
 
 
 def stop_bridge(bot, command, args_array, bot_admin, bridge):
