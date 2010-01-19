@@ -85,7 +85,7 @@ try:
 	
 	while True:
 		for bot in bots:
-			if len(bot.xmpp_connections) == 0:
+			if bot.halt and len(bot.xmpp_connections) == 0:
 				bots.remove(bot)
 		if len(bots) == 0:
 			raise Exception()
