@@ -857,5 +857,5 @@ class Bot(threading.Thread):
 	
 	def __del__(self):
 		for bridge in self.bridges:
-			self.removeBridge(bridge, message=message)
+			self.removeBridge(bridge, message='Stopping bot')
 		self.halt = True
