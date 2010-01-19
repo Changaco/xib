@@ -26,12 +26,18 @@ Changaco <changaco@changaco.net>
  - new mode "bypass", this allows to connect more than one bot for each IRC server without having so many nickname conflicts that the bot looks like it is in limited mode
  - new bridge attribute "irc_connection_interval" (in seconds)
  - removed automatic switching to limited mode
- - created 5 commands:
-   - change-bridge-mode
+ - fixed the "halt" command
+ - created 6 commands:
+   - change-bridges-mode
    - connections
    - irc-connections
    - xmpp-connections
    - debug
+   - stop-bot
+ - renamed and modified 3 commands:
+   - remove-bridge → remove-bridges
+   - restart-bridge → restart-bridges
+   - stop-bridge → stop-bridges
  - improved the quality of the code
  - finally, as usual, fixed many bugs and introduced new ones
 0.2:
