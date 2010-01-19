@@ -264,10 +264,10 @@ class IRC:
             except:
                 self.bot.error('[Error] Unkonwn exception on IRC thread:\n'+traceback.format_exc(), send_to_admins=True)
 
-    def disconnect_all(self, message=""):
+    def disconnect_all(self, message="", volontary=True):
         """Disconnects all connections."""
         for c in self.connections:
-            c.disconnect(message)
+            c.disconnect(message, volontary=volontary)
 
     def add_global_handler(self, event, handler, priority=0):
         """Adds a global handler function for a specific event type.
