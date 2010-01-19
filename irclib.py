@@ -749,20 +749,21 @@ class ServerConnection(Connection):
 
             message -- Quit message.
         """
-        if not self.connected:
-            return
 
         self.lock.acquire()
 
-        self.connected = False
+        if self.connected:
+            self.connected = False
 
-        self.quit(message)
+        if self.socket and self.socket != 'closed':
+            self.quit(message)
 
-        try:
-            self.socket.close()
-        except socket.error, x:
-            pass
-        self.socket = 'closed'
+            try:
+                self.socket.close()
+            except socket.error, x:
+                pass
+            self.socket = 'closed'
+
         self.lock.release()
 
         if volontary == False:
