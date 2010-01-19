@@ -575,7 +575,7 @@ class ServerConnection(Connection):
         try:
             if self.ssl:
                 new_data = self.ssl.read(2**14)
-            elif self.socket:
+            elif self.socket and hasattr(self.socket, 'recv'):
                 new_data = self.socket.recv(2**14)
             else:
                 return
