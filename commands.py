@@ -148,7 +148,7 @@ def change_bridges_mode(bot, command, args_array, bridge):
 	for found_bridge in found_bridges:
 		r = found_bridge.changeMode(args.new_mode)
 		if r:
-			ret += r
+			ret += r+'\n'
 	
 	if ret:
 		return ret
