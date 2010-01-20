@@ -451,7 +451,7 @@ class Bot(threading.Thread):
 		
 		
 		# Events we always want to ignore
-		if 'all' in event.eventtype() or 'motd' in event.eventtype():
+		if 'all' in event.eventtype() or 'motd' in event.eventtype() or event.eventtype() in ['nicknameinuse', 'nickcollision', 'erroneusnickname']:
 			return
 		if event.eventtype() in ['pong', 'privnotice', 'ctcp', 'nochanmodes', 'notexttosend', 'currenttopic', 'topicinfo', '328']:
 			self.error('=> Debug: ignoring IRC '+event.eventtype(), debug=True)
@@ -663,25 +663,8 @@ class Bot(threading.Thread):
 			return
 		
 		
-		# From here the event is shown
-		self.error(event_str, debug=True)
-		
-		
-		# Nickname callbacks
-		# TODO: move this into irclib.py
-		if event.eventtype() == 'nicknameinuse':
-			connection._call_nick_callbacks('nicknameinuse', arguments=[event])
-			return
-		if event.eventtype() == 'nickcollision':
-			connection._call_nick_callbacks('nickcollision', arguments=[event])
-			return
-		if event.eventtype() == 'erroneusnickname':
-			connection._call_nick_callbacks('erroneusnickname', arguments=[event])
-			return
-		
-		
 		# Unhandled events
-		self.error('=> Debug: event not handled', debug=True)
+		self.error(event_str+'\n=> Debug: event not handled', debug=True)
 	
 	
 	def _send_message_to_admins(self, message):

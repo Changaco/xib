@@ -700,6 +700,8 @@ class ServerConnection(Connection):
     def _handle_event(self, event):
         """[Internal]"""
         self.irclibobj._handle_event(self, event)
+        if event.eventtype() in ['disconnect', 'nicknameinuse', 'nickcollision', 'erroneusnickname']:
+            self._call_nick_callbacks(event.eventtype(), arguments=[event])
         if event.eventtype() in self.handlers:
             for fn in self.handlers[event.eventtype()]:
                 fn(self, event)
@@ -840,7 +842,7 @@ class ServerConnection(Connection):
         """Send a NICK command."""
         if callback != None:
             self.add_nick_callback(callback)
-        if re.search('[ \.]', newnick) != None:
+        if re.search('[ \.\']', newnick) != None:
             self._call_nick_callbacks('erroneusnickname')
             return False
         try:
