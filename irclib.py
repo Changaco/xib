@@ -467,7 +467,7 @@ class ServerConnection(Connection):
             self.irclibobj.bot.error('===> Debug: using existing IRC connection for '+self.__str__()+', this connection is now used by '+str(self.used_by)+' bridges', debug=True)
             if nick_callback != None:
                 self.add_nick_callback(nick_callback)
-            if self.really_connected == True:
+            if self.really_connected:
                 self._call_nick_callbacks(None)
             self.lock.release()
             return self
@@ -754,6 +754,8 @@ class ServerConnection(Connection):
 
         if self.connected:
             self.connected = False
+        if self.really_connected:
+			self.really_connected = False
 
         if self.socket and self.socket != 'closed':
             self.quit(message)
