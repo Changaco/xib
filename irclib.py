@@ -757,10 +757,11 @@ class ServerConnection(Connection):
         if self.connected:
             self.connected = False
         if self.really_connected:
-			self.really_connected = False
+            self.really_connected = False
 
         if self.socket and self.socket != 'closed':
-            self.quit(message)
+            if message and message != 'Connection reset by peer':
+                self.quit(message)
 
             try:
                 self.socket.close()
