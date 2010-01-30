@@ -107,7 +107,7 @@ class Bridge:
 				elif error == 'nicknametoolong':
 					raise Exception('[Error] "'+self.bot.nickname+'" got "nicknametoolong" on bridge "'+str(self)+'", limit seems to be '+str(arguments[0]))
 				else:
-					raise Exception('[Error] unknown error for "'+self.bot.nickname+'" on bridge "'+str(self)+'", limit seems to be '+str(arguments[0]))
+					raise Exception('[Error] unknown error for "'+self.bot.nickname+'" on bridge "'+str(self)+'"')
 			except:
 				traceback.print_exc()
 			self.bot.error('[Error] failed to connect to the IRC chan of bridge "'+str(self)+'", stopping bridge', send_to_admins=True)
