@@ -41,13 +41,17 @@ class muc:
 		self.callback = callback
 		self.xmpp_c.RegisterHandler('presence', self._xmpp_presence_handler)
 		s = xmpp.protocol.Presence(to=self.jid, status=self.status, payload=[xmpp.simplexml.Node(tag='x', attrs={'xmlns': 'http://jabber.org/protocol/muc'}, payload=[xmpp.simplexml.Node(tag='history', attrs={'maxchars': '0'})])])
+		self._send(s)
+	
+	
+	def _send(self, stanza):
 		try:
-			self.xmpp_c.send(s)
+			self.xmpp_c.send(stanza)
 		except IOError, xmpp.Conflict:
 			self.xmpp_c.reconnectAndReauth()
 			for m in self.xmpp_c.mucs:
 				m.rejoin()
-			self.xmpp_c.send(s)
+			self.xmpp_c.send(stanza)
 	
 	
 	def join(self, xmpp_c, nickname, status=None, callback=None):
@@ -109,13 +113,7 @@ class muc:
 		"""Say message in the room"""
 		self.xmpp_c.lock.acquire()
 		s = xmpp.protocol.Message(to=self.room_jid, typ='groupchat', body=message)
-		try:
-			self.xmpp_c.send(s)
-		except IOError, xmpp.Conflict:
-			self.xmpp_c.reconnectAndReauth()
-			for m in self.xmpp_c.mucs:
-				m.rejoin()
-			self.xmpp_c.send(s)
+		self._send(s)
 		self.xmpp_c.lock.release()
 	
 	
@@ -123,13 +121,7 @@ class muc:
 		"""Send a private message"""
 		self.xmpp_c.lock.acquire()
 		s = xmpp.protocol.Message(to=self.room_jid+'/'+to, typ='chat', body=message)
-		try:
-			self.xmpp_c.send(s)
-		except IOError, xmpp.Conflict:
-			self.xmpp_c.reconnectAndReauth()
-			for m in self.xmpp_c.mucs:
-				m.rejoin()
-			self.xmpp_c.send(s)
+		self._send(s)
 		self.xmpp_c.lock.release()
 	
 	
@@ -140,13 +132,7 @@ class muc:
 		self.xmpp_c.RegisterHandler('presence', self._xmpp_presence_handler)
 		self.xmpp_c.lock.acquire()
 		s = xmpp.protocol.Presence(to=self.jid, status=status)
-		try:
-			self.xmpp_c.send(s)
-		except IOError, xmpp.Conflict:
-			self.xmpp_c.reconnectAndReauth()
-			for m in self.xmpp_c.mucs:
-				m.rejoin()
-			self.xmpp_c.send(s)
+		self._send(s)
 		self.xmpp_c.lock.release()
 	
 	
@@ -154,13 +140,7 @@ class muc:
 		"""Leave the room"""
 		self.xmpp_c.lock.acquire()
 		s = xmpp.protocol.Presence(to=self.jid, typ='unavailable', status=message)
-		try:
-			self.xmpp_c.send(s)
-		except IOError, xmpp.Conflict:
-			self.xmpp_c.reconnectAndReauth()
-			for m in self.xmpp_c.mucs:
-				m.rejoin()
-			self.xmpp_c.send(s)
+		self._send(s)
 		self.connected = False
 		self.xmpp_c.lock.release()
 	
