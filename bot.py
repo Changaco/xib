@@ -38,6 +38,7 @@ class Bot(threading.Thread):
 	def __init__(self, jid, password, nickname, admins_jid=[], error_fd=sys.stderr, debug=False):
 		threading.Thread.__init__(self)
 		self.halt = False
+		self.bridges = []
 		self.bare_jid = xmpp.protocol.JID(jid=jid)
 		self.bare_jid.setResource('')
 		self.nickname = nickname
@@ -45,7 +46,6 @@ class Bot(threading.Thread):
 		self.error_fd = error_fd
 		self.debug = debug
 		self.admins_jid = admins_jid
-		self.bridges = []
 		self.xmpp_connections = {}
 		self.irc = irclib.IRC()
 		self.irc.bot = self

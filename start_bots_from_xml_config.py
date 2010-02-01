@@ -42,43 +42,43 @@ for bot_el in config.getElementsByTagName('bot'):
 	bots_jids.append(bot_el.getAttribute('jid'))
 
 
+
+bots = []
+for bot_el in config.getElementsByTagName('bot'):
+	debug = False
+	if bot_el.hasAttribute('debug'):
+		if bot_el.getAttribute('debug') == 'true':
+			debug = True
+	admins_jid = []
+	for admin_el in bot_el.getElementsByTagName('admin'):
+		if admin_el.hasAttribute('jid'):
+			admins_jid.append(admin_el.getAttribute('jid'))
+	bot = Bot(bot_el.getAttribute('jid'), bot_el.getAttribute('password'), bot_el.getAttribute('nickname'), admins_jid=admins_jid, debug=debug)
+	bots.append(bot)
+	for bridge_el in bot_el.getElementsByTagName('bridge'):
+		xmpp_room = bridge_el.getElementsByTagName('xmpp-room')[0]
+		irc = bridge_el.getElementsByTagName('irc')[0]
+		
+		irc_connection_interval = 1
+		if irc.hasAttribute('connection_interval'):
+			try:
+				irc_connection_interval = float(irc.getAttribute('connection_interval'))
+			except ValueError:
+				print '[Error] the value of connection_interval must be a number'
+		
+		if bridge_el.hasAttribute('say_level'):
+			say_level = bridge_el.getAttribute('say_level')
+		else:
+			say_level = 'all'
+		
+		if bridge_el.hasAttribute('mode'):
+			mode = bridge_el.getAttribute('mode')
+		else:
+			mode = 'normal'
+		
+		bot.new_bridge(xmpp_room.getAttribute('jid'), irc.getAttribute('chan'), irc.getAttribute('server'), mode, say_level, irc_connection_interval=irc_connection_interval)
+
 try:
-	bots = []
-	for bot_el in config.getElementsByTagName('bot'):
-		debug = False
-		if bot_el.hasAttribute('debug'):
-			if bot_el.getAttribute('debug') == 'true':
-				debug = True
-		admins_jid = []
-		for admin_el in bot_el.getElementsByTagName('admin'):
-			if admin_el.hasAttribute('jid'):
-				admins_jid.append(admin_el.getAttribute('jid'))
-		bot = Bot(bot_el.getAttribute('jid'), bot_el.getAttribute('password'), bot_el.getAttribute('nickname'), admins_jid=admins_jid, debug=debug)
-		bots.append(bot)
-		for bridge_el in bot_el.getElementsByTagName('bridge'):
-			xmpp_room = bridge_el.getElementsByTagName('xmpp-room')[0]
-			irc = bridge_el.getElementsByTagName('irc')[0]
-			
-			irc_connection_interval = 1
-			if irc.hasAttribute('connection_interval'):
-				try:
-					irc_connection_interval = float(irc.getAttribute('connection_interval'))
-				except ValueError:
-					print '[Error] the value of connection_interval must be a number'
-			
-			if bridge_el.hasAttribute('say_level'):
-				say_level = bridge_el.getAttribute('say_level')
-			else:
-				say_level = 'all'
-			
-			if bridge_el.hasAttribute('mode'):
-				mode = bridge_el.getAttribute('mode')
-			else:
-				mode = 'normal'
-			
-			bot.new_bridge(xmpp_room.getAttribute('jid'), irc.getAttribute('chan'), irc.getAttribute('server'), mode, say_level, irc_connection_interval=irc_connection_interval)
-	
-	
 	if len(bots) == 0:
 		print 'No bots in the configuration file, exiting ...'
 		exit(0)
