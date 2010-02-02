@@ -163,6 +163,7 @@ class IRC:
         self.connections = []
         self.handlers = {}
         self.delayed_commands = [] # list of tuples in the format (time, function, arguments)
+        self.charsets = {'': ['utf-8']}
 
         self.add_global_handler("ping", _ping_ponger, -42)
 
@@ -424,7 +425,17 @@ class ServerConnection(Connection):
 
 
     def __str__(self):
-        return self.real_nickname+' at '+self.server+':'+str(self.port)
+        return self.real_nickname+' at '+self._server_str()
+
+
+    def _decode(self, bytes):
+        charsets = self.irclibobj.charsets[self._server_str()] or self.irclibobj.charsets['']
+        for codec in charsets:
+            try:
+                return bytes.decode(codec)
+            except (UnicodeEncodeError, UnicodeDecodeError):
+                pass
+        raise Exception, 'no suitable codec found for: '+repr(bytes)+'\ntried: '+' '.join(charsets)
 
 
     def _ping(self):
@@ -435,8 +446,12 @@ class ServerConnection(Connection):
         self.ping(self.get_server_name())
 
 
+    def _server_str(self):
+        return self.server+':'+str(self.port)
+
+
     def connect(self, password=None, username=None,
-                ircname=None, localaddress="", localport=0, ssl=False, ipv6=False, nick_callback=None):
+                ircname=None, localaddress="", localport=0, ssl=False, ipv6=False, nick_callback=None, charsets=None):
         """Connect to the server.
 
         Arguments:
@@ -473,6 +488,8 @@ class ServerConnection(Connection):
             return self
 
         if self.socket != 'closed':
+            if charsets or not self.irclibobj.charsets.has_key(self._server_str()):
+                self.irclibobj.charsets[self._server_str()] = charsets
             self.nick_callbacks = []
             self.irc_id = None
             self.previous_buffer = ""
@@ -599,6 +616,8 @@ class ServerConnection(Connection):
 
             if not line:
                 continue
+
+            line = self._decode(line)
 
             prefix = None
             command = None

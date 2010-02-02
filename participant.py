@@ -18,7 +18,6 @@
 import re
 from time import sleep
 
-from encoding import *
 from irclib import ServerNotConnectedError, ServerConnection
 import muc
 xmpp = muc.xmpp
@@ -317,12 +316,12 @@ class Participant:
 	def sayOnXMPP(self, message):
 		try:
 			if isinstance(self.xmpp_c, xmpp.client.Client):
-				self.muc.say(auto_decode(message))
+				self.muc.say(message)
 			elif not isinstance(self.irc_connection, ServerConnection):
 				if message[:4] == '/me ':
-					self.bridge.xmpp_room.say('* '+self.nickname+' '+auto_decode(message[4:]))
+					self.bridge.xmpp_room.say('* '+self.nickname+' '+message[4:])
 				else:
-					self.bridge.xmpp_room.say('<'+self.nickname+'> '+auto_decode(message))
+					self.bridge.xmpp_room.say('<'+self.nickname+'> '+message)
 		except EncodingException:
 			self.bridge.say('[Warning] "'+self.nickname+'" is sending messages using an unknown encoding', log=True)
 	
@@ -330,7 +329,7 @@ class Participant:
 	def sayOnXMPPTo(self, to, message):
 		try:
 			if isinstance(self.xmpp_c, xmpp.client.Client):
-				self.muc.sayTo(to, auto_decode(message))
+				self.muc.sayTo(to, message)
 			elif not isinstance(self.irc_connection, ServerConnection):
 				if self.bridge.mode != 'normal':
 					self.bridge.getParticipant(to).sayOnXMPPTo(self.nickname, 'Sorry but cross-protocol private messages are disabled in '+self.bridge.mode+' mode.')
@@ -349,7 +348,7 @@ class Participant:
 	
 	def _close_xmpp_connection(self, message):
 		if isinstance(self.xmpp_c, xmpp.client.Client):
-			self.muc.leave(auto_decode(message))
+			self.muc.leave(message)
 			self.xmpp_c = None
 			self.bridge.bot.close_xmpp_connection(self.nickname)
 	

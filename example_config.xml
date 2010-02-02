@@ -6,11 +6,13 @@
 		<admin jid='admin2@example.net' />
 		<bridge mode='normal' say_level='all'>
 			<xmpp-room jid='dream-world@chat.example.com'/>
-			<irc chan='#dream-world' server='irc.example.org'/>
+			<irc chan='#dream-world' server='irc.example.org' charsets='utf-8 iso8859_15'/>
+				<!-- separate codecs by a space -->
+				<!-- see <http://docs.python.org/library/codecs.html#standard-encodings> for a list of codecs -->
 		</bridge>
 		<bridge mode='minimal' say_level='nothing'>
 			<xmpp-room jid='room@chat.example.com'/>
-			<irc chan='#chan' server='irc.example.org' connection_interval='2'/> <!-- connection_interval is in seconds -->
+			<irc chan='#chan' server='irc.example.net' connection_interval='2'/> <!-- connection_interval is in seconds -->
 		</bridge>
 	</bot>
 	<!-- WARNING: do NOT start two bots with the same JID or the same nickname -->

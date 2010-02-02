@@ -22,7 +22,6 @@ from time import sleep
 import traceback
 import xml.parsers.expat
 
-from encoding import *
 import irclib
 import muc
 xmpp = muc.xmpp
@@ -67,10 +66,7 @@ class Bot(threading.Thread):
 		if send_to_admins == True:
 			self._send_message_to_admins(s)
 		if not debug or debug and self.debug:
-			try:
-				self.error_fd.write(auto_encode(s)+"\n")
-			except EncodingException:
-				self.error_fd.write('Error message cannot be transcoded.\n')
+			self.error_fd.write(s.encode('utf-8')+"\n")
 	
 	
 	def _xmpp_loop(self):
@@ -478,7 +474,7 @@ class Bot(threading.Thread):
 		
 		
 		# A string representation of the event
-		event_str = '==> Debug: Received IRC event.\nconnection='+connection.__str__()+'\neventtype='+event.eventtype()+'\nsource='+auto_decode(event.source().__str__())+'\ntarget='+auto_decode(event.target().__str__())+'\narguments='+auto_decode(event.arguments().__str__())
+		event_str = '==> Debug: Received IRC event.\nconnection='+connection.__str__()+'\neventtype='+event.eventtype()+'\nsource='+repr(event.source())+'\ntarget='+repr(event.target())+'\narguments='+repr(event.arguments())
 		
 		
 		if event.eventtype() in ['pubmsg', 'action', 'privmsg', 'quit', 'part', 'nick', 'kick']:
@@ -676,9 +672,9 @@ class Bot(threading.Thread):
 				pass
 	
 	
-	def new_bridge(self, xmpp_room, irc_room, irc_server, mode, say_level, irc_port=6667, irc_connection_interval=1):
+	def new_bridge(self, xmpp_room, irc_room, irc_server, mode, say_level, irc_port=6667, irc_connection_interval=1, irc_charsets=None):
 		"""Create a bridge between xmpp_room and irc_room at irc_server."""
-		b = Bridge(self, xmpp_room, irc_room, irc_server, mode, say_level, irc_port=irc_port, irc_connection_interval=irc_connection_interval)
+		b = Bridge(self, xmpp_room, irc_room, irc_server, mode, say_level, irc_port=irc_port, irc_connection_interval=irc_connection_interval, irc_charsets=irc_charsets)
 		self.bridges.append(b)
 		return b
 	

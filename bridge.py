@@ -19,7 +19,6 @@ import re
 import threading
 import traceback
 
-from encoding import *
 from irclib import ServerConnection
 import muc
 xmpp = muc.xmpp
@@ -43,13 +42,14 @@ class Bridge:
 	class NoSuchParticipantException(Exception): pass
 	
 	
-	def __init__(self, owner_bot, xmpp_room_jid, irc_room, irc_server, mode, say_level, irc_port=6667, irc_connection_interval=1):
+	def __init__(self, owner_bot, xmpp_room_jid, irc_room, irc_server, mode, say_level, irc_port=6667, irc_connection_interval=1, irc_charsets=None):
 		"""Create a new bridge."""
 		self.bot = owner_bot
 		self.irc_server = irc_server
 		self.irc_port = irc_port
 		self.irc_room = irc_room.lower()
 		self.irc_connection_interval = irc_connection_interval
+		self.irc_charsets = irc_charsets
 		self.xmpp_room_jid = xmpp_room_jid
 		if hasattr(self.__class__, '_'+say_level):
 			self.say_level = getattr(self.__class__, '_'+say_level)
@@ -78,7 +78,7 @@ class Bridge:
 		try:
 			self.irc_connections_limit = -1
 			self.irc_connection = self.bot.irc.open_connection(self.irc_server, self.irc_port, self.bot.nickname)
-			self.irc_connection.connect(nick_callback=self._irc_nick_callback)
+			self.irc_connection.connect(nick_callback=self._irc_nick_callback, charsets=self.irc_charsets)
 		except:
 			self.bot.error('[Error] joining IRC room failed')
 			raise
