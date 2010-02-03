@@ -158,6 +158,7 @@ def change_bridges_mode(bot, command, args_array, bridge):
 def connections(bot, command, args_array, bridge):
 	parser = ArgumentParser(prog=command)
 	parser.add_argument('--verbose', '-v', default=False, action='store_true')
+	parser.add_argument('--sort', '-s', default=False, action='store_true')
 	try:
 		args = parser.parse_args(args_array)
 	except ArgumentParser.ParseException as e:
@@ -195,6 +196,7 @@ def halt(bot, command, args_array, bridge):
 def irc_connections(bot, command, args_array, bridge):
 	parser = ArgumentParser(prog=command)
 	parser.add_argument('--verbose', '-v', default=False, action='store_true')
+	parser.add_argument('--sort', '-s', default=False, action='store_true')
 	try:
 		args = parser.parse_args(args_array)
 	except ArgumentParser.ParseException as e:
@@ -202,7 +204,12 @@ def irc_connections(bot, command, args_array, bridge):
 	n = len(bot.irc.connections)
 	if args.verbose:
 		ret = 'List of IRC connections ('+str(n)+'):'
-		for c in bot.irc.connections:
+		if args.sort:
+			connections = [str(c) for c in bot.irc.connections]
+			connections.sort()
+		else:
+			connections = bot.irc.connections
+		for c in connections:
 			ret += '\n\t'+str(c)
 	else:
 		ret = 'Number of IRC connections: '+str(n)
@@ -279,6 +286,7 @@ def stop_bridges(bot, command, args_array, bridge):
 def xmpp_connections(bot, command, args_array, bridge):
 	parser = ArgumentParser(prog=command)
 	parser.add_argument('--verbose', '-v', default=False, action='store_true')
+	parser.add_argument('--sort', '-s', default=False, action='store_true')
 	try:
 		args = parser.parse_args(args_array)
 	except ArgumentParser.ParseException as e:
@@ -286,7 +294,10 @@ def xmpp_connections(bot, command, args_array, bridge):
 	n = len(bot.xmpp_connections)
 	if args.verbose:
 		ret = 'List of XMPP connections ('+str(n)+'):'
-		for nickname in bot.xmpp_connections.iterkeys():
+		nicknames = bot.xmpp_connections.keys()
+		if args.sort:
+			nicknames.sort()
+		for nickname in nicknames:
 			ret += '\n\t'+nickname
 	else:
 		ret = 'Number of XMPP connections: '+str(n)
