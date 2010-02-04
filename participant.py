@@ -107,7 +107,6 @@ class Participant:
 	def createDuplicateOnIRC(self):
 		if isinstance(self.xmpp_c, xmpp.client.Client) or isinstance(self.irc_connection, ServerConnection):
 			return
-		sleep(self.bridge.irc_connection_interval) # to prevent "reconnecting too fast"
 		self.irc_connection = self.bridge.bot.irc.open_connection(self.bridge.irc_server, self.bridge.irc_port, self.duplicate_nickname)
 		self.irc_connection.connect(nick_callback=self._irc_nick_callback)
 	

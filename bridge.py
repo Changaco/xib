@@ -42,7 +42,7 @@ class Bridge:
 	class NoSuchParticipantException(Exception): pass
 	
 	
-	def __init__(self, owner_bot, xmpp_room_jid, irc_room, irc_server, mode, say_level, irc_port=6667, irc_connection_interval=1, irc_charsets=None):
+	def __init__(self, owner_bot, xmpp_room_jid, irc_room, irc_server, mode, say_level, irc_port=6667, irc_connection_interval=None, irc_charsets=None):
 		"""Create a new bridge."""
 		self.bot = owner_bot
 		self.irc_server = irc_server
@@ -67,21 +67,12 @@ class Bridge:
 	
 	def init2(self):
 		# Join XMPP room
-		try:
-			self.xmpp_room = xmpp.muc(self.xmpp_room_jid)
-			self.xmpp_room.join(self.bot.xmpp_c, self.bot.nickname, callback=self._xmpp_join_callback)
-		except:
-			self.bot.error('[Error] joining XMPP room failed')
-			raise
+		self.xmpp_room = xmpp.muc(self.xmpp_room_jid)
+		self.xmpp_room.join(self.bot.xmpp_c, self.bot.nickname, callback=self._xmpp_join_callback)
 		
 		# Join IRC room
-		try:
-			self.irc_connections_limit = -1
-			self.irc_connection = self.bot.irc.open_connection(self.irc_server, self.irc_port, self.bot.nickname)
-			self.irc_connection.connect(nick_callback=self._irc_nick_callback, charsets=self.irc_charsets)
-		except:
-			self.bot.error('[Error] joining IRC room failed')
-			raise
+		self.irc_connection = self.bot.irc.open_connection(self.irc_server, self.irc_port, self.bot.nickname, delay=self.irc_connection_interval)
+		self.irc_connection.connect(nick_callback=self._irc_nick_callback, charsets=self.irc_charsets)
 		
 		self.bot.error('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode and a say_level of "'+self.__class__._say_levels[self.say_level]+'"')
 	
@@ -93,6 +84,8 @@ class Bridge:
 			self.irc_connection.join(self.irc_room)
 			self.bot.error('===> Debug: successfully connected on IRC side of bridge "'+str(self)+'"', debug=True)
 			self.say('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode', on_xmpp=False)
+			if self.mode not in ['normal', 'bypass']:
+				self.show_participants_list_on(protocols=['irc'])
 		else:
 			self.mode = None
 			if self.xmpp_room.connected == True:
@@ -385,7 +378,7 @@ class Bridge:
 	
 	
 	def show_participants_list_on(self, protocols=[]):
-		if 'irc' in protocols:
+		if 'irc' in protocols and self.irc_connection.really_connected:
 			xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
 			self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
 		if 'xmpp' in protocols:

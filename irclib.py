@@ -164,8 +164,33 @@ class IRC:
         self.handlers = {}
         self.delayed_commands = [] # list of tuples in the format (time, function, arguments)
         self.charsets = {'': ['utf-8']}
+        self.connection_intervals = {'': 1}
+        self.connection_stacks = {}
 
         self.add_global_handler("ping", _ping_ponger, -42)
+
+
+    def _connection_loop(self, server_str):
+        stack = self.connection_stacks[server_str]
+        if len(stack) > 0:
+            stack[0][0](*stack[0][1])
+            stack.pop(0)
+            delay = self.connection_interval(server=server_str)
+            self.bot.error('==> Debug: waiting '+str(delay)+' seconds before next connection on '+server_str, debug=True)
+            self.execute_delayed(delay, self._connection_loop, (server_str,))
+        else:
+            self.connection_stacks.pop(server_str)
+
+
+    def connection_interval(self, server='', seconds=None):
+        if seconds:
+            self.connection_intervals[server] = seconds
+            return seconds
+        elif self.connection_intervals.has_key(server):
+            return self.connection_intervals[server]
+        else:
+            return self.connection_intervals['']
+
 
     def get_connection(self, server, port, nickname):
         for c in self.connections:
@@ -178,7 +203,7 @@ class IRC:
             return True
         return False
 
-    def open_connection(self, server, port, nickname):
+    def open_connection(self, server, port, nickname, delay=None):
         """Creates or returns an existing ServerConnection object for nickname at server:port.
 
             server -- Server name.
@@ -191,6 +216,11 @@ class IRC:
         if c:
             return c
         c = ServerConnection(self, server, port, nickname)
+        server_str = c._server_str()
+        if not self.connection_stacks.has_key(server_str):
+            self.connection_stacks[server_str] = []
+            delay = self.connection_interval(server=server_str, seconds=delay)
+            self.execute_delayed(delay, self._connection_loop, (server_str,))
         self.connections.append(c)
         return c
 
@@ -414,12 +444,13 @@ class ServerConnection(Connection):
         Connection.__init__(self, irclibobj)
         self.connected = False  # Not connected yet.
         self.really_connected = False
-        self.used_by = 1
+        self.used_by = 0
         self.socket = None
         self.ssl = None
         self.server = server
         self.port = port
         self.nickname = nickname
+        self.nick_callbacks = []
         self.lock = threading.RLock()
         self.left_channels = []
 
@@ -477,20 +508,21 @@ class ServerConnection(Connection):
         
         self.lock.acquire()
         
-        if self.connected == True:
+        if nick_callback:
+            self.add_nick_callback(nick_callback)
+        
+        if self.used_by > 0:
             self.used_by += 1
             self.irclibobj.bot.error('===> Debug: using existing IRC connection for '+self.__str__()+', this connection is now used by '+str(self.used_by)+' bridges', debug=True)
-            if nick_callback != None:
-                self.add_nick_callback(nick_callback)
             if self.really_connected:
                 self._call_nick_callbacks(None)
             self.lock.release()
             return self
 
         if self.socket != 'closed':
+            self.used_by = 1
             if charsets or not self.irclibobj.charsets.has_key(self._server_str()):
                 self.irclibobj.charsets[self._server_str()] = charsets
-            self.nick_callbacks = []
             self.irc_id = None
             self.previous_buffer = ""
             self.handlers = {}
@@ -502,21 +534,34 @@ class ServerConnection(Connection):
             self.localaddress = localaddress
             self.localport = localport
             self.localhost = socket.gethostname()
+            self.ssl = ssl
+            self.ipv6 = ipv6
 
+        self.irclibobj.connection_stacks[self._server_str()].append( (self._connect, ()) )
+        
+        self.lock.release()
+        return self
+
+
+    def _connect(self):
+        
+        self._ping()
+
+        self.lock.acquire()
+
+        if self.socket != 'closed':
             self.irclibobj.bot.error('===> Debug: opening new IRC connection for '+self.__str__(), debug=True)
         else:
             self.irclibobj.bot.error('===> Debug: reopening IRC connection for '+self.__str__(), debug=True)
 
-        self._ping()
-
-        if ipv6:
+        if self.ipv6:
             self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         else:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.socket.bind((self.localaddress, self.localport))
             self.socket.connect((self.server, self.port))
-            if ssl:
+            if self.ssl:
                 self.ssl = socket.ssl(self.socket)
         except socket.error, x:
             self.socket.close()
@@ -529,8 +574,9 @@ class ServerConnection(Connection):
         # Log on...
         if self.password:
             self.pass_(self.password)
-        if self.nick(self.nickname, callback=nick_callback) == True:
+        if self.nick(self.nickname):
             self.user(self.username, self.ircname)
+        
         self.lock.release()
         return self
 
