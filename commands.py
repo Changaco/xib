@@ -85,7 +85,7 @@ def add_bridge(bot, command, args_array, bridge):
 	parser.add_argument('--irc-port', type=int, default=6667)
 	try:
 		args = parser.parse_args(args_array)
-	except ArgumentParser.ParseException as e:
+	except Exception as e:
 		return '\n'+e.args[1]
 	
 	bot.new_bridge(args.xmpp_room_jid, args.irc_chan, args.irc_server, args.mode, args.say_level, irc_port=args.irc_port)
@@ -98,7 +98,7 @@ def add_xmpp_admin(bot, command, args_array, bridge):
 	parser.add_argument('jid', type=str)
 	try:
 		args = parser.parse_args(args_array)
-	except ArgumentParser.ParseException as e:
+	except Exception as e:
 		return '\n'+e.args[1]
 	bot.admins_jid.append(args.jid)
 	for b in bot.bridges:
@@ -116,7 +116,7 @@ def bridges(bot, command, args_array, bridge):
 	parser.add_argument('--show-participants', default=False, action='store_true')
 	try:
 		args = parser.parse_args(args_array)
-	except ArgumentParser.ParseException as e:
+	except Exception as e:
 		return '\n'+e.args[1]
 	ret = 'List of bridges:'
 	for i, b in enumerate(bot.bridges):
@@ -141,7 +141,7 @@ def change_bridges_mode(bot, command, args_array, bridge):
 	parser.add_argument('new_mode', choices=Bridge._modes)
 	try:
 		args = parser.parse_args(args_array)
-	except ArgumentParser.ParseException as e:
+	except Exception as e:
 		return '\n'+e.args[1]
 	
 	found_bridges, ret = _find_bridges(bot, args.bridge_id)
@@ -161,7 +161,7 @@ def connections(bot, command, args_array, bridge):
 	parser.add_argument('--sort', '-s', default=False, action='store_true')
 	try:
 		args = parser.parse_args(args_array)
-	except ArgumentParser.ParseException as e:
+	except Exception as e:
 		return '\n'+e.args[1]
 	return irc_connections(bot, 'irc-connections', args_array, bridge)+'\n'+xmpp_connections(bot, 'xmpp-connections', args_array, bridge)
 
@@ -171,7 +171,7 @@ def debug(bot, command, args_array, bridge):
 	parser.add_argument('mode', choices=['on', 'off'])
 	try:
 		args = parser.parse_args(args_array)
-	except ArgumentParser.ParseException as e:
+	except Exception as e:
 		if len(args_array) == 0:
 			if bot.debug:
 				return 'Debugging is on'
@@ -199,7 +199,7 @@ def irc_connections(bot, command, args_array, bridge):
 	parser.add_argument('--sort', '-s', default=False, action='store_true')
 	try:
 		args = parser.parse_args(args_array)
-	except ArgumentParser.ParseException as e:
+	except Exception as e:
 		return '\n'+e.args[1]
 	n = len(bot.irc.connections)
 	if args.verbose:
@@ -233,7 +233,7 @@ def remove_bridges(bot, command, args_array, bridge):
 	parser.add_argument('bridge_id', nargs='+')
 	try:
 		args = parser.parse_args(args_array)
-	except ArgumentParser.ParseException as e:
+	except Exception as e:
 		return '\n'+e.args[1]
 	
 	found_bridges, ret = _find_bridges(bot, args.bridge_id)
@@ -253,7 +253,7 @@ def restart_bridges(bot, command, args_array, bridge):
 	parser.add_argument('bridge_id', nargs='+')
 	try:
 		args = parser.parse_args(args_array)
-	except ArgumentParser.ParseException as e:
+	except Exception as e:
 		return '\n'+e.args[1]
 	
 	found_bridges, ret = _find_bridges(bot, args.bridge_id)
@@ -273,7 +273,7 @@ def stop_bridges(bot, command, args_array, bridge):
 	parser.add_argument('bridge_id', nargs='+')
 	try:
 		args = parser.parse_args(args_array)
-	except ArgumentParser.ParseException as e:
+	except Exception as e:
 		return '\n'+e.args[1]
 	
 	found_bridges, ret = _find_bridges(bot, args.bridge_id)
@@ -289,7 +289,7 @@ def xmpp_connections(bot, command, args_array, bridge):
 	parser.add_argument('--sort', '-s', default=False, action='store_true')
 	try:
 		args = parser.parse_args(args_array)
-	except ArgumentParser.ParseException as e:
+	except Exception as e:
 		return '\n'+e.args[1]
 	n = len(bot.xmpp_connections)
 	if args.verbose:
