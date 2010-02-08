@@ -813,17 +813,22 @@ class Bot(threading.Thread):
 		self.error('Bot restarted.', send_to_admins=True)
 	
 	
-	def restart_bridges_delayed(self, bridges, delay, error_message):
+	def restart_bridges_delayed(self, bridges, delay, error_message, protocol='xmpp'):
 		if len(bridges) > 0:
 			error_message += '\nThese bridges will be stopped:'
 			for b in bridges:
 				error_message += '\n'+str(b)
-				if hasattr(b, 'reconnecting'):
-					leave_message = 'MUC server seems to be down'
+				
+				if protocol == 'xmpp':
+					leave_message = 'Could not connect to the MUC server ('+b.xmpp_room_jid+')'
 				else:
-					leave_message = 'MUC server seems to be down, will try to recreate the bridge in '+str(delay)+' seconds'
-					self.reconnecting = True
+					leave_message = 'Could not connect to the IRC server ('+b.irc_connection._server_str()+')'
+				
+				if not hasattr(b, 'reconnecting'):
+					leave_message += 'will try to recreate the bridge in '+str(delay)+' seconds'
+					b.reconnecting = True
 					self.irc.execute_delayed(delay, b.init2)
+				
 				b.stop(message=leave_message)
 		
 		self.error(error_message, send_to_admins=True)
