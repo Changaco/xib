@@ -140,7 +140,7 @@ class Bridge:
 	
 	def addParticipant(self, from_protocol, nickname, real_jid=None, irc_id=None):
 		"""Add a participant to the bridge."""
-		if (from_protocol == 'irc' and nickname == self.irc_connection.get_nickname()) or (from_protocol == 'xmpp' and nickname == self.xmpp_room.nickname):
+		if (from_protocol == 'irc' and nickname == self.bot.nickname) or (from_protocol == 'xmpp' and nickname == self.bot.nickname):
 			self.bot.error('===> Debug: not adding self ('+self.bot.nickname+') to bridge "'+str(self)+'"', debug=True)
 			return
 		try:
