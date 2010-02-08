@@ -102,8 +102,8 @@ class Bridge:
 				else:
 					raise Exception('[Error] unknown error for "'+self.bot.nickname+'" on bridge "'+str(self)+'"')
 			except:
-				traceback.print_exc()
-			self.bot.error('[Error] failed to connect to the IRC chan of bridge "'+str(self)+'", stopping bridge', send_to_admins=True)
+				trace = traceback.format_exc()
+			self.bot.error('[Error] failed to connect to the IRC chan of bridge "'+str(self)+'", stopping bridge\n'+trace, send_to_admins=True)
 			self.stop(message='failed to connect to the IRC chan')
 	
 	
@@ -133,8 +133,8 @@ class Bridge:
 				except xmpp.muc.RemoteServerNotFound:
 					self._RemoteServerNotFound_handler()
 				except:
-					traceback.print_exc()
-			self.bot.error('[Error] failed to connect to the XMPP room of bridge "'+str(self)+'", stopping bridge', send_to_admins=True)
+					trace = traceback.format_exc()
+			self.bot.error('[Error] failed to connect to the XMPP room of bridge "'+str(self)+'", stopping bridge\n'+trace, send_to_admins=True)
 			self.stop(message='failed to connect to the XMPP room')
 	
 	
