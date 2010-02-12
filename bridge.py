@@ -77,6 +77,11 @@ class Bridge:
 		self.bot.error('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode and a say_level of "'+self.__class__._say_levels[self.say_level]+'"')
 	
 	
+	def _join_irc_failed(self):
+		self.bot.error('[Error] failed to connect to the IRC chan of bridge "'+str(self)+'", stopping bridge', send_to_admins=True)
+		self.stop(message='failed to connect to the IRC chan')
+	
+	
 	def _irc_nick_callback(self, error, arguments=[]):
 		if error == None:
 			if self.mode == None:
@@ -103,8 +108,7 @@ class Bridge:
 					raise Exception('[Error] unknown error for "'+self.bot.nickname+'" on bridge "'+str(self)+'"')
 			except:
 				trace = traceback.format_exc()
-			self.bot.error('[Error] failed to connect to the IRC chan of bridge "'+str(self)+'", stopping bridge\n'+trace, send_to_admins=True)
-			self.stop(message='failed to connect to the IRC chan')
+			self._join_irc_failed()
 	
 	
 	def _RemoteServerNotFound_handler(self):

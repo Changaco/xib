@@ -474,7 +474,9 @@ class Bot(threading.Thread):
 		
 		
 		# A string representation of the event
-		event_str = '==> Debug: Received IRC event.\nconnection='+connection.__str__()+'\neventtype='+event.eventtype()+'\nsource='+repr(event.source())+'\ntarget='+repr(event.target())+'\narguments='+repr(event.arguments())
+		event_str = 'connection='+connection.__str__()+'\neventtype='+event.eventtype()+'\nsource='+repr(event.source())+'\ntarget='+repr(event.target())+'\narguments='+repr(event.arguments())
+		debug_str = '==> Debug: Received IRC event.\n'+event_str
+		printed_event = False
 		
 		
 		if event.eventtype() in ['pubmsg', 'action', 'privmsg', 'quit', 'part', 'nick', 'kick']:
@@ -483,12 +485,16 @@ class Bot(threading.Thread):
 			
 			handled = False
 			
+			if event.eventtype() in ['quit', 'part'] and nickname == self.nickname:
+				return
+			
 			if event.eventtype() in ['quit', 'part', 'nick', 'kick']:
 				if connection.get_nickname() != self.nickname:
 					self.error('=> Debug: ignoring IRC '+event.eventtype()+' not received on bot connection', debug=True)
 					return
 				else:
-					self.error(event_str, debug=True)
+					self.error(debug_str, debug=True)
+					printed_event = True
 			
 			if event.eventtype() == 'kick' and len(event.arguments()) < 1:
 				self.error('=> Debug: length of arguments should be greater than 0 for a '+event.eventtype()+' event')
@@ -521,14 +527,14 @@ class Bot(threading.Thread):
 					
 					try:
 						to_ = bridge.getParticipant(event.target().split('!')[0])
-						self.error(event_str, debug=True)
+						self.error(debug_str, debug=True)
 						from_.sayOnXMPPTo(to_.nickname, event.arguments()[0])
 						return
 						
 					except Bridge.NoSuchParticipantException:
 						if event.target().split('!')[0] == self.nickname:
 							# Message is for the bot
-							self.error(event_str, debug=True)
+							self.error(debug_str, debug=True)
 							connection.privmsg(from_.nickname, self.respond(event.arguments()[0]))
 							return
 						else:
@@ -582,7 +588,7 @@ class Bot(threading.Thread):
 				# Chan message
 				if event.eventtype() in ['pubmsg', 'action']:
 					if bridge.irc_room == event.target().lower() and bridge.irc_server == connection.server:
-						self.error(event_str, debug=True)
+						self.error(debug_str, debug=True)
 						message = event.arguments()[0]
 						if event.eventtype() == 'action':
 							message = '/me '+message
@@ -591,11 +597,8 @@ class Bot(threading.Thread):
 					else:
 						continue
 			
-			if handled == False:
-				if not event.eventtype() in ['quit', 'part', 'nick', 'kick']:
-					self.error(event_str, debug=True)
-				self.error('=> Debug: event was not handled', debug=True)
-			return
+			if handled:
+				return
 		
 		
 		# Handle bannedfromchan
@@ -616,7 +619,7 @@ class Bot(threading.Thread):
 						banned = bridge.getParticipant(event.target())
 						if banned.irc_connection != 'bannedfromchan':
 							banned.irc_connection = 'bannedfromchan'
-							self.error(event_str, debug=True)
+							self.error(debug_str, debug=True)
 							bridge.say('[Warning] the nickname "'+event.target()+'" is banned from the IRC chan', log=True)
 						else:
 							self.error('=> Debug: ignoring '+event.eventtype(), debug=True)
@@ -643,7 +646,7 @@ class Bot(threading.Thread):
 			elif event.eventtype() == 'join':
 				bridges = self.getBridges(irc_room=event.target().lower(), irc_server=connection.server)
 				if len(bridges) == 0:
-					self.error(event_str, debug=True)
+					self.error(debug_str, debug=True)
 					self.error('===> Debug: no bridge found for "'+event.target().lower()+' at '+connection.server+'"', debug=True)
 					return
 				for bridge in bridges:
@@ -653,14 +656,33 @@ class Bot(threading.Thread):
 		
 		if event.eventtype() in ['disconnect', 'kill', 'error']:
 			if len(event.arguments()) > 0 and event.arguments()[0] == 'Connection reset by peer':
-				self.error(event_str, debug=True)
+				self.error(debug_str, debug=True)
 			else:
-				self.error(event_str, send_to_admins=True)
+				self.error(debug_str, send_to_admins=True)
+			return
+		
+		
+		if event.eventtype() in ['cannotsendtochan', 'notonchannel']:
+			self.error(debug_str, debug=True)
+			bridges = self.getBridges(irc_room=event.arguments()[0], irc_server=connection.server)
+			if len(bridges) > 1:
+				raise Exception, 'more than one bridge for one irc chan, WTF ?'
+			bridge = bridges[0]
+			if connection.get_nickname() == self.nickname:
+				bridge._join_irc_failed()
+			else:
+				p = bridge.getParticipant(connection.get_nickname())
+				p._close_irc_connection('')
+				p.irc_connection = error
 			return
 		
 		
 		# Unhandled events
-		self.error(event_str+'\n=> Debug: event not handled', debug=True)
+		if not printed_event:
+			self.error('[Debug] The following IRC event was not handled:\n'+event_str+'\n', send_to_admins=True)
+		else:
+			self.error('=> Debug: event not handled', debug=True)
+			self._send_message_to_admins('[Debug] The following IRC event was not handled:\n'+event_str)
 	
 	
 	def _send_message_to_admins(self, message):
