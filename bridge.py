@@ -25,19 +25,12 @@ xmpp = muc.xmpp
 del muc
 
 from participant import Participant
+import say_levels
 
 
 class Bridge:
 	
-	_all = 0
-	_info = 1
-	_notice = 2
-	_warning = 3
-	_error = 4
-	_nothing = 5
-	_say_levels = ['all', 'info', 'notice', 'warning', 'error', 'nothing']
-	_modes = ['normal', 'bypass', 'limited', 'minimal']
-	
+	modes = ['bypass', 'normal', 'limited', 'minimal']
 	
 	class NoSuchParticipantException(Exception): pass
 	
@@ -51,12 +44,9 @@ class Bridge:
 		self.irc_connection_interval = irc_connection_interval
 		self.irc_charsets = irc_charsets
 		self.xmpp_room_jid = xmpp_room_jid
-		if hasattr(self.__class__, '_'+say_level):
-			self.say_level = getattr(self.__class__, '_'+say_level)
-		else:
-			raise Exception('[Error] "'+say_level+'" is not a correct value for a bridge\'s "say_level" attribute')
+		self.say_level = say_level
 		self.participants = []
-		if mode not in self.__class__._modes:
+		if mode not in self.__class__.modes:
 			raise Exception('[Error] "'+mode+'" is not a correct value for a bridge\'s "mode" attribute')
 		self.mode = mode
 		
@@ -74,11 +64,11 @@ class Bridge:
 		self.irc_connection = self.bot.irc.open_connection(self.irc_server, self.irc_port, self.bot.nickname, delay=self.irc_connection_interval)
 		self.irc_connection.connect(nick_callback=self._irc_nick_callback, charsets=self.irc_charsets)
 		
-		self.bot.error('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode and a say_level of "'+self.__class__._say_levels[self.say_level]+'"')
+		self.bot.error(say_levels.notice, 'bridge "'+str(self)+'" is running in '+self.mode+' mode and a say_level of "'+str(self.say_level)+'"')
 	
 	
 	def _join_irc_failed(self):
-		self.bot.error('[Error] failed to connect to the IRC chan of bridge "'+str(self)+'", stopping bridge', send_to_admins=True)
+		self.bot.error(say_levels.error, 'failed to connect to the IRC chan of bridge "'+str(self)+'", stopping bridge', send_to_admins=True)
 		self.stop(message='failed to connect to the IRC chan')
 	
 	
@@ -87,14 +77,14 @@ class Bridge:
 			if self.mode == None:
 				return
 			self.irc_connection.join(self.irc_room)
-			self.bot.error('===> Debug: successfully connected on IRC side of bridge "'+str(self)+'"', debug=True)
-			self.say('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode', on_xmpp=False)
+			self.bot.error(3, 'successfully connected on IRC side of bridge "'+str(self)+'"', debug=True)
+			self.say(say_levels.notice, 'bridge "'+str(self)+'" is running in '+self.mode+' mode', on_xmpp=False)
 			if self.mode not in ['normal', 'bypass']:
 				self.show_participants_list_on(protocols=['irc'])
 		else:
 			self.mode = None
 			if self.xmpp_room.connected == True:
-				self.say('[Error] failed to connect to the IRC chan, leaving ...', on_irc=False)
+				self.say(say_levels.error, 'failed to connect to the IRC chan, leaving ...', on_irc=False)
 			try:
 				if error == 'nicknameinuse':
 					raise Exception('[Error] "'+self.bot.nickname+'" is already used in the IRC chan or reserved on the IRC server of bridge "'+str(self)+'"')
@@ -125,12 +115,12 @@ class Bridge:
 				del self.reconnecting
 			if self.mode == None:
 				return
-			self.bot.error('===> Debug: succesfully connected on XMPP side of bridge "'+str(self)+'"', debug=True)
-			self.say('[Notice] bridge "'+str(self)+'" is running in '+self.mode+' mode', on_irc=False)
+			self.bot.error(3, 'succesfully connected on XMPP side of bridge "'+str(self)+'"', debug=True)
+			self.say(say_levels.notice, 'bridge "'+str(self)+'" is running in '+self.mode+' mode', on_irc=False)
 		else:
 			self.mode = None
 			if self.irc_connection.really_connected == True:
-				self.say('[Error] failed to connect to the XMPP room, leaving ...', on_xmpp=False)
+				self.say(say_levels.error, 'failed to connect to the XMPP room, leaving ...', on_xmpp=False)
 			for error in errors:
 				try:
 					raise error
@@ -138,14 +128,14 @@ class Bridge:
 					self._RemoteServerNotFound_handler()
 				except:
 					trace = traceback.format_exc()
-			self.bot.error('[Error] failed to connect to the XMPP room of bridge "'+str(self)+'", stopping bridge\n'+trace, send_to_admins=True)
+			self.bot.error(say_levels.error, 'failed to connect to the XMPP room of bridge "'+str(self)+'", stopping bridge\n'+trace, send_to_admins=True)
 			self.stop(message='failed to connect to the XMPP room')
 	
 	
 	def addParticipant(self, from_protocol, nickname, real_jid=None, irc_id=None):
 		"""Add a participant to the bridge."""
 		if (from_protocol == 'irc' and nickname == self.bot.nickname) or (from_protocol == 'xmpp' and nickname == self.bot.nickname):
-			self.bot.error('===> Debug: not adding self ('+self.bot.nickname+') to bridge "'+str(self)+'"', debug=True)
+			self.bot.error(3, 'not adding self ('+self.bot.nickname+') to bridge "'+str(self)+'"', debug=True)
 			return
 		try:
 			p = self.getParticipant(nickname)
@@ -163,14 +153,14 @@ class Bridge:
 			return
 		
 		self.lock.acquire()
-		self.bot.error('===> Debug: adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'"', debug=True)
+		self.bot.error(3, 'adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'"', debug=True)
 		try:
 			p = Participant(self, from_protocol, nickname, real_jid=real_jid)
 		except IOError:
-			self.bot.error('===> Debug: IOError while adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'", reconnectiong ...', debug=True)
+			self.bot.error(3, 'IOError while adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'", reconnectiong ...', debug=True)
 			p.xmpp_c.reconnectAndReauth()
 		except:
-			self.bot.error('===> Debug: unknown error while adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'"', debug=True)
+			self.bot.error(3, 'unknown error while adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'"', debug=True)
 			traceback.print_exc()
 			return
 		self.participants.append(p)
@@ -249,7 +239,7 @@ class Bridge:
 				if p.nickname != p.duplicate_nickname:
 					p.leave('Bridge is switching to '+new_mode+' mode')
 		
-		self.say('[Notice] Bridge is switching from '+old_mode+' to '+new_mode+' mode.', log=True)
+		self.say(say_levels.notice, 'Bridge is switching from '+old_mode+' to '+new_mode+' mode.', log=True)
 	
 	
 	def getParticipant(self, nickname):
@@ -328,11 +318,11 @@ class Bridge:
 			raise Exception('[Internal Error] bad protocol')
 		
 		if was_on_both == True:
-			self.bot.error('===> Debug: "'+nickname+'" was on both sides of bridge "'+str(self)+'" but left '+left_protocol, debug=True)
+			self.bot.error(3, '"'+nickname+'" was on both sides of bridge "'+str(self)+'" but left '+left_protocol, debug=True)
 		
 		elif was_on_both == False:
 			self.lock.acquire()
-			self.bot.error('===> Debug: removing participant "'+nickname+'" from bridge "'+str(self)+'"', debug=True)
+			self.bot.error(3, 'removing participant "'+nickname+'" from bridge "'+str(self)+'"', debug=True)
 			self.participants.remove(p)
 			p.leave(leave_message)
 			del p
@@ -345,14 +335,14 @@ class Bridge:
 					self.show_participants_list_on(protocols=['xmpp'])
 		
 		else:
-			self.bot.error('=> Debug: Bad decision tree,  p.protocol='+p.protocol+'  left_protocol='+left_protocol+'\np.xmpp_c='+str(p.xmpp_c)+'\np.irc_connection='+str(p.irc_connection), debug=True)
+			self.bot.error(1, 'Bad decision tree,  p.protocol='+p.protocol+'  left_protocol='+left_protocol+'\np.xmpp_c='+str(p.xmpp_c)+'\np.irc_connection='+str(p.irc_connection), debug=True)
 	
 	
 	def restart(self):
 		"""Restart the bridge"""
 		
 		# Tell admins
-		self.bot.error('Restarting bridge '+str(self), send_to_admins=True)
+		self.bot.error(-1, 'Restarting bridge '+str(self), send_to_admins=True)
 		
 		# Stop the bridge
 		self.stop(message='Restarting bridge')
@@ -361,19 +351,12 @@ class Bridge:
 		self.init2()
 	
 	
-	def say(self, message, on_irc=True, on_xmpp=True, log=False):
+	def say(self, importance, message, on_irc=True, on_xmpp=True, log=False, send_to_admins=False):
 		"""Make the bot say something."""
-		if message[0] != '[':
-			raise Exception('[Internal Error] message does not start with "["')
-		if log:
-			self.bot.error(message+' ('+str(self)+')')
-		if self.say_level == self.__class__._nothing:
-			return
-		level = re.findall('^\[(Info|Notice|Warning|Error)\]', message)
-		if len(level) == 0:
-			raise Exception('[Internal Error] unknown message importance "'+re.findall('^\[([^[\]]+)', message)[0]+'"')
-		level = level[0].lower()
-		if getattr(self.__class__, '_'+level) < self.say_level:
+		message = self.bot.format_message(importance, message)
+		if log or send_to_admins:
+			self.bot.error(importance, message+' ('+str(self)+')', send_to_admins=send_to_admins)
+		if importance < self.say_level:
 			return
 		if on_xmpp == True:
 			self.xmpp_room.say(message)
@@ -384,10 +367,10 @@ class Bridge:
 	def show_participants_list_on(self, protocols=[]):
 		if 'irc' in protocols and self.irc_connection.really_connected:
 			xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
-			self.say('[Info] Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
+			self.say(say_levels.info, 'Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
 		if 'xmpp' in protocols:
 			irc_participants_nicknames = self.get_participants_nicknames_list(protocols=['irc'])
-			self.say('[Info] Participants on IRC: '+'  '.join(irc_participants_nicknames), on_irc=False)
+			self.say(say_levels.info, 'Participants on IRC: '+'  '.join(irc_participants_nicknames), on_irc=False)
 	
 	
 	def stop(self, message='Stopping bridge'):

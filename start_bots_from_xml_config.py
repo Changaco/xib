@@ -22,7 +22,9 @@ from time import sleep
 import sys
 import traceback
 
+from admin import Admin
 from bot import Bot
+import say_levels
 
 
 try:
@@ -49,11 +51,19 @@ for bot_el in config.getElementsByTagName('bot'):
 	if bot_el.hasAttribute('debug'):
 		if bot_el.getAttribute('debug') == 'true':
 			debug = True
-	admins_jid = []
+	
+	admins = []
 	for admin_el in bot_el.getElementsByTagName('admin'):
 		if admin_el.hasAttribute('jid'):
-			admins_jid.append(admin_el.getAttribute('jid'))
-	bot = Bot(bot_el.getAttribute('jid'), bot_el.getAttribute('password'), bot_el.getAttribute('nickname'), admins_jid=admins_jid, debug=debug)
+			admin = Admin()
+			admin.jid = admin_el.getAttribute('jid')
+			if admin_el.hasAttribute('say_level'):
+				admin.say_level = say_levels.get(admin_el.getAttribute('say_level'))
+			else:
+				admin.say_level = say_levels.warning
+			admins.append(admin)
+	
+	bot = Bot(bot_el.getAttribute('jid'), bot_el.getAttribute('password'), bot_el.getAttribute('nickname'), admins=admins, debug=debug)
 	bots.append(bot)
 	for bridge_el in bot_el.getElementsByTagName('bridge'):
 		xmpp_room = bridge_el.getElementsByTagName('xmpp-room')[0]
@@ -71,14 +81,14 @@ for bot_el in config.getElementsByTagName('bot'):
 			irc_charsets = None
 		
 		if bridge_el.hasAttribute('say_level'):
-			say_level = bridge_el.getAttribute('say_level')
+			say_level = say_levels.get(bridge_el.getAttribute('say_level'))
 		else:
-			say_level = 'all'
+			say_level = say_levels.nothing
 		
 		if bridge_el.hasAttribute('mode'):
 			mode = bridge_el.getAttribute('mode')
 		else:
-			mode = 'normal'
+			mode = 'bypass'
 		
 		bot.new_bridge(xmpp_room.getAttribute('jid'), irc.getAttribute('chan'), irc.getAttribute('server'), mode, say_level, irc_connection_interval=irc_connection_interval, irc_charsets=irc_charsets)
 

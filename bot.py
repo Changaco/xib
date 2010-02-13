@@ -30,11 +30,12 @@ del muc
 from bridge import Bridge
 from participant import Participant
 import commands
+import say_levels
 
 
 class Bot(threading.Thread):
 	
-	def __init__(self, jid, password, nickname, admins_jid=[], error_fd=sys.stderr, debug=False):
+	def __init__(self, jid, password, nickname, admins=[], error_fd=sys.stderr, debug=False):
 		threading.Thread.__init__(self)
 		self.halt = False
 		self.bridges = []
@@ -44,7 +45,7 @@ class Bot(threading.Thread):
 		self.password = password
 		self.error_fd = error_fd
 		self.debug = debug
-		self.admins_jid = admins_jid
+		self.admins = admins
 		self.xmpp_connections = {}
 		self.irc = irclib.IRC()
 		self.irc.bot = self
@@ -55,18 +56,22 @@ class Bot(threading.Thread):
 		try:
 			self.xmpp_c = self.get_xmpp_connection(self.nickname)
 		except:
-			self.error('[Error] XMPP Connection failed')
+			self.error(say_levels.error, 'XMPP Connection failed')
 			raise
 		self.xmpp_thread = threading.Thread(target=self._xmpp_loop)
 		self.xmpp_thread.start()
 	
 	
-	def error(self, s, debug=False, send_to_admins=False):
+	def error(self, importance, message, debug=False, send_to_admins=False):
 		"""Output an error message."""
 		if send_to_admins == True:
-			self._send_message_to_admins(s)
-		if not debug or debug and self.debug:
-			self.error_fd.write(s.encode('utf-8')+"\n")
+			self._send_message_to_admins(importance, message)
+		if importance == -1:
+			return
+		if not debug:
+			self.error_fd.write(self.format_message(importance, message).encode('utf-8')+'\n')
+		if debug and self.debug:
+			self.error_fd.write('='*importance+'> '+message.encode('utf-8')+'\n')
 	
 	
 	def _xmpp_loop(self):
@@ -89,7 +94,7 @@ class Bot(threading.Thread):
 						if i == j:
 							ping = xmpp.protocol.Iq(typ='get')
 							ping.addChild(name='ping', namespace='urn:xmpp:ping')
-							self.error('=> Debug: sending XMPP ping', debug=True)
+							self.error(1, 'sending XMPP ping', debug=True)
 							c.pings.append(c.send(ping))
 						if hasattr(c, 'Process'):
 							c.Process(0.01)
@@ -99,17 +104,16 @@ class Bot(threading.Thread):
 			except RuntimeError:
 				pass
 			except (xml.parsers.expat.ExpatError, xmpp.protocol.XMLNotWellFormed):
-				self.error('=> Debug: invalid stanza', debug=True)
+				self.error(1, 'invalid stanza', debug=True)
 				self.reopen_xmpp_connection(c)
 				unlock = True
 			except xmpp.Conflict:
-				self.error('=> Debug: conflict', debug=True)
+				self.error(1, 'conflict', debug=True)
 				self.reopen_xmpp_connection(c)
 				unlock = True
 			except:
-				error = '[Error] Unknown exception on XMPP thread:\n'
-				error += traceback.format_exc()
-				self.error(error, send_to_admins=True)
+				error = 'Unknown exception on XMPP thread:\n'+traceback.format_exc()
+				self.error(say_levels.error, error, send_to_admins=True)
 				unlock = True
 			if unlock == True:
 				c.lock.release()
@@ -121,11 +125,10 @@ class Bot(threading.Thread):
 		xmpp_c = dispatcher._owner
 		
 		if xmpp_c.nickname != self.nickname:
-			self.error('=> Debug: Skipping XMPP presence not received on bot connection.', debug=True)
+			self.error(1, 'Skipping XMPP presence not received on bot connection.', debug=True)
 			return
 		
-		self.error('==> Debug: Received XMPP presence.', debug=True)
-		self.error(presence.__str__(fancy=1), debug=True)
+		self.error(2, 'Received XMPP presence.\n'+presence.__str__(fancy=1), debug=True)
 		
 		from_ = xmpp.protocol.JID(presence.getFrom())
 		bare_jid = unicode(from_.getNode()+'@'+from_.getDomain())
@@ -153,9 +156,9 @@ class Bot(threading.Thread):
 								if r == 'The conference component is shutting down':
 									# MUC server is going down, try to restart the bridges in 1 minute
 									bridges = self.findBridges([from_.getDomain()])
-									error_message = '[Warning] The MUC server '+from_.getDomain()+' seems to be going down, the bot will try to recreate all bridges related to this server in 1 minute'
-									self.restart_bridges_delayed(bridges, 60, error_message)
-									self.error(presence.__str__(fancy=1).encode('utf-8'), debug=True)
+									m = 'The MUC server '+from_.getDomain()+' seems to be going down, the bot will try to recreate all bridges related to this server in 1 minute'
+									error = (say_levels.warning, m)
+									self.restart_bridges_delayed(bridges, 60, error)
 									return
 								elif r == '':
 									r = 'None given'
@@ -163,7 +166,7 @@ class Bot(threading.Thread):
 								r = 'None given'
 							
 							# room has been destroyed, stop the bridge
-							self.error('[Error] The MUC room of the bridge '+str(bridge)+' has been destroyed with reason "'+r+'", stopping the bridge', send_to_admins=True)
+							self.error(say_levels.error, 'The MUC room of the bridge '+str(bridge)+' has been destroyed with reason "'+r+'", stopping the bridge', send_to_admins=True)
 							bridge.stop(message='The MUC room of the bridge has been destroyed with reason "'+r+'", stopping the bridge')
 				
 				else:
@@ -188,11 +191,11 @@ class Bot(threading.Thread):
 								return
 							item = x.getTag('item')
 							if not item:
-								self.error('=> Debug: bad stanza, no item element', debug=True)
+								self.error(1, 'bad stanza, no item element', debug=True)
 								return
 							new_nick = item.getAttr('nick')
 							if not new_nick:
-								self.error('=> Debug: bad stanza, new nick is not given', debug=True)
+								self.error(1, 'bad stanza, new nick is not given', debug=True)
 								return
 							p.changeNickname(new_nick, 'irc')
 							
@@ -225,9 +228,7 @@ class Bot(threading.Thread):
 						elif x and x.getTag('status', attrs={'code': '301'}):
 							# participant was banned
 							if p == None:
-								m = '[Error] bot got banned from XMPP'
-								self.error(m)
-								bridge.say(m, on_xmpp=False)
+								bridge.say(say_levels.error, 'bot got banned from XMPP', on_xmpp=False, send_to_admins=True)
 								self.removeBridge(bridge)
 								return
 							if item:
@@ -265,7 +266,6 @@ class Bot(threading.Thread):
 										bridges = self.findBridges([from_.getDomain()])
 										error_message = '[Error] XMPP Remote server not found: '+from_.getDomain()
 										self.restart_bridges_delayed(bridges, 60, error_message)
-										self.error(presence.__str__(fancy=1).encode('utf-8'), debug=True)
 									else:
 										raise Exception(presence.__str__(fancy=1).encode('utf-8'))
 					
@@ -278,8 +278,8 @@ class Bot(threading.Thread):
 						
 						# if we have the real jid check if the participant is a bot admin
 						if real_jid and isinstance(p, Participant):
-							for jid in self.admins_jid:
-								if xmpp.protocol.JID(jid).bareMatch(real_jid):
+							for admin in self.admins:
+								if xmpp.protocol.JID(admin.jid).bareMatch(real_jid):
 									p.bot_admin = True
 									break
 						
@@ -296,11 +296,10 @@ class Bot(threading.Thread):
 		# Ignore pongs
 		if iq.getType() in ['result', 'error'] and iq.getID() in xmpp_c.pings:
 			xmpp_c.pings.remove(iq.getID())
-			self.error('=> Debug: received XMPP pong', debug=True)
+			self.error(1, 'received XMPP pong', debug=True)
 			return
 		
-		self.error('==> Debug: Received XMPP iq.', debug=True)
-		self.error(iq.__str__(fancy=1), debug=True)
+		self.error(2, 'Received XMPP iq.\n'+iq.__str__(fancy=1), debug=True)
 	
 	
 	def _xmpp_message_handler(self, dispatcher, message):
@@ -317,8 +316,7 @@ class Bot(threading.Thread):
 				if from_bare_jid == bridge.xmpp_room_jid:
 					# message comes from a room participant
 					
-					self.error('==> Debug: Received XMPP chat message.', debug=True)
-					self.error(message.__str__(fancy=1), debug=True)
+					self.error(2, 'Received XMPP chat message.\n'+message.__str__(fancy=1), debug=True)
 					
 					try:
 						from_ = bridge.getParticipant(message.getFrom().getResource())
@@ -331,24 +329,22 @@ class Bot(threading.Thread):
 							r = self.respond(str(message.getBody()), participant=from_)
 							if isinstance(r, basestring) and len(r) > 0:
 								s = xmpp.protocol.Message(to=message.getFrom(), body=r, typ='chat')
-								self.error('==> Debug: Sending', debug=True)
-								self.error(s.__str__(fancy=1), debug=True)
+								self.error(2, 'Sending\n'+s.__str__(fancy=1), debug=True)
 								xmpp_c.send(s)
 							else:
-								self.error('=> Debug: won\'t answer.', debug=True)
+								self.error(1, 'won\'t answer.', debug=True)
 							return
-						self.error('=> Debug: XMPP chat message not relayed', debug=True)
+						self.error(1, 'XMPP chat message not relayed', debug=True)
 						return
 			
 			# message does not come from a room
 			if xmpp_c.nickname == self.nickname:
-				self.error('==> Debug: Received XMPP chat message.', debug=True)
-				self.error(message.__str__(fancy=1), debug=True)
+				self.error(2, 'Received XMPP chat message.\n'+message.__str__(fancy=1), debug=True)
 				
 				# Find out if the message comes from a bot admin
 				bot_admin = False
-				for jid in self.admins_jid:
-					if xmpp.protocol.JID(jid).bareMatch(message.getFrom()):
+				for admin in self.admins:
+					if xmpp.protocol.JID(admin.jid).bareMatch(message.getFrom()):
 						bot_admin = True
 						break
 				
@@ -356,12 +352,11 @@ class Bot(threading.Thread):
 				r = self.respond(str(message.getBody()), bot_admin=bot_admin)
 				if isinstance(r, basestring) and len(r) > 0:
 					s = xmpp.protocol.Message(to=message.getFrom(), body=r, typ='chat')
-					self.error('==> Debug: Sending', debug=True)
-					self.error(s.__str__(fancy=1), debug=True)
+					self.error(2, 'Sending\n'+s.__str__(fancy=1), debug=True)
 					xmpp_c.send(s)
 			
 			else:
-				self.error('=> Debug: Ignoring XMPP chat message not received on bot connection.', debug=True)
+				self.error(1, 'Ignoring XMPP chat message not received on bot connection.', debug=True)
 		
 		elif message.getType() == 'groupchat':
 			# message comes from a room
@@ -372,14 +367,14 @@ class Bot(threading.Thread):
 					return
 			
 			if xmpp_c.nickname != self.nickname:
-				self.error('=> Debug: Ignoring XMPP MUC message not received on bot connection.', debug=True)
+				self.error(1, 'Ignoring XMPP MUC message not received on bot connection.', debug=True)
 				return
 			
 			
 			from_ = xmpp.protocol.JID(message.getFrom())
 			
 			if unicode(from_.getResource()) == self.nickname:
-				self.error('=> Debug: Ignoring XMPP MUC message sent by self.', debug=True)
+				self.error(1, 'Ignoring XMPP MUC message sent by self.', debug=True)
 				return
 			
 			room_jid = unicode(from_.getNode()+'@'+from_.getDomain())
@@ -388,18 +383,17 @@ class Bot(threading.Thread):
 					resource = unicode(from_.getResource())
 					if resource == '':
 						# message comes from the room itself
-						self.error('=> Debug: Ignoring XMPP groupchat message sent by the room.', debug=True)
+						self.error(1, 'Ignoring XMPP groupchat message sent by the room.', debug=True)
 						return
 					else:
 						# message comes from a participant of the room
-						self.error('==> Debug: Received XMPP groupchat message.', debug=True)
-						self.error(message.__str__(fancy=1), debug=True)
+						self.error(2, 'Received XMPP groupchat message.\n'+message.__str__(fancy=1), debug=True)
 						
 						try:
 							participant = bridge.getParticipant(resource)
 						except Bridge.NoSuchParticipantException:
 							if resource != self.nickname:
-								self.error('=> Debug: NoSuchParticipantException "'+resource+'" on "'+str(bridge)+'", WTF ?', debug=True)
+								self.error(1, 'NoSuchParticipantException "'+resource+'" on "'+str(bridge)+'", WTF ?', debug=True)
 							return
 						
 						participant.sayOnIRC(message.getBody())
@@ -422,19 +416,16 @@ class Bot(threading.Thread):
 									elif err == 'forbidden':
 										# we don't have the permission to speak
 										# let's remove the bridge and tell admins
-										self.error('[Error] Not allowed to speak on the XMPP MUC of bridge '+str(b)+', stopping it', send_to_admins=True)
+										self.error(say_levels.error, 'Not allowed to speak on the XMPP MUC of bridge '+str(b)+', stopping it', send_to_admins=True)
 										b.stop(message='Not allowed to speak on the XMPP MUC, stopping bridge.')
 									else:
-										self.error('==> Debug: recevied unknown error message', debug=True)
-										self.error(message.__str__(fancy=1), debug=True)
+										self.error(2, 'recevied unknown error message\n'+message.__str__(fancy=1), debug=True)
 					return
 			
-			self.error('==> Debug: recevied unknown error message', debug=True)
-			self.error(message.__str__(fancy=1), debug=True)
+			self.error(2, 'recevied unknown error message\n'+message.__str__(fancy=1), debug=True)
 		
 		else:
-			self.error('==> Debug: Received XMPP message of unknown type "'+str(message.getType())+'".', debug=True)
-			self.error(message.__str__(fancy=1), debug=True)
+			self.error(2, 'Received XMPP message of unknown type "'+str(message.getType())+'".\n'+message.__str__(fancy=1), debug=True)
 	
 	
 	def _irc_event_handler(self, connection, event):
@@ -450,7 +441,7 @@ class Bot(threading.Thread):
 		if 'all' in event.eventtype() or 'motd' in event.eventtype() or event.eventtype() in ['nicknameinuse', 'nickcollision', 'erroneusnickname']:
 			return
 		if event.eventtype() in ['pong', 'privnotice', 'ctcp', 'nochanmodes', 'notexttosend', 'currenttopic', 'topicinfo', '328']:
-			self.error('=> Debug: ignoring IRC '+event.eventtype(), debug=True)
+			self.error(1, 'ignoring IRC '+event.eventtype(), debug=True)
 			return
 		
 		
@@ -467,15 +458,15 @@ class Bot(threading.Thread):
 					connection.really_connected = True
 					connection._call_nick_callbacks(None)
 				elif len(connection.nick_callbacks) > 0:
-					self.error('===> Debug: event target ('+event.target()+') and connection nickname ('+connection.nickname+') don\'t match')
+					self.error(3, 'event target ('+event.target()+') and connection nickname ('+connection.nickname+') don\'t match')
 					connection._call_nick_callbacks('nicknametoolong', arguments=[len(event.target())])
-			self.error('=> Debug: ignoring '+event.eventtype(), debug=True)
+			self.error(1, 'ignoring '+event.eventtype(), debug=True)
 			return
 		
 		
 		# A string representation of the event
 		event_str = 'connection='+connection.__str__()+'\neventtype='+event.eventtype()+'\nsource='+repr(event.source())+'\ntarget='+repr(event.target())+'\narguments='+repr(event.arguments())
-		debug_str = '==> Debug: Received IRC event.\n'+event_str
+		debug_str = 'Received IRC event.\n'+event_str
 		printed_event = False
 		
 		
@@ -490,22 +481,22 @@ class Bot(threading.Thread):
 			
 			if event.eventtype() in ['quit', 'part', 'nick', 'kick']:
 				if connection.get_nickname() != self.nickname:
-					self.error('=> Debug: ignoring IRC '+event.eventtype()+' not received on bot connection', debug=True)
+					self.error(1, 'ignoring IRC '+event.eventtype()+' not received on bot connection', debug=True)
 					return
 				else:
-					self.error(debug_str, debug=True)
+					self.error(2, debug_str, debug=True)
 					printed_event = True
 			
 			if event.eventtype() == 'kick' and len(event.arguments()) < 1:
-				self.error('=> Debug: length of arguments should be greater than 0 for a '+event.eventtype()+' event')
+				self.error(1, 'length of arguments should be greater than 0 for a '+event.eventtype()+' event')
 				return
 			
 			if event.eventtype() in ['pubmsg', 'action']:
 				if connection.get_nickname() != self.nickname:
-					self.error('=> Debug: ignoring IRC '+event.eventtype()+' not received on bot connection', debug=True)
+					self.error(1, 'ignoring IRC '+event.eventtype()+' not received on bot connection', debug=True)
 					return
 				if nickname == self.nickname:
-					self.error('=> Debug: ignoring IRC '+event.eventtype()+' sent by self', debug=True)
+					self.error(1, 'ignoring IRC '+event.eventtype()+' sent by self', debug=True)
 					return
 			
 			# TODO: lock self.bridges for thread safety
@@ -527,14 +518,14 @@ class Bot(threading.Thread):
 					
 					try:
 						to_ = bridge.getParticipant(event.target().split('!')[0])
-						self.error(debug_str, debug=True)
+						self.error(2, debug_str, debug=True)
 						from_.sayOnXMPPTo(to_.nickname, event.arguments()[0])
 						return
 						
 					except Bridge.NoSuchParticipantException:
 						if event.target().split('!')[0] == self.nickname:
 							# Message is for the bot
-							self.error(debug_str, debug=True)
+							self.error(2, debug_str, debug=True)
 							connection.privmsg(from_.nickname, self.respond(event.arguments()[0]))
 							return
 						else:
@@ -555,7 +546,7 @@ class Bot(threading.Thread):
 									bridge.removeParticipant('irc', kicked.nickname, 'Kicked by '+nickname+' (no reason was given)')
 							return
 						except Bridge.NoSuchParticipantException:
-							self.error('=> Debug: a participant that was not here has been kicked ? WTF ?')
+							self.error(1, 'a participant that was not here has been kicked ? WTF ?')
 							return
 					else:
 						continue
@@ -588,7 +579,7 @@ class Bot(threading.Thread):
 				# Chan message
 				if event.eventtype() in ['pubmsg', 'action']:
 					if bridge.irc_room == event.target().lower() and bridge.irc_server == connection.server:
-						self.error(debug_str, debug=True)
+						self.error(2, debug_str, debug=True)
 						message = event.arguments()[0]
 						if event.eventtype() == 'action':
 							message = '/me '+message
@@ -604,7 +595,7 @@ class Bot(threading.Thread):
 		# Handle bannedfromchan
 		if event.eventtype() == 'bannedfromchan':
 			if len(event.arguments()) < 1:
-				self.error('=> Debug: length of arguments should be greater than 0 for a '+event.eventtype()+' event')
+				self.error(1, 'length of arguments should be greater than 0 for a '+event.eventtype()+' event')
 				return
 			
 			for bridge in self.bridges:
@@ -612,19 +603,19 @@ class Bot(threading.Thread):
 					continue
 				
 				if event.target() == self.nickname:
-					self.error('[Error] the nickname "'+event.target()+'" is banned from the IRC chan of bridge "'+str(bridge)+'"')
+					self.error(say_levels.error, 'the nickname "'+event.target()+'" is banned from the IRC chan of bridge "'+str(bridge)+'"')
 					raise Exception('[Error] the nickname "'+event.target()+'" is banned from the IRC chan of bridge "'+str(bridge)+'"')
 				else:
 					try:
 						banned = bridge.getParticipant(event.target())
 						if banned.irc_connection != 'bannedfromchan':
 							banned.irc_connection = 'bannedfromchan'
-							self.error(debug_str, debug=True)
-							bridge.say('[Warning] the nickname "'+event.target()+'" is banned from the IRC chan', log=True)
+							self.error(2, debug_str, debug=True)
+							bridge.say(say_levels.warning, 'the nickname "'+event.target()+'" is banned from the IRC chan', log=True)
 						else:
-							self.error('=> Debug: ignoring '+event.eventtype(), debug=True)
+							self.error(1, 'ignoring '+event.eventtype(), debug=True)
 					except Bridge.NoSuchParticipantException:
-						self.error('=> Debug: no such participant. WTF ?')
+						self.error(1, 'no such participant. WTF ?')
 						return
 			
 			return
@@ -633,7 +624,7 @@ class Bot(threading.Thread):
 		# Joining events
 		if event.eventtype() in ['namreply', 'join']:
 			if connection.get_nickname() != self.nickname:
-				self.error('=> Debug: ignoring IRC '+event.eventtype()+' not received on bridge connection', debug=True)
+				self.error(1, 'ignoring IRC '+event.eventtype()+' not received on bridge connection', debug=True)
 				return
 			
 			if event.eventtype() == 'namreply':
@@ -646,8 +637,8 @@ class Bot(threading.Thread):
 			elif event.eventtype() == 'join':
 				bridges = self.getBridges(irc_room=event.target().lower(), irc_server=connection.server)
 				if len(bridges) == 0:
-					self.error(debug_str, debug=True)
-					self.error('===> Debug: no bridge found for "'+event.target().lower()+' at '+connection.server+'"', debug=True)
+					self.error(2, debug_str, debug=True)
+					self.error(3, 'no bridge found for "'+event.target().lower()+' at '+connection.server+'"', debug=True)
 					return
 				for bridge in bridges:
 					bridge.addParticipant('irc', nickname, irc_id=event.source())
@@ -656,14 +647,14 @@ class Bot(threading.Thread):
 		
 		if event.eventtype() in ['disconnect', 'kill', 'error']:
 			if len(event.arguments()) > 0 and event.arguments()[0] == 'Connection reset by peer':
-				self.error(debug_str, debug=True)
+				self.error(2, debug_str, debug=True)
 			else:
-				self.error(debug_str, send_to_admins=True)
+				self.error(2, debug_str, send_to_admins=True)
 			return
 		
 		
 		if event.eventtype() in ['cannotsendtochan', 'notonchannel']:
-			self.error(debug_str, debug=True)
+			self.error(2, debug_str, debug=True)
 			bridges = self.getBridges(irc_room=event.arguments()[0], irc_server=connection.server)
 			if len(bridges) > 1:
 				raise Exception, 'more than one bridge for one irc chan, WTF ?'
@@ -679,17 +670,22 @@ class Bot(threading.Thread):
 		
 		# Unhandled events
 		if not printed_event:
-			self.error('[Debug] The following IRC event was not handled:\n'+event_str+'\n', send_to_admins=True)
+			self.error(say_levels.debug, 'The following IRC event was not handled:\n'+event_str+'\n', send_to_admins=True)
 		else:
-			self.error('=> Debug: event not handled', debug=True)
+			self.error(1, 'event not handled', debug=True)
 			self._send_message_to_admins('[Debug] The following IRC event was not handled:\n'+event_str)
 	
 	
-	def _send_message_to_admins(self, message):
+	def _send_message_to_admins(self, importance, message):
 		"""[Internal] Send XMPP Message to bot admin(s)"""
-		for admin_jid in self.admins_jid:
+		for admin in self.admins:
+			if importance != -1:
+				if admin.say_level == say_levels.nothing or importance < admin.say_level:
+					continue
+				message = self.format_message(importance, message)
+			
 			try:
-				self.xmpp_c.send(xmpp.protocol.Message(to=admin_jid, body=message, typ='chat'))
+				self.xmpp_c.send(xmpp.protocol.Message(to=admin.jid, body=message, typ='chat'))
 			except:
 				pass
 	
@@ -712,6 +708,12 @@ class Bot(threading.Thread):
 		return bridges
 	
 	
+	def format_message(self, importance, message):
+		if importance < 0 or importance >= len(say_levels.levels):
+			raise Exception('[Internal Error] unknown message importance')
+		return'['+str(say_levels.get(importance))+'] '+message
+	
+	
 	def getBridges(self, irc_room=None, irc_server=None, xmpp_room_jid=None):
 		# TODO: lock self.bridges for thread safety
 		bridges = [b for b in self.bridges]
@@ -732,9 +734,9 @@ class Bot(threading.Thread):
 		if self.xmpp_connections.has_key(nickname):
 			c = self.xmpp_connections[nickname]
 			c.used_by += 1
-			self.error('===> Debug: using existing XMPP connection for "'+nickname+'", now used by '+str(c.used_by)+' bridges', debug=True)
+			self.error(3, 'using existing XMPP connection for "'+nickname+'", now used by '+str(c.used_by)+' bridges', debug=True)
 			return c
-		self.error('===> Debug: opening new XMPP connection for "'+nickname+'"', debug=True)
+		self.error(3, 'opening new XMPP connection for "'+nickname+'"', debug=True)
 		c = xmpp.client.Client(self.bare_jid.getDomain(), debug=[])
 		c.lock = threading.RLock()
 		c.lock.acquire()
@@ -770,7 +772,7 @@ class Bot(threading.Thread):
 				if p.xmpp_c == c:
 					participants.append(p)
 					p.xmpp_c = None
-		self.error('===> Debug: reopening XMPP connection for "'+nickname+'"', debug=True)
+		self.error(3, 'reopening XMPP connection for "'+nickname+'"', debug=True)
 		if self.xmpp_connections.has_key(nickname):
 			self.xmpp_connections.pop(nickname)
 		c.send(xmpp.protocol.Presence(typ='unavailable'))
@@ -794,14 +796,14 @@ class Bot(threading.Thread):
 		c.lock.acquire()
 		c.used_by -= 1
 		if c.used_by < 1 or force:
-			self.error('===> Debug: closing XMPP connection for "'+nickname+'"', debug=True)
+			self.error(3, 'closing XMPP connection for "'+nickname+'"', debug=True)
 			self.xmpp_connections.pop(nickname)
 			c.send(xmpp.protocol.Presence(typ='unavailable'))
 			c.lock.release()
 			del c
 		else:
 			c.lock.release()
-			self.error('===> Debug: XMPP connection for "'+nickname+'" is now used by '+str(c.used_by)+' bridges', debug=True)
+			self.error(3, 'XMPP connection for "'+nickname+'" is now used by '+str(c.used_by)+' bridges', debug=True)
 	
 	
 	def removeBridge(self, bridge, message='Removing bridge'):
@@ -832,14 +834,14 @@ class Bot(threading.Thread):
 		for b in self.bridges:
 			b.init2()
 		
-		self.error('Bot restarted.', send_to_admins=True)
+		self.error(-1, 'Bot restarted.', send_to_admins=True)
 	
 	
-	def restart_bridges_delayed(self, bridges, delay, error_message, protocol='xmpp'):
+	def restart_bridges_delayed(self, bridges, delay, error, protocol='xmpp'):
 		if len(bridges) > 0:
-			error_message += '\nThese bridges will be stopped:'
+			error[1] += '\nThese bridges will be stopped:'
 			for b in bridges:
-				error_message += '\n'+str(b)
+				error[1] += '\n'+str(b)
 				
 				if protocol == 'xmpp':
 					leave_message = 'Could not connect to the MUC server ('+b.xmpp_room_jid+')'
@@ -853,7 +855,7 @@ class Bot(threading.Thread):
 				
 				b.stop(message=leave_message)
 		
-		self.error(error_message, send_to_admins=True)
+		self.error(error[0], error[1], send_to_admins=True)
 	
 	
 	def stop(self, message='Stopping bot'):

@@ -22,7 +22,9 @@ import muc
 xmpp = muc.xmpp
 del muc
 
+from admin import Admin
 from bridge import Bridge
+import say_levels
 
 
 commands = ['xmpp-participants', 'irc-participants', 'xmpp-connections', 'irc-connections', 'connections', 'bridges']
@@ -80,8 +82,8 @@ def add_bridge(bot, command, args_array, bridge):
 	parser.add_argument('xmpp_room_jid', type=str)
 	parser.add_argument('irc_chan', type=str)
 	parser.add_argument('irc_server', type=str)
-	parser.add_argument('--mode', choices=Bridge._modes, default='normal')
-	parser.add_argument('--say-level', choices=Bridge._say_levels, default='all')
+	parser.add_argument('--mode', choices=Bridge.modes, default=Bridge.modes[0])
+	parser.add_argument('--say-level', choices=say_levels.levels, default=say_levels.levels[1])
 	parser.add_argument('--irc-port', type=int, default=6667)
 	try:
 		args = parser.parse_args(args_array)
@@ -96,11 +98,15 @@ def add_bridge(bot, command, args_array, bridge):
 def add_xmpp_admin(bot, command, args_array, bridge):
 	parser = ArgumentParser(prog=command)
 	parser.add_argument('jid', type=str)
+	parser.add_argument('--say-level', choices=say_levels.levels, default=say_levels.levels[1])
 	try:
 		args = parser.parse_args(args_array)
 	except Exception as e:
 		return '\n'+e.args[1]
-	bot.admins_jid.append(args.jid)
+	admin = Admin()
+	admin.jid = args.jid
+	admin.say_level = args.say_level
+	bot.admins.append(admin)
 	for b in bot.bridges:
 		for p in b.participants:
 			if p.real_jid != None and xmpp.protocol.JID(args.jid).bareMatch(p.real_jid):
@@ -124,7 +130,7 @@ def bridges(bot, command, args_array, bridge):
 		if args.show_mode:
 			ret += ' - mode='+b.mode
 		if args.show_say_level:
-			ret += ' - say_level='+Bridge._say_levels[b.say_level]
+			ret += ' - say_level='+str(b.say_level)
 		if args.show_participants:
 			xmpp_participants_nicknames = b.get_participants_nicknames_list(protocols=['xmpp'])
 			ret += '\nparticipants on XMPP ('+str(len(xmpp_participants_nicknames))+'): '+' '.join(xmpp_participants_nicknames)
@@ -138,7 +144,7 @@ def bridges(bot, command, args_array, bridge):
 def change_bridges_mode(bot, command, args_array, bridge):
 	parser = ArgumentParser(prog=command)
 	parser.add_argument('bridge_id', nargs='+')
-	parser.add_argument('new_mode', choices=Bridge._modes)
+	parser.add_argument('new_mode', choices=Bridge.modes)
 	try:
 		args = parser.parse_args(args_array)
 	except Exception as e:

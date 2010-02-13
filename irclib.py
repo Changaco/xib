@@ -73,6 +73,8 @@ import threading
 import traceback
 import math
 
+import say_levels
+
 VERSION = 0, 4, 8
 DEBUG = 0
 
@@ -176,7 +178,7 @@ class IRC:
             stack[0][0](*stack[0][1])
             stack.pop(0)
             delay = self.connection_interval(server=server_str)
-            self.bot.error('==> Debug: waiting '+str(delay)+' seconds before next connection on '+server_str, debug=True)
+            self.bot.error(2, 'waiting '+str(delay)+' seconds before next connection on '+server_str, debug=True)
             self.execute_delayed(delay, self._connection_loop, (server_str,))
         else:
             self.connection_stacks.pop(server_str)
@@ -293,7 +295,7 @@ class IRC:
             except ServerNotConnectedError:
                 self.bot.restart()
             except:
-                self.bot.error('[Error] Unkonwn exception on IRC thread:\n'+traceback.format_exc(), send_to_admins=True)
+                self.bot.error(say_levels.error, 'Unkonwn exception on IRC thread:\n'+traceback.format_exc(), send_to_admins=True)
 
     def disconnect_all(self, message="", volontary=True):
         """Disconnects all connections."""
@@ -473,7 +475,7 @@ class ServerConnection(Connection):
         self.irclibobj.execute_delayed(60, self._ping)
         if self.connected == False:
             return
-        self.irclibobj.bot.error('=> Debug: sending IRC ping', debug=True)
+        self.irclibobj.bot.error(1, 'sending IRC ping', debug=True)
         self.ping(self.get_server_name())
 
 
@@ -513,7 +515,7 @@ class ServerConnection(Connection):
         
         if self.used_by > 0:
             self.used_by += 1
-            self.irclibobj.bot.error('===> Debug: using existing IRC connection for '+self.__str__()+', this connection is now used by '+str(self.used_by)+' bridges', debug=True)
+            self.irclibobj.bot.error(3, 'using existing IRC connection for '+self.__str__()+', this connection is now used by '+str(self.used_by)+' bridges', debug=True)
             if self.really_connected:
                 self._call_nick_callbacks(None)
             self.lock.release()
@@ -550,9 +552,9 @@ class ServerConnection(Connection):
         self.lock.acquire()
 
         if self.socket != 'closed':
-            self.irclibobj.bot.error('===> Debug: opening new IRC connection for '+self.__str__(), debug=True)
+            self.irclibobj.bot.error(3, 'opening new IRC connection for '+self.__str__(), debug=True)
         else:
-            self.irclibobj.bot.error('===> Debug: reopening IRC connection for '+self.__str__(), debug=True)
+            self.irclibobj.bot.error(3, 'reopening IRC connection for '+self.__str__(), debug=True)
 
         if self.ipv6:
             self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
@@ -588,9 +590,9 @@ class ServerConnection(Connection):
             f(error, arguments=arguments)
         self.nick_callbacks = []
         if i == 0:
-            self.irclibobj.bot.error('=> Debug: no nick callback for "'+self.__str__()+'"', debug=True)
+            self.irclibobj.bot.error(1, 'no nick callback for "'+self.__str__()+'"', debug=True)
         else:
-            self.irclibobj.bot.error('=> Debug: called '+str(i)+' callback(s) for "'+self.__str__()+'"', debug=True)
+            self.irclibobj.bot.error(1, 'called '+str(i)+' callback(s) for "'+self.__str__()+'"', debug=True)
 
 
     def add_nick_callback(self, callback):

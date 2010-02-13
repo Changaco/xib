@@ -23,6 +23,8 @@ import muc
 xmpp = muc.xmpp
 del muc
 
+import say_levels
+
 
 class Participant:
 	def __init__(self, owner_bridge, protocol, nickname, real_jid=None):
@@ -64,11 +66,11 @@ class Participant:
 	
 	def _xmpp_join_callback(self, errors):
 		if len(errors) == 0:
-			m = '===> Debug: "'+self.nickname+'" duplicate succesfully created on XMPP side of bridge "'+str(self.bridge)+'"'
+			m = '"'+self.nickname+'" duplicate succesfully created on XMPP side of bridge "'+str(self.bridge)+'"'
 			if self.nickname != self.duplicate_nickname:
 				m += ' using nickname "'+self.duplicate_nickname+'"'
-				self.bridge.say('[Info] "'+self.nickname+'" will appear as "'+self.duplicate_nickname+'" on XMPP because its real nickname is reserved or contains unauthorized characters')
-			self.bridge.bot.error(m, debug=True)
+				self.bridge.say(say_levels.info, '"'+self.nickname+'" will appear as "'+self.duplicate_nickname+'" on XMPP because its real nickname is reserved or contains unauthorized characters')
+			self.bridge.bot.error(3, m, debug=True)
 		elif self.xmpp_c != 'both':
 			for error in errors:
 				try:
@@ -80,9 +82,9 @@ class Participant:
 					if self.bridge.mode == 'bypass':
 						new_duplicate_nickname = self._get_new_duplicate_nickname()
 						if new_duplicate_nickname != None:
-							self.bridge.bot.error('===> Debug: "'+self.duplicate_nickname+'" is already used in the XMPP MUC or reserved on the XMPP server of bridge "'+str(self.bridge)+'", trying "'+new_duplicate_nickname+'"', debug=True)
+							self.bridge.bot.error(3, '"'+self.duplicate_nickname+'" is already used in the XMPP MUC or reserved on the XMPP server of bridge "'+str(self.bridge)+'", trying "'+new_duplicate_nickname+'"', debug=True)
 							if self.duplicate_nickname == self.nickname:
-								self.bridge.say('[Info] The nickname "'+self.duplicate_nickname+'" is used on both rooms or reserved on the XMPP server')
+								self.bridge.say(say_levels.info, 'The nickname "'+self.duplicate_nickname+'" is used on both rooms or reserved on the XMPP server')
 							self.duplicate_nickname = new_duplicate_nickname
 							if isinstance(self.xmpp_c, xmpp.client.Client):
 								self.bridge.bot.close_xmpp_connection(self.nickname)
@@ -91,11 +93,11 @@ class Participant:
 							return
 					
 					else:
-						self.bridge.say('[Warning] The nickname "'+self.nickname+'" is used on both rooms or reserved on the XMPP server', log=True)
+						self.bridge.say(say_levels.warning, 'The nickname "'+self.nickname+'" is used on both rooms or reserved on the XMPP server', log=True)
 						if self.muc.connected == True:
 							self.muc.leave('Changed nickname to "'+self.nickname+'"')
 				except xmpp.muc.RoomIsFull:
-					self.bridge.say('[Warning] XMPP room is full', log=True)
+					self.bridge.say(say_levels.warning, 'XMPP room is full', log=True)
 				except xmpp.muc.RemoteServerNotFound:
 					self.bridge._RemoteServerNotFound_handler()
 				
@@ -114,11 +116,11 @@ class Participant:
 	def _irc_nick_callback(self, error, arguments=[]):
 		if error == None:
 			self.irc_connection.join(self.bridge.irc_room)
-			m = '===> Debug: "'+self.nickname+'" duplicate succesfully created on IRC side of bridge "'+str(self.bridge)+'"'
+			m = '"'+self.nickname+'" duplicate succesfully created on IRC side of bridge "'+str(self.bridge)+'"'
 			if self.nickname != self.duplicate_nickname:
 				m += ' using nickname "'+self.duplicate_nickname+'"'
-				self.bridge.say('[Info] "'+self.nickname+'" will appear as "'+self.duplicate_nickname+'" on IRC because its real nickname is reserved or contains unauthorized characters')
-			self.bridge.bot.error(m, debug=True)
+				self.bridge.say(say_levels.info, '"'+self.nickname+'" will appear as "'+self.duplicate_nickname+'" on IRC because its real nickname is reserved or contains unauthorized characters')
+			self.bridge.bot.error(3, m, debug=True)
 		
 		elif self.irc_connection != 'both':
 			
@@ -129,9 +131,9 @@ class Participant:
 				if self.bridge.mode == 'bypass':
 					new_duplicate_nickname = self._get_new_duplicate_nickname()
 					if new_duplicate_nickname != None:
-						self.bridge.bot.error('===> Debug: "'+self.duplicate_nickname+'" is already used or reserved on the IRC server of bridge "'+str(self.bridge)+'", trying "'+new_duplicate_nickname+'"', debug=True)
+						self.bridge.bot.error(3, '"'+self.duplicate_nickname+'" is already used or reserved on the IRC server of bridge "'+str(self.bridge)+'", trying "'+new_duplicate_nickname+'"', debug=True)
 						if self.duplicate_nickname == self.nickname:
-							self.bridge.say('[Info] The nickname "'+self.duplicate_nickname+'" is used or reserved on the IRC server')
+							self.bridge.say(say_levels.info, 'The nickname "'+self.duplicate_nickname+'" is used or reserved on the IRC server')
 						self.duplicate_nickname = new_duplicate_nickname
 						if isinstance(self.irc_connection, ServerConnection):
 							self.irc_connection.close('')
@@ -140,7 +142,7 @@ class Participant:
 						return
 				
 				else:
-					self.bridge.say('[Warning] The nickname "'+self.nickname+'" is used or reserved on the IRC server', log=True)
+					self.bridge.say(say_levels.warning, 'The nickname "'+self.nickname+'" is used or reserved on the IRC server', log=True)
 			
 			elif error == 'erroneusnickname':
 				if self.bridge.mode == 'bypass':
@@ -151,13 +153,13 @@ class Participant:
 					self.createDuplicateOnIRC()
 					return
 				else:
-					self.bridge.say('[Warning] The nickname "'+self.nickname+'" contains unauthorized characters and cannot be used in the IRC channel', log=True)
+					self.bridge.say(say_levels.warning, 'The nickname "'+self.nickname+'" contains unauthorized characters and cannot be used in the IRC channel', log=True)
 			
 			elif error == 'nicknametoolong':
-				self.bridge.say('[Warning] The nickname "'+self.nickname+'" is too long (limit seems to be '+str(arguments[0])+') and cannot be used in the IRC channel', log=True)
+				self.bridge.say(say_levels.warning, 'The nickname "'+self.nickname+'" is too long (limit seems to be '+str(arguments[0])+') and cannot be used in the IRC channel', log=True)
 			
 			else:
-				self.bridge.say('[Warning] unknown error while adding "'+self.nickname+'" to IRC side of bridge', log=True)
+				self.bridge.say(say_levels.warning, 'unknown error while adding "'+self.nickname+'" to IRC side of bridge', log=True)
 			
 			if isinstance(self.irc_connection, ServerConnection):
 				self.irc_connection.close('')
@@ -165,7 +167,7 @@ class Participant:
 	
 	
 	def set_both_sides(self):
-		self.bridge.say('[Warning] The nickname "'+self.nickname+'" is used on both sides of the bridge', log=True)
+		self.bridge.say(say_levels.warning, 'The nickname "'+self.nickname+'" is used on both sides of the bridge', log=True)
 		if isinstance(self.irc_connection, ServerConnection):
 			self.irc_connection.close('')
 		if self.irc_connection != 'both':
@@ -296,7 +298,7 @@ class Participant:
 				else:
 					self.bridge.irc_connection.privmsg(self.bridge.irc_room, '<'+self.nickname+'> '+message)
 		except EncodingException:
-			self.bridge.say('[Warning] "'+self.nickname+'" is sending messages using an unknown encoding', log=True)
+			self.bridge.say(say_levels.warning, '"'+self.nickname+'" is sending messages using an unknown encoding', log=True)
 	
 	
 	def sayOnIRCTo(self, to, message):
@@ -304,7 +306,7 @@ class Participant:
 			try:
 				self.irc_connection.privmsg(to, message)
 			except EncodingException:
-				self.bridge.say('[Warning] "'+self.nickname+'" is sending messages using an unknown encoding', log=True)
+				self.bridge.say(say_levels.warning, '"'+self.nickname+'" is sending messages using an unknown encoding', log=True)
 		elif not isinstance(self.xmpp_c, xmpp.client.Client):
 			if self.bridge.mode != 'normal':
 				self.bridge.getParticipant(to).sayOnXMPPTo(self.nickname, 'Sorry but cross-protocol private messages are disabled in '+self.bridge.mode+' mode.')
@@ -322,7 +324,7 @@ class Participant:
 				else:
 					self.bridge.xmpp_room.say('<'+self.nickname+'> '+message)
 		except EncodingException:
-			self.bridge.say('[Warning] "'+self.nickname+'" is sending messages using an unknown encoding', log=True)
+			self.bridge.say(say_levels.warning, '"'+self.nickname+'" is sending messages using an unknown encoding', log=True)
 	
 	
 	def sayOnXMPPTo(self, to, message):
@@ -335,7 +337,7 @@ class Participant:
 				else:
 					self.bridge.getParticipant(to).sayOnXMPPTo(self.nickname, 'Sorry but you cannot send cross-protocol private messages because I don\'t have an XMPP duplicate with your nickname.')
 		except EncodingException:
-			self.bridge.say('[Warning] "'+self.nickname+'" is sending messages using an unknown encoding', log=True)
+			self.bridge.say(say_levels.warning, '"'+self.nickname+'" is sending messages using an unknown encoding', log=True)
 	
 	
 	def leave(self, message):
