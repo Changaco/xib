@@ -440,7 +440,7 @@ class Bot(threading.Thread):
 		# Events we always want to ignore
 		if 'all' in event.eventtype() or 'motd' in event.eventtype() or event.eventtype() in ['nicknameinuse', 'nickcollision', 'erroneusnickname']:
 			return
-		if event.eventtype() in ['pong', 'privnotice', 'ctcp', 'nochanmodes', 'notexttosend', 'currenttopic', 'topicinfo', '328']:
+		if event.eventtype() in ['pong', 'privnotice', 'ctcp', 'nochanmodes', 'notexttosend', 'currenttopic', 'topicinfo', '328', 'pubnotice', '042']:
 			self.error(1, 'ignoring IRC '+event.eventtype(), debug=True)
 			return
 		
