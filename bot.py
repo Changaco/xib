@@ -700,7 +700,7 @@ class Bot(threading.Thread):
 	def findBridges(self, str_array):
 		# TODO: lock self.bridges for thread safety
 		bridges = [b for b in self.bridges]
-		for bridge in [b for b in bridges]:
+		for bridge in self.bridges:
 			for s in str_array:
 				if not s in str(bridge):
 					bridges.remove(bridge)
