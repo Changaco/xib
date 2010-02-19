@@ -353,9 +353,9 @@ class Bridge:
 	
 	def say(self, importance, message, on_irc=True, on_xmpp=True, log=False, send_to_admins=False):
 		"""Make the bot say something."""
-		message = self.bot.format_message(importance, message)
 		if log or send_to_admins:
 			self.bot.error(importance, message+' ('+str(self)+')', send_to_admins=send_to_admins)
+		message = self.bot.format_message(importance, message)
 		if importance < self.say_level:
 			return
 		if on_xmpp == True:
