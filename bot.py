@@ -673,7 +673,7 @@ class Bot(threading.Thread):
 			self.error(say_levels.debug, 'The following IRC event was not handled:\n'+event_str+'\n', send_to_admins=True)
 		else:
 			self.error(1, 'event not handled', debug=True)
-			self._send_message_to_admins('[Debug] The following IRC event was not handled:\n'+event_str)
+			self._send_message_to_admins(say_levels.debug, 'The following IRC event was not handled:\n'+event_str)
 	
 	
 	def _send_message_to_admins(self, importance, message):
