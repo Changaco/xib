@@ -488,7 +488,7 @@ class Bot(threading.Thread):
 					printed_event = True
 			
 			if event.eventtype() == 'kick' and len(event.arguments()) < 1:
-				self.error(1, 'length of arguments should be greater than 0 for a '+event.eventtype()+' event')
+				self.error(1, 'at least 1 argument is needed for a '+event.eventtype()+' event', debug=True)
 				return
 			
 			if event.eventtype() in ['pubmsg', 'action']:
@@ -619,30 +619,6 @@ class Bot(threading.Thread):
 			return
 		
 		
-		# Joining events
-		if event.eventtype() in ['namreply', 'join']:
-			if connection.get_nickname() != self.nickname:
-				self.error(1, 'ignoring IRC '+event.eventtype()+' not received on bridge connection', debug=True)
-				return
-			
-			if event.eventtype() == 'namreply':
-				for bridge in self.getBridges(irc_room=event.arguments()[1].lower(), irc_server=connection.server):
-					for nickname in re.split('(?:^[&@\+%]?|(?: [&@\+%]?)*)', event.arguments()[2].strip()):
-						if nickname == '' or nickname == self.nickname:
-							continue
-						bridge.addParticipant('irc', nickname)
-				return
-			elif event.eventtype() == 'join':
-				bridges = self.getBridges(irc_room=event.target().lower(), irc_server=connection.server)
-				if len(bridges) == 0:
-					self.error(2, debug_str, debug=True)
-					self.error(3, 'no bridge found for "'+event.target().lower()+' at '+connection.server+'"', debug=True)
-					return
-				for bridge in bridges:
-					bridge.addParticipant('irc', nickname, irc_id=event.source())
-				return
-		
-		
 		if event.eventtype() in ['disconnect', 'kill', 'error']:
 			if len(event.arguments()) > 0 and event.arguments()[0] == 'Connection reset by peer':
 				self.error(2, debug_str, debug=True)
@@ -663,6 +639,58 @@ class Bot(threading.Thread):
 				p = bridge.getParticipant(connection.get_nickname())
 				p._close_irc_connection('')
 				p.irc_connection = error
+			return
+		
+		
+		# Ignore events not received on bot connection
+		if connection.get_nickname() != self.nickname:
+			self.error(1, 'ignoring IRC '+event.eventtype()+' not received on bridge connection', debug=True)
+			return
+		
+		
+		# Joining events
+		if event.eventtype() in ['namreply', 'join']:
+			if event.eventtype() == 'namreply':
+				for bridge in self.getBridges(irc_room=event.arguments()[1].lower(), irc_server=connection.server):
+					for nickname in re.split('(?:^[&@\+%]?|(?: [&@\+%]?)*)', event.arguments()[2].strip()):
+						if nickname == '' or nickname == self.nickname:
+							continue
+						bridge.addParticipant('irc', nickname)
+				return
+			elif event.eventtype() == 'join':
+				bridges = self.getBridges(irc_room=event.target().lower(), irc_server=connection.server)
+				if len(bridges) == 0:
+					self.error(2, debug_str, debug=True)
+					self.error(3, 'no bridge found for "'+event.target().lower()+' at '+connection.server+'"', debug=True)
+					return
+				for bridge in bridges:
+					bridge.addParticipant('irc', nickname, irc_id=event.source())
+				return
+		
+		
+		# Mode event
+		if event.eventtype() == 'mode':
+			if len(event.arguments()) < 2:
+				self.error(2, debug_str, debug=True)
+				self.error(1, '2 arguments are needed for a '+event.eventtype()+' event', debug=True)
+				return
+			if event.arguments()[1] != self.nickname or not 'o' in event.arguments()[0]:
+				self.error(1, 'ignoring IRC mode "'+event.arguments()[0]+'" for "'+event.arguments()[1]+'"', debug=True)
+				return
+			self.error(2, debug_str, debug=True)
+			bridges = self.getBridges(irc_room=event.target(), irc_server=connection.server)
+			if len(bridges) > 1:
+				raise Exception, 'more than one bridge for one irc chan, WTF ?'
+			bridge = bridges[0]
+			if re.search('\+[^\-]*o', event.arguments()[0]):
+				# bot is channel operator
+				bridge.irc_op = True
+				self.error(say_levels.notice, 'bot has IRC operator privileges in '+event.target())
+			elif re.search('\-[^\+]*o', event.arguments()[0]):
+				# bot lost channel operator privileges
+				if bridge.irc_op:
+					self.error(say_levels.notice, 'bot lost IRC operator privileges in '+event.target(), send_to_admins=True)
+				bridge.irc_op = False
 			return
 		
 		

@@ -43,6 +43,7 @@ class Bridge:
 		self.irc_room = irc_room.lower()
 		self.irc_connection_interval = irc_connection_interval
 		self.irc_charsets = irc_charsets
+		self.irc_op = False
 		self.xmpp_room_jid = xmpp_room_jid
 		self.say_level = say_level
 		self.participants = []
