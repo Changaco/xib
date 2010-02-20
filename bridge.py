@@ -278,6 +278,14 @@ class Bridge:
 		
 		was_on_both = None
 		p = self.getParticipant(nickname)
+		
+		if p.left:
+			self.lock.acquire()
+			self.participants.remove(p)
+			del p
+			self.lock.release()
+			return
+		
 		if p.protocol == 'xmpp':
 			if p.irc_connection == 'both':
 				was_on_both = True
@@ -290,6 +298,7 @@ class Bridge:
 				if left_protocol == 'xmpp':
 					was_on_both = False
 				elif left_protocol == 'irc':
+					# got disconnected somehow
 					if isinstance(p.irc_connection, ServerConnection):
 						p.irc_connection.join(self.irc_room)
 					else:
@@ -311,6 +320,7 @@ class Bridge:
 				if left_protocol == 'irc':
 					was_on_both = False
 				elif left_protocol == 'xmpp':
+					# got disconnected somehow
 					if isinstance(p.xmpp_c, xmpp.client.Client):
 						self.bot.reopen_xmpp_connection(p.xmpp_c)
 					return
@@ -322,19 +332,15 @@ class Bridge:
 			self.bot.error(3, '"'+nickname+'" was on both sides of bridge "'+str(self)+'" but left '+left_protocol, debug=True)
 		
 		elif was_on_both == False:
-			self.lock.acquire()
 			self.bot.error(3, 'removing participant "'+nickname+'" from bridge "'+str(self)+'"', debug=True)
-			self.participants.remove(p)
 			p.leave(leave_message)
-			del p
-			self.lock.release()
 			if left_protocol == 'xmpp':
 				if self.mode not in ['normal', 'bypass']:
 					self.show_participants_list_on(protocols=['irc'])
 			elif left_protocol == 'irc':
 				if self.mode == 'minimal':
 					self.show_participants_list_on(protocols=['xmpp'])
-		
+			
 		else:
 			self.bot.error(1, 'Bad decision tree,  p.protocol='+p.protocol+'  left_protocol='+left_protocol+'\np.xmpp_c='+str(p.xmpp_c)+'\np.irc_connection='+str(p.irc_connection), debug=True)
 	

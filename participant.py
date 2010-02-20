@@ -37,6 +37,7 @@ class Participant:
 		self.irc_connection = None
 		self.xmpp_c = None
 		self.muc = None
+		self.left = False
 		if protocol == 'xmpp' and self.bridge.mode in ['normal', 'bypass']:
 			self.createDuplicateOnIRC()
 		elif protocol == 'irc' and self.bridge.mode != 'minimal':
@@ -331,6 +332,7 @@ class Participant:
 	def leave(self, message):
 		if message == None:
 			message = ''
+		self.left = True
 		self._close_xmpp_connection(message)
 		self._close_irc_connection(message)
 	
