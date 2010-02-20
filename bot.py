@@ -458,7 +458,7 @@ class Bot(threading.Thread):
 					connection.really_connected = True
 					connection._call_nick_callbacks(None)
 				elif len(connection.nick_callbacks) > 0:
-					self.error(3, 'event target ('+event.target()+') and connection nickname ('+connection.nickname+') don\'t match')
+					self.error(3, 'event target ('+event.target()+') and connection nickname ('+connection.nickname+') don\'t match', debug=True)
 					connection._call_nick_callbacks('nicknametoolong', arguments=[len(event.target())])
 			self.error(1, 'ignoring '+event.eventtype(), debug=True)
 			return
@@ -546,7 +546,7 @@ class Bot(threading.Thread):
 									bridge.removeParticipant('irc', kicked.nickname, 'Kicked by '+nickname+' (no reason was given)')
 							return
 						except Bridge.NoSuchParticipantException:
-							self.error(1, 'a participant that was not here has been kicked ? WTF ?')
+							self.error(1, 'a participant that was not here has been kicked ? WTF ?', debug=True)
 							return
 					else:
 						continue
@@ -593,7 +593,7 @@ class Bot(threading.Thread):
 		# Handle bannedfromchan
 		if event.eventtype() == 'bannedfromchan':
 			if len(event.arguments()) < 1:
-				self.error(1, 'length of arguments should be greater than 0 for a '+event.eventtype()+' event')
+				self.error(1, 'length of arguments should be greater than 0 for a '+event.eventtype()+' event', debug=True)
 				return
 			
 			for bridge in self.bridges:
@@ -613,7 +613,7 @@ class Bot(threading.Thread):
 						else:
 							self.error(1, 'ignoring '+event.eventtype(), debug=True)
 					except Bridge.NoSuchParticipantException:
-						self.error(1, 'no such participant. WTF ?')
+						self.error(1, 'no such participant. WTF ?', debug=True)
 						return
 			
 			return
@@ -623,7 +623,7 @@ class Bot(threading.Thread):
 			if len(event.arguments()) > 0 and event.arguments()[0] == 'Connection reset by peer':
 				self.error(2, debug_str, debug=True)
 			else:
-				self.error(2, debug_str, send_to_admins=True)
+				self.error(say_levels.debug, debug_str, send_to_admins=True)
 			return
 		
 		
