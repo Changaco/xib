@@ -274,39 +274,33 @@ class Participant:
 	
 	
 	def sayOnIRC(self, message):
-		try:
-			bot_say = False
-			if message[:4] == '/me ':
-				action = True
-				message = message[4:]
-			else:
-				action = False
-			if isinstance(self.irc_connection, ServerConnection):
-				try:
-					if action:
-						self.irc_connection.action(self.bridge.irc_room, message)
-					else:
-						self.irc_connection.privmsg(self.bridge.irc_room, message)
-				except ServerNotConnectedError:
-					self.irc_connection.connect()
-					bot_say = True
-			elif not isinstance(self.xmpp_c, xmpp.client.Client):
-				bot_say = True
-			if bot_say:
+		bot_say = False
+		if message[:4] == '/me ':
+			action = True
+			message = message[4:]
+		else:
+			action = False
+		if isinstance(self.irc_connection, ServerConnection):
+			try:
 				if action:
-					self.bridge.irc_connection.privmsg(self.bridge.irc_room, '* '+self.nickname+' '+message)
+					self.irc_connection.action(self.bridge.irc_room, message)
 				else:
-					self.bridge.irc_connection.privmsg(self.bridge.irc_room, '<'+self.nickname+'> '+message)
-		except EncodingException:
-			self.bridge.say(say_levels.warning, '"'+self.nickname+'" is sending messages using an unknown encoding', log=True)
+					self.irc_connection.privmsg(self.bridge.irc_room, message)
+			except ServerNotConnectedError:
+				self.irc_connection.connect()
+				bot_say = True
+		elif not isinstance(self.xmpp_c, xmpp.client.Client):
+			bot_say = True
+		if bot_say:
+			if action:
+				self.bridge.irc_connection.privmsg(self.bridge.irc_room, '* '+self.nickname+' '+message)
+			else:
+				self.bridge.irc_connection.privmsg(self.bridge.irc_room, '<'+self.nickname+'> '+message)
 	
 	
 	def sayOnIRCTo(self, to, message):
 		if isinstance(self.irc_connection, ServerConnection):
-			try:
-				self.irc_connection.privmsg(to, message)
-			except EncodingException:
-				self.bridge.say(say_levels.warning, '"'+self.nickname+'" is sending messages using an unknown encoding', log=True)
+			self.irc_connection.privmsg(to, message)
 		elif not isinstance(self.xmpp_c, xmpp.client.Client):
 			if self.bridge.mode != 'normal':
 				self.bridge.getParticipant(to).sayOnXMPPTo(self.nickname, 'Sorry but cross-protocol private messages are disabled in '+self.bridge.mode+' mode.')
@@ -315,29 +309,23 @@ class Participant:
 	
 	
 	def sayOnXMPP(self, message):
-		try:
-			if isinstance(self.xmpp_c, xmpp.client.Client):
-				self.muc.say(message)
-			elif not isinstance(self.irc_connection, ServerConnection):
-				if message[:4] == '/me ':
-					self.bridge.xmpp_room.say('* '+self.nickname+' '+message[4:])
-				else:
-					self.bridge.xmpp_room.say('<'+self.nickname+'> '+message)
-		except EncodingException:
-			self.bridge.say(say_levels.warning, '"'+self.nickname+'" is sending messages using an unknown encoding', log=True)
+		if isinstance(self.xmpp_c, xmpp.client.Client):
+			self.muc.say(message)
+		elif not isinstance(self.irc_connection, ServerConnection):
+			if message[:4] == '/me ':
+				self.bridge.xmpp_room.say('* '+self.nickname+' '+message[4:])
+			else:
+				self.bridge.xmpp_room.say('<'+self.nickname+'> '+message)
 	
 	
 	def sayOnXMPPTo(self, to, message):
-		try:
-			if isinstance(self.xmpp_c, xmpp.client.Client):
-				self.muc.sayTo(to, message)
-			elif not isinstance(self.irc_connection, ServerConnection):
-				if self.bridge.mode != 'normal':
-					self.bridge.getParticipant(to).sayOnXMPPTo(self.nickname, 'Sorry but cross-protocol private messages are disabled in '+self.bridge.mode+' mode.')
-				else:
-					self.bridge.getParticipant(to).sayOnXMPPTo(self.nickname, 'Sorry but you cannot send cross-protocol private messages because I don\'t have an XMPP duplicate with your nickname.')
-		except EncodingException:
-			self.bridge.say(say_levels.warning, '"'+self.nickname+'" is sending messages using an unknown encoding', log=True)
+		if isinstance(self.xmpp_c, xmpp.client.Client):
+			self.muc.sayTo(to, message)
+		elif not isinstance(self.irc_connection, ServerConnection):
+			if self.bridge.mode != 'normal':
+				self.bridge.getParticipant(to).sayOnXMPPTo(self.nickname, 'Sorry but cross-protocol private messages are disabled in '+self.bridge.mode+' mode.')
+			else:
+				self.bridge.getParticipant(to).sayOnXMPPTo(self.nickname, 'Sorry but you cannot send cross-protocol private messages because I don\'t have an XMPP duplicate with your nickname.')
 	
 	
 	def leave(self, message):
