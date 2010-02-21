@@ -525,6 +525,8 @@ class ServerConnection(Connection):
             self.used_by = 1
             if charsets or not self.irclibobj.charsets.has_key(self._server_str()):
                 self.irclibobj.charsets[self._server_str()] = charsets
+            self.channels = []
+            self.channels_keys = {}
             self.irc_id = None
             self.previous_buffer = ""
             self.handlers = {}
@@ -578,6 +580,15 @@ class ServerConnection(Connection):
             self.pass_(self.password)
         if self.nick(self.nickname):
             self.user(self.username, self.ircname)
+        
+        # Rejoin channels
+        if len(self.channels) > 0:
+            for channel in self.channels:
+                if self.channels_keys.has_key(channel):
+                    key = self.channels_keys[channel]
+                else:
+                    key = ''
+                self.join(channel, key=key)
         
         self.lock.release()
         return self
@@ -866,6 +877,10 @@ class ServerConnection(Connection):
         """Send a JOIN command."""
         if channel in self.left_channels:
             self.left_channels.remove(channel)
+        if not channel in self.channels:
+            self.channels.append(channel)
+        if key and not self.channels_keys.has_key(channel):
+            self.channels_keys[channel] = key
         self.send_raw("JOIN %s%s" % (channel, (key and (" " + key))))
 
     def kick(self, channel, nick, comment=""):
@@ -929,16 +944,26 @@ class ServerConnection(Connection):
     def oper(self, nick, password):
         """Send an OPER command."""
         self.send_raw("OPER %s %s" % (nick, password))
+    
+    def _remove_channel(self, channel):
+        if channel in self.channels:
+            self.channels.remove(channel)
+        if not channel in self.left_channels:
+            self.left_channels.append(channel)
 
     def part(self, channels, message=""):
         """Send a PART command."""
-        if isinstance(channels, basestring):
-            self.left_channels.append(channels)
-            self.send_raw("PART " + channels + (message and (" " + message)))
-        else:
-            for channel in channels:
-                self.left_channels.append(channel)
-            self.send_raw("PART " + ",".join(channels) + (message and (" " + message)))
+        try:
+            if isinstance(channels, basestring):
+                self._remove_channel(channels)
+                self.send_raw("PART " + channels + (message and (" " + message)))
+            else:
+                for channel in channels:
+                    self._remove_channel(channel)
+                self.send_raw("PART " + ",".join(channels) + (message and (" " + message)))
+        except ServerNotConnectedError:
+            self.disconnect(volontary=True)
+            self.connect()
 
     def pass_(self, password):
         """Send a PASS command."""
@@ -974,7 +999,10 @@ class ServerConnection(Connection):
         """Send a QUIT command."""
         # Note that many IRC servers don't use your QUIT message
         # unless you've been connected for at least 5 minutes!
-        self.send_raw("QUIT" + (message and (" :" + message)))
+        try:
+            self.send_raw("QUIT" + (message and (" :" + message)))
+        except ServerNotConnectedError:
+            pass
 
     def send_raw(self, string):
         """Send raw string to the server.
