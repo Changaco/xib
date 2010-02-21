@@ -105,8 +105,8 @@ class Bridge:
 	def _RemoteServerNotFound_handler(self):
 		server = xmpp.protocol.JID(self.xmpp_room_jid).getDomain()
 		bridges = self.bot.findBridges([server])
-		error_message = '[Warning] The MUC server '+server+' seems to be down, the bot will try to recreate all bridges related to this server in 5 minutes'
-		self.bot.restart_bridges_delayed(bridges, 300, error_message)
+		error = [say_levels.warning, 'The MUC server '+server+' seems to be down, the bot will try to recreate all bridges related to this server in 5 minutes']
+		self.bot.restart_bridges_delayed(bridges, 300, error)
 	
 	
 	def _xmpp_join_callback(self, errors):

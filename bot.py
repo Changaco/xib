@@ -157,7 +157,7 @@ class Bot(threading.Thread):
 									# MUC server is going down, try to restart the bridges in 1 minute
 									bridges = self.findBridges([from_.getDomain()])
 									m = 'The MUC server '+from_.getDomain()+' seems to be going down, the bot will try to recreate all bridges related to this server in 1 minute'
-									error = (say_levels.warning, m)
+									error = [say_levels.warning, m]
 									self.restart_bridges_delayed(bridges, 60, error)
 									return
 								elif r == '':
@@ -264,8 +264,8 @@ class Bot(threading.Thread):
 										# Remote server not found
 										# Stop bridges that depend on this server
 										bridges = self.findBridges([from_.getDomain()])
-										error_message = '[Error] XMPP Remote server not found: '+from_.getDomain()
-										self.restart_bridges_delayed(bridges, 60, error_message)
+										error = [say_levels.error, 'XMPP Remote server not found: '+from_.getDomain()]
+										self.restart_bridges_delayed(bridges, 60, error)
 									else:
 										raise Exception(presence.__str__(fancy=1).encode('utf-8'))
 					
