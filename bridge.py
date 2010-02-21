@@ -68,9 +68,9 @@ class Bridge:
 		self.bot.error(say_levels.notice, 'bridge "'+str(self)+'" is running in '+self.mode+' mode and a say_level of "'+str(self.say_level)+'"')
 	
 	
-	def _join_irc_failed(self):
-		self.bot.error(say_levels.error, 'failed to connect to the IRC chan of bridge "'+str(self)+'", stopping bridge', send_to_admins=True)
-		self.stop(message='failed to connect to the IRC chan')
+	def _join_irc_failed(self, reason):
+		self.bot.error(say_levels.error, 'failed to connect to the IRC chan of bridge '+str(self)+'\nreason: '+reason, send_to_admins=True)
+		self.stop(message='Failed to connect to the IRC chan, stopping bridge', log=False)
 	
 	
 	def _irc_nick_callback(self, error, arguments=[]):
@@ -85,20 +85,15 @@ class Bridge:
 		else:
 			self.mode = None
 			self.say(say_levels.error, 'failed to connect to the IRC chan, leaving ...', on_irc=False)
-			try:
-				if error == 'nicknameinuse':
-					raise Exception('[Error] "'+self.bot.nickname+'" is already used in the IRC chan or reserved on the IRC server of bridge "'+str(self)+'"')
-				elif error == 'nickcollision':
-					raise Exception('[Error] "'+self.bot.nickname+'" is already used or reserved on the IRC server of bridge "'+str(self)+'"')
-				elif error == 'erroneusnickname':
-					raise Exception('[Error] "'+self.bot.nickname+'" got "erroneusnickname" on bridge "'+str(self)+'"')
-				elif error == 'nicknametoolong':
-					raise Exception('[Error] "'+self.bot.nickname+'" got "nicknametoolong" on bridge "'+str(self)+'", limit seems to be '+str(arguments[0]))
-				else:
-					raise Exception('[Error] unknown error for "'+self.bot.nickname+'" on bridge "'+str(self)+'"')
-			except:
-				trace = traceback.format_exc()
-			self._join_irc_failed()
+			if error in ['nicknameinuse', 'nickcollision']:
+				reason = '"'+self.bot.nickname+'" is already used or reserved on the IRC server'
+			elif error == 'erroneusnickname':
+				reason = '"'+self.bot.nickname+'" got "erroneusnickname"'
+			elif error == 'nicknametoolong':
+				reason = '"'+self.bot.nickname+'" got "nicknametoolong", limit seems to be '+str(arguments[0])
+			else:
+				reason = error
+			self._join_irc_failed(reason)
 	
 	
 	def _RemoteServerNotFound_handler(self):
@@ -128,7 +123,7 @@ class Bridge:
 				except:
 					trace = traceback.format_exc()
 			self.bot.error(say_levels.error, 'failed to connect to the XMPP room of bridge "'+str(self)+'", stopping bridge\n'+trace, send_to_admins=True)
-			self.stop(message='failed to connect to the XMPP room')
+			self.stop(message='Failed to connect to the XMPP room, stopping bridge')
 	
 	
 	def addParticipant(self, from_protocol, nickname, real_jid=None, irc_id=None):
@@ -340,14 +335,11 @@ class Bridge:
 			self.bot.error(1, 'Bad decision tree,  p.protocol='+p.protocol+'  left_protocol='+left_protocol+'\np.xmpp_c='+str(p.xmpp_c)+'\np.irc_connection='+str(p.irc_connection), debug=True)
 	
 	
-	def restart(self):
+	def restart(self, log=True):
 		"""Restart the bridge"""
 		
-		# Tell admins
-		self.bot.error(-1, 'Restarting bridge '+str(self), send_to_admins=True)
-		
 		# Stop the bridge
-		self.stop(message='Restarting bridge')
+		self.stop(message='Restarting bridge', log=log)
 		
 		# Recreate the bridge
 		self.init2()
@@ -375,7 +367,7 @@ class Bridge:
 			self.say(say_levels.info, 'Participants on IRC: '+'  '.join(irc_participants_nicknames), on_irc=False)
 	
 	
-	def stop(self, message='Stopping bridge'):
+	def stop(self, message='Stopping bridge', log=True):
 		"""Stop the bridge"""
 		
 		# Close IRC connection if not used by an other bridge, just leave the room otherwise
@@ -397,6 +389,9 @@ class Bridge:
 		for p in self.participants:
 			p.leave(message)
 		self.participants = []
+		
+		if log:
+			self.bot.error(-1, message+' '+str(self), send_to_admins=True)
 	
 	
 	def __str__(self):

@@ -167,7 +167,7 @@ class Bot(threading.Thread):
 							
 							# room has been destroyed, stop the bridge
 							self.error(say_levels.error, 'The MUC room of the bridge '+str(bridge)+' has been destroyed with reason "'+r+'", stopping the bridge', send_to_admins=True)
-							bridge.stop(message='The MUC room of the bridge has been destroyed with reason "'+r+'", stopping the bridge')
+							bridge.stop(message='The MUC room has been destroyed with reason "'+r+'", stopping the bridge')
 				
 				else:
 					# presence comes from a participant of the muc
@@ -417,7 +417,7 @@ class Bot(threading.Thread):
 										# we don't have the permission to speak
 										# let's remove the bridge and tell admins
 										self.error(say_levels.error, 'Not allowed to speak on the XMPP MUC of bridge '+str(b)+', stopping it', send_to_admins=True)
-										b.stop(message='Not allowed to speak on the XMPP MUC, stopping bridge.')
+										b.stop(message='Not allowed to speak on the XMPP MUC, stopping the bridge')
 									else:
 										self.error(2, 'recevied unknown error message\n'+message.__str__(fancy=1), debug=True)
 					return
@@ -627,14 +627,14 @@ class Bot(threading.Thread):
 			return
 		
 		
-		if event.eventtype() in ['cannotsendtochan', 'notonchannel']:
+		if event.eventtype() in ['cannotsendtochan', 'notonchannel', 'inviteonlychan']:
 			self.error(2, debug_str, debug=True)
 			bridges = self.getBridges(irc_room=event.arguments()[0], irc_server=connection.server)
 			if len(bridges) > 1:
 				raise Exception, 'more than one bridge for one irc chan, WTF ?'
 			bridge = bridges[0]
 			if connection.get_nickname() == self.nickname:
-				bridge._join_irc_failed()
+				bridge._join_irc_failed(event.eventtype())
 			else:
 				p = bridge.getParticipant(connection.get_nickname())
 				p._close_irc_connection('')
@@ -832,9 +832,9 @@ class Bot(threading.Thread):
 			self.error(3, 'XMPP connection for "'+nickname+'" is now used by '+str(c.used_by)+' bridges', debug=True)
 	
 	
-	def removeBridge(self, bridge, message='Removing bridge'):
+	def removeBridge(self, bridge, message='Removing bridge', log=True):
 		self.bridges.remove(bridge)
-		bridge.stop(message)
+		bridge.stop(message=message, log=log)
 	
 	
 	def respond(self, message, participant=None, bot_admin=False):
@@ -851,7 +851,7 @@ class Bot(threading.Thread):
 	def restart(self):
 		# Stop the bridges
 		for b in self.bridges:
-			b.stop(message='Restarting bot')
+			b.stop(message='Restarting bot', log=False)
 		
 		# Reopen the bot's XMPP connection
 		self.reopen_xmpp_connection(self.xmpp_c)
@@ -879,17 +879,18 @@ class Bot(threading.Thread):
 					b.reconnecting = True
 					self.irc.execute_delayed(delay, b.init2)
 				
-				b.stop(message=leave_message)
+				b.stop(message=leave_message, log=False)
 		
 		self.error(error[0], error[1], send_to_admins=True)
 	
 	
 	def stop(self, message='Stopping bot'):
+		self.error(-1, message, send_to_admins=True)
 		for bridge in self.bridges:
-			bridge.stop(message=message)
+			bridge.stop(message=message, log=False)
 	
 	
 	def __del__(self):
 		for bridge in self.bridges:
-			self.removeBridge(bridge, message='Stopping bot')
+			self.removeBridge(bridge, message='Stopping bot', log=False)
 		self.halt = True
