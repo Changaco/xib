@@ -153,17 +153,14 @@ class Bridge:
 		if nickname == 'ChanServ' and from_protocol == 'irc':
 			return
 		
-		self.lock.acquire()
 		self.bot.error(3, 'adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'"', debug=True)
 		try:
 			p = Participant(self, from_protocol, nickname, real_jid=real_jid)
-		except IOError:
-			self.bot.error(3, 'IOError while adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'", reconnectiong ...', debug=True)
-			p.xmpp_c.reconnectAndReauth()
 		except:
 			self.bot.error(3, 'unknown error while adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'"', debug=True)
 			traceback.print_exc()
 			return
+		self.lock.acquire()
 		self.participants.append(p)
 		self.lock.release()
 		if self.mode not in ['normal', 'bypass']:
