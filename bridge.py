@@ -84,8 +84,7 @@ class Bridge:
 				self.show_participants_list_on(protocols=['irc'])
 		else:
 			self.mode = None
-			if self.xmpp_room.connected == True:
-				self.say(say_levels.error, 'failed to connect to the IRC chan, leaving ...', on_irc=False)
+			self.say(say_levels.error, 'failed to connect to the IRC chan, leaving ...', on_irc=False)
 			try:
 				if error == 'nicknameinuse':
 					raise Exception('[Error] "'+self.bot.nickname+'" is already used in the IRC chan or reserved on the IRC server of bridge "'+str(self)+'"')
@@ -120,8 +119,7 @@ class Bridge:
 			self.say(say_levels.notice, 'bridge "'+str(self)+'" is running in '+self.mode+' mode', on_irc=False)
 		else:
 			self.mode = None
-			if self.irc_connection.really_connected == True:
-				self.say(say_levels.error, 'failed to connect to the XMPP room, leaving ...', on_xmpp=False)
+			self.say(say_levels.error, 'failed to connect to the XMPP room, leaving ...', on_xmpp=False)
 			for error in errors:
 				try:
 					raise error
@@ -362,9 +360,9 @@ class Bridge:
 		message = self.bot.format_message(importance, message)
 		if importance < self.say_level:
 			return
-		if on_xmpp == True:
+		if on_xmpp and isinstance(self.xmpp_room, xmpp.muc) and self.xmpp_room.connected:
 			self.xmpp_room.say(message)
-		if on_irc == True:
+		if on_irc and isinstance(self.irc_connection, ServerConnection) and self.irc_connection.really_connected:
 			self.irc_connection.privmsg(self.irc_room, message)
 	
 	
