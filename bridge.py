@@ -47,6 +47,7 @@ class Bridge:
 		self.xmpp_room_jid = xmpp_room_jid
 		self.say_level = say_level
 		self.participants = []
+		self.reconnecting = False
 		if mode not in self.__class__.modes:
 			raise Exception('[Error] "'+mode+'" is not a correct value for a bridge\'s "mode" attribute')
 		self.mode = mode
@@ -57,6 +58,8 @@ class Bridge:
 	
 	
 	def init2(self):
+		self.reconnecting = False
+		
 		# Join XMPP room
 		self.xmpp_room = xmpp.muc(self.xmpp_room_jid)
 		self.xmpp_room.join(self.bot.xmpp_c, self.bot.nickname, callback=self._xmpp_join_callback)

@@ -865,23 +865,25 @@ class Bot(threading.Thread):
 	
 	def restart_bridges_delayed(self, bridges, delay, error, protocol='xmpp'):
 		if len(bridges) > 0:
+			found = False
 			error[1] += '\nThese bridges will be stopped:'
 			for b in bridges:
-				error[1] += '\n'+str(b)
-				
 				if protocol == 'xmpp':
 					leave_message = 'Could not connect to the MUC server ('+b.xmpp_room_jid+')'
 				else:
 					leave_message = 'Could not connect to the IRC server ('+b.irc_connection._server_str()+')'
 				
-				if not hasattr(b, 'reconnecting'):
+				if not b.reconnecting:
+					found = True
+					error[1] += '\n'+str(b)
 					leave_message += 'will try to recreate the bridge in '+str(delay)+' seconds'
 					b.reconnecting = True
 					self.irc.execute_delayed(delay, b.init2)
 				
 				b.stop(message=leave_message, log=False)
 		
-		self.error(error[0], error[1], send_to_admins=True)
+		if found:
+			self.error(error[0], error[1], send_to_admins=True)
 	
 	
 	def stop(self, message='Stopping bot'):
