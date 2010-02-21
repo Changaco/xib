@@ -271,7 +271,7 @@ def restart_bridges(bot, command, args_array, bridge):
 
 def stop_bot(bot, command, args_array, bridge):
 	bot.stop()
-	return 'Bot stopped.'
+	return
 
 
 def stop_bridges(bot, command, args_array, bridge):
