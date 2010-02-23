@@ -638,7 +638,7 @@ class Bot(threading.Thread):
 			else:
 				p = bridge.getParticipant(connection.get_nickname())
 				p._close_irc_connection('')
-				p.irc_connection = error
+				p.irc_connection = event.eventtype()
 			return
 		
 		
