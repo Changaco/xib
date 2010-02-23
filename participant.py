@@ -294,9 +294,9 @@ class Participant:
 			bot_say = True
 		if bot_say:
 			if action:
-				self.bridge.say('* '+self.nickname+' '+message, on_xmpp=False)
+				self.bridge.say(-1, '* '+self.nickname+' '+message, on_xmpp=False)
 			else:
-				self.bridge.say('<'+self.nickname+'> '+message, on_xmpp=False)
+				self.bridge.say(-1, '<'+self.nickname+'> '+message, on_xmpp=False)
 	
 	
 	def sayOnIRCTo(self, to, message):
@@ -314,9 +314,9 @@ class Participant:
 			self.muc.say(message)
 		elif not isinstance(self.irc_connection, ServerConnection):
 			if message[:4] == '/me ':
-				self.bridge.say('* '+self.nickname+' '+message[4:], on_irc=False)
+				self.bridge.say(-1, '* '+self.nickname+' '+message[4:], on_irc=False)
 			else:
-				self.bridge.say('<'+self.nickname+'> '+message, on_irc=False)
+				self.bridge.say(-1, '<'+self.nickname+'> '+message, on_irc=False)
 	
 	
 	def sayOnXMPPTo(self, to, message):
