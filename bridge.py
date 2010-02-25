@@ -153,8 +153,7 @@ class Bridge:
 		try:
 			p = Participant(self, from_protocol, nickname, real_jid=real_jid)
 		except:
-			self.bot.error(3, 'unknown error while adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'"', debug=True)
-			traceback.print_exc()
+			self.bot.error(say_levels.debug, 'unknown error while adding participant "'+nickname+'" from "'+from_protocol+'" to bridge "'+str(self)+'"\n'+traceback.format_exc())
 			return
 		self.lock.acquire()
 		self.participants.append(p)
@@ -335,7 +334,7 @@ class Bridge:
 					self.show_participants_list_on(protocols=['xmpp'])
 			
 		else:
-			self.bot.error(1, 'Bad decision tree,  p.protocol='+p.protocol+'  left_protocol='+left_protocol+'\np.xmpp_c='+str(p.xmpp_c)+'\np.irc_connection='+str(p.irc_connection), debug=True)
+			self.bot.error(say_levels.debug, 'Bad decision tree,  p.protocol='+p.protocol+'  left_protocol='+left_protocol+'\np.xmpp_c='+str(p.xmpp_c)+'\np.irc_connection='+str(p.irc_connection), send_to_admins=True)
 	
 	
 	def restart(self, log=True):

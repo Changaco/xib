@@ -62,15 +62,17 @@ class Bot(threading.Thread):
 		self.xmpp_thread.start()
 	
 	
-	def error(self, importance, message, debug=False, send_to_admins=False):
+	def error(self, importance, message, debug=False, no_debug_add='', send_to_admins=False):
 		"""Output an error message."""
+		if not self.debug:
+			 message += no_debug_add
 		if send_to_admins == True:
 			self._send_message_to_admins(importance, message)
 		if importance == -1:
 			return
 		if not debug:
 			self.error_fd.write(self.format_message(importance, message).encode('utf-8')+'\n')
-		if debug and self.debug:
+		elif self.debug:
 			self.error_fd.write('='*importance+'> '+message.encode('utf-8')+'\n')
 	
 	
@@ -129,6 +131,8 @@ class Bot(threading.Thread):
 			return
 		
 		self.error(2, 'Received XMPP presence.\n'+presence.__str__(fancy=1), debug=True)
+		
+		no_debug_add = '\n'+presence.__str__(fancy=1)
 		
 		from_ = xmpp.protocol.JID(presence.getFrom())
 		bare_jid = unicode(from_.getNode()+'@'+from_.getDomain())
@@ -191,11 +195,11 @@ class Bot(threading.Thread):
 								return
 							item = x.getTag('item')
 							if not item:
-								self.error(1, 'bad stanza, no item element', debug=True)
+								self.error(say_levels.debug, 'bad stanza, no item element', no_debug_add=no_debug_add)
 								return
 							new_nick = item.getAttr('nick')
 							if not new_nick:
-								self.error(1, 'bad stanza, new nick is not given', debug=True)
+								self.error(say_levels.debug, 'bad stanza, new nick is not given', no_debug_add=no_debug_add)
 								return
 							p.changeNickname(new_nick, 'irc')
 							
@@ -287,10 +291,7 @@ class Bot(threading.Thread):
 					
 				return
 		
-		if self.debug:
-			self.error(1, 'presence was not handled', debug=True)
-		else:
-			self.error(say_levels.debug, 'Unhandled XMPP presence:\n'+message.__str__(fancy=1))
+		self.error(say_levels.debug, 'Unhandled XMPP presence', no_debug_add='\n'+presence.__str__(fancy=1))
 	
 	
 	def _xmpp_iq_handler(self, dispatcher, iq):
@@ -339,7 +340,7 @@ class Bot(threading.Thread):
 							else:
 								self.error(1, 'won\'t answer.', debug=True)
 							return
-						self.error(1, 'XMPP chat message not relayed', debug=True)
+						self.error(say_levels.debug, 'XMPP chat message not relayed', no_debug_add='\n'+message.__str__(fancy=1))
 						return
 			
 			# message does not come from a room
@@ -398,7 +399,7 @@ class Bot(threading.Thread):
 							participant = bridge.getParticipant(resource)
 						except Bridge.NoSuchParticipantException:
 							if resource != self.nickname:
-								self.error(1, 'NoSuchParticipantException "'+resource+'" on "'+str(bridge)+'", WTF ?', debug=True)
+								self.error(say_levels.debug, 'NoSuchParticipantException "'+resource+'" on "'+str(bridge)+'", WTF ?', no_debug_add='\n'+message.__str__(fancy=1))
 							return
 						
 						participant.sayOnIRC(message.getBody())
@@ -478,8 +479,8 @@ class Bot(threading.Thread):
 		
 		
 		# A string representation of the event
-		event_str = 'connection='+connection.__str__()+'\neventtype='+event.eventtype()+'\nsource='+repr(event.source())+'\ntarget='+repr(event.target())+'\narguments='+repr(event.arguments())
-		debug_str = 'Received IRC event.\n'+event_str
+		event_str = '\nconnection='+connection.__str__()+'\neventtype='+event.eventtype()+'\nsource='+repr(event.source())+'\ntarget='+repr(event.target())+'\narguments='+repr(event.arguments())
+		debug_str = 'Received IRC event.'+event_str
 		printed_event = False
 		
 		
@@ -501,7 +502,7 @@ class Bot(threading.Thread):
 					printed_event = True
 			
 			if event.eventtype() == 'kick' and len(event.arguments()) < 1:
-				self.error(1, 'at least 1 argument is needed for a '+event.eventtype()+' event', debug=True)
+				self.error(say_levels.debug, 'at least 1 argument is needed for a '+event.eventtype()+' event', no_debug_add=event_str)
 				return
 			
 			if event.eventtype() in ['pubmsg', 'action']:
@@ -559,7 +560,7 @@ class Bot(threading.Thread):
 									bridge.removeParticipant('irc', kicked.nickname, 'Kicked by '+nickname+' (no reason was given)')
 							return
 						except Bridge.NoSuchParticipantException:
-							self.error(1, 'a participant that was not here has been kicked ? WTF ?', debug=True)
+							self.error(say_levels.debug, 'a participant that was not here has been kicked ? WTF ?', no_debug_add=event_str)
 							return
 					else:
 						continue
@@ -709,10 +710,10 @@ class Bot(threading.Thread):
 		
 		# Unhandled events
 		if not printed_event:
-			self.error(say_levels.debug, 'The following IRC event was not handled:\n'+event_str+'\n', send_to_admins=True)
+			self.error(say_levels.debug, 'The following IRC event was not handled:'+event_str+'\n', send_to_admins=True)
 		else:
 			self.error(1, 'event not handled', debug=True)
-			self._send_message_to_admins(say_levels.debug, 'The following IRC event was not handled:\n'+event_str)
+			self._send_message_to_admins(say_levels.debug, 'The following IRC event was not handled:'+event_str)
 	
 	
 	def _send_message_to_admins(self, importance, message):
