@@ -408,11 +408,19 @@ class Bot(threading.Thread):
 							for cc in c.getChildren():
 								if cc.getNamespace() == 'urn:ietf:params:xml:ns:xmpp-stanzas' and cc.getName() != 'text':
 									err = cc.getName()
-									if err == 'not-acceptable':
+									if err in ['not-acceptable', 'not-allowed']:
 										# we sent a message to a room we are not in
-										# probable cause is a MUC server restart
-										# let's restart the bot
-										self.restart()
+										# can be due to a MUC server restart
+										# can be a concurrency bug
+										if xmpp_c.nickname == self.nickname:
+											b.restart(message='Automatic restart of bridge')
+										else:
+											try:
+												p = b.getParticipant(xmpp_c.nickname)
+												p.say_on_XMPP_through_bridge(message.getBody())
+											except Bridge.NoSuchParticipantException:
+												b.restart(message='Automatic restart of bridge')
+										
 									elif err == 'forbidden':
 										# we don't have the permission to speak
 										# let's remove the bridge and tell admins

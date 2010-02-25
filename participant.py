@@ -313,10 +313,14 @@ class Participant:
 		if isinstance(self.xmpp_c, xmpp.client.Client):
 			self.muc.say(message)
 		elif not isinstance(self.irc_connection, ServerConnection):
-			if message[:4] == '/me ':
-				self.bridge.say(-1, '* '+self.nickname+' '+message[4:], on_irc=False)
-			else:
-				self.bridge.say(-1, '<'+self.nickname+'> '+message, on_irc=False)
+			self.say_on_XMPP_through_bridge(message)
+	
+	
+	def say_on_XMPP_through_bridge(message):
+		if message[:4] == '/me ':
+			self.bridge.say(-1, '* '+self.nickname+' '+message[4:], on_irc=False)
+		else:
+			self.bridge.say(-1, '<'+self.nickname+'> '+message, on_irc=False)
 	
 	
 	def sayOnXMPPTo(self, to, message):
