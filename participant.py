@@ -316,7 +316,7 @@ class Participant:
 			self.say_on_XMPP_through_bridge(message)
 	
 	
-	def say_on_XMPP_through_bridge(message):
+	def say_on_XMPP_through_bridge(self, message):
 		if message[:4] == '/me ':
 			self.bridge.say(-1, '* '+self.nickname+' '+message[4:], on_irc=False)
 		else:

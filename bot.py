@@ -286,6 +286,11 @@ class Bot(threading.Thread):
 						return
 					
 				return
+		
+		if self.debug:
+			self.error(1, 'presence was not handled', debug=True)
+		else:
+			self.error(say_levels.debug, 'Unhandled XMPP presence:\n'+message.__str__(fancy=1))
 	
 	
 	def _xmpp_iq_handler(self, dispatcher, iq):
@@ -427,13 +432,13 @@ class Bot(threading.Thread):
 										self.error(say_levels.error, 'Not allowed to speak on the XMPP MUC of bridge '+str(b)+', stopping it', send_to_admins=True)
 										b.stop(message='Not allowed to speak on the XMPP MUC, stopping the bridge')
 									else:
-										self.error(2, 'recevied unknown error message\n'+message.__str__(fancy=1), debug=True)
+										self.error(say_levels.debug, 'recevied unknown error message\n'+message.__str__(fancy=1))
 					return
 			
-			self.error(2, 'recevied unknown error message\n'+message.__str__(fancy=1), debug=True)
+			self.error(say_levels.debug, 'received unknown error message\n'+message.__str__(fancy=1))
 		
 		else:
-			self.error(2, 'Received XMPP message of unknown type "'+str(message.getType())+'".\n'+message.__str__(fancy=1), debug=True)
+			self.error(say_levels.debug, 'Received XMPP message of unknown type "'+str(message.getType())+'".\n'+message.__str__(fancy=1))
 	
 	
 	def _irc_event_handler(self, connection, event):
