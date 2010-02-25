@@ -63,7 +63,7 @@ def _find_bridges(bot, args_array):
 		except IndexError:
 			ret += '\nInvalid bridge number "'+str(bn)+'".'
 		except ValueError:
-			found_bridges = bot.findBridges(arg)
+			found_bridges = bot.find_bridges(arg)
 			if len(found_bridges) == 0:
 				ret += '\nNo bridge found matching "'+arg+'".'
 			else:
@@ -152,7 +152,7 @@ def change_bridges_mode(bot, command, args_array, bridge):
 	
 	found_bridges, ret = _find_bridges(bot, args.bridge_id)
 	for found_bridge in found_bridges:
-		r = found_bridge.changeMode(args.new_mode)
+		r = found_bridge.change_mode(args.new_mode)
 		if r:
 			ret += r+'\n'
 	
@@ -245,7 +245,7 @@ def remove_bridges(bot, command, args_array, bridge):
 	found_bridges, ret = _find_bridges(bot, args.bridge_id)
 	
 	for found_bridge in found_bridges:
-		bot.removeBridge(found_bridge)
+		bot.remove_bridge(found_bridge)
 	
 	return ret+'Bridges removed.'
 

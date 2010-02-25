@@ -101,7 +101,7 @@ class Bridge:
 	
 	def _RemoteServerNotFound_handler(self):
 		server = xmpp.protocol.JID(self.xmpp_room_jid).getDomain()
-		bridges = self.bot.findBridges([server])
+		bridges = self.bot.find_bridges([server])
 		error = [say_levels.warning, 'The MUC server '+server+' seems to be down, the bot will try to recreate all bridges related to this server in 5 minutes']
 		self.bot.restart_bridges_delayed(bridges, 300, error)
 	
@@ -129,13 +129,13 @@ class Bridge:
 			self.stop(message='Failed to connect to the XMPP room, stopping bridge')
 	
 	
-	def addParticipant(self, from_protocol, nickname, real_jid=None, irc_id=None):
+	def add_participant(self, from_protocol, nickname, real_jid=None, irc_id=None):
 		"""Add a participant to the bridge."""
 		if (from_protocol == 'irc' and nickname == self.bot.nickname) or (from_protocol == 'xmpp' and nickname == self.bot.nickname):
 			self.bot.error(3, 'not adding self ('+self.bot.nickname+') to bridge "'+str(self)+'"', debug=True)
 			return
 		try:
-			p = self.getParticipant(nickname)
+			p = self.get_participant(nickname)
 			if p.protocol != from_protocol:
 				if from_protocol == 'irc' and isinstance(p.irc_connection, ServerConnection) and p.irc_connection.really_connected == True and p.irc_connection.real_nickname == nickname or from_protocol == 'xmpp' and isinstance(p.xmpp_c, xmpp.client.Client) and isinstance(p.muc, xmpp.muc) and p.xmpp_c.nickname == nickname:
 					if irc_id:
@@ -166,15 +166,15 @@ class Bridge:
 		return p
 	
 	
-	def createDuplicatesOn(self, protocols):
+	def create_duplicates_on(self, protocols):
 		for p in self.participants:
 			if p.protocol == 'xmpp' and 'irc' in protocols:
-				p.createDuplicateOnIRC()
+				p.create_duplicate_on_irc()
 			elif p.protocol == 'irc' and 'xmpp' in protocols:
-				p.createDuplicateOnXMPP()
+				p.create_duplicate_on_xmpp()
 	
 	
-	def changeMode(self, new_mode):
+	def change_mode(self, new_mode):
 		if new_mode == self.mode:
 			return 'Mode is already equal to '+self.mode
 		
@@ -187,11 +187,11 @@ class Bridge:
 			
 			if old_mode == 'limited':
 				# From  limited  to  {normal,bypass}
-				self.createDuplicatesOn(['irc'])
+				self.create_duplicates_on(['irc'])
 			
 			elif old_mode in ['minimal', 'normal']:
 				# From  {minimal,normal}  to  {normal,bypass}
-				self.createDuplicatesOn(['irc', 'xmpp'])
+				self.create_duplicates_on(['irc', 'xmpp'])
 			
 			elif old_mode == 'bypass':
 				# From  bypass  to  normal
@@ -204,7 +204,7 @@ class Bridge:
 		elif new_mode == 'limited':
 			
 			if old_mode == 'minimal':
-				self.createDuplicatesOn(['xmpp'])
+				self.create_duplicates_on(['xmpp'])
 			
 			i = 0
 			for p in self.participants:
@@ -235,7 +235,7 @@ class Bridge:
 		self.say(say_levels.notice, 'Bridge is switching from '+old_mode+' to '+new_mode+' mode.', log=True)
 	
 	
-	def getParticipant(self, nickname):
+	def get_participant(self, nickname):
 		"""Returns a participant object if there is a participant using nickname in the bridge. Raises a NoSuchParticipantException otherwise."""
 		self.lock.acquire()
 		for p in self.participants:
@@ -257,19 +257,19 @@ class Bridge:
 		return participants_nicknames
 	
 	
-	def hasParticipant(self, nickname):
+	def has_participant(self, nickname):
 		try:
-			self.getParticipant(nickname)
+			self.get_participant(nickname)
 			return True
 		except self.NoSuchParticipantException:
 			return False
 	
 	
-	def removeParticipant(self, left_protocol, nickname, leave_message):
+	def remove_participant(self, left_protocol, nickname, leave_message):
 		"""Remove the participant using nickname from the bridge. Raises a NoSuchParticipantException if nickname is not used in the bridge."""
 		
 		was_on_both = None
-		p = self.getParticipant(nickname)
+		p = self.get_participant(nickname)
 		
 		if p.left:
 			self.lock.acquire()
@@ -283,9 +283,9 @@ class Bridge:
 				was_on_both = True
 				if left_protocol == 'xmpp':
 					p.protocol = 'irc'
-					p.createDuplicateOnXMPP()
+					p.create_duplicate_on_xmpp()
 				elif left_protocol == 'irc':
-					p.createDuplicateOnIRC()
+					p.create_duplicate_on_irc()
 			else:
 				if left_protocol == 'xmpp':
 					was_on_both = False
@@ -297,7 +297,7 @@ class Bridge:
 						c = self.bot.irc.get_connection(self.irc_server, self.irc_port, p.duplicate_nickname)
 						if not (c and self.irc_room in c.left_channels):
 							p._close_irc_connection(leave_message)
-							p.createDuplicateOnIRC()
+							p.create_duplicate_on_irc()
 					return
 		
 		elif p.protocol == 'irc':
@@ -305,9 +305,9 @@ class Bridge:
 				was_on_both = True
 				if left_protocol == 'irc':
 					p.protocol = 'xmpp'
-					p.createDuplicateOnIRC()
+					p.create_duplicate_on_irc()
 				elif left_protocol == 'xmpp':
-					p.createDuplicateOnXMPP()
+					p.create_duplicate_on_xmpp()
 			else:
 				if left_protocol == 'irc':
 					was_on_both = False
