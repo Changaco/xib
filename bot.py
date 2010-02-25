@@ -130,12 +130,17 @@ class Bot(threading.Thread):
 			self.error(1, 'Skipping XMPP presence not received on bot connection.', debug=True)
 			return
 		
+		from_ = xmpp.protocol.JID(presence.getFrom())
+		bare_jid = unicode(from_.getNode()+'@'+from_.getDomain())
+		
+		if bare_jid == self.bare_jid:
+			self.error(1, 'Ignoring XMPP presence from self', debug=True)
+			return
+		
 		self.error(2, 'Received XMPP presence.\n'+presence.__str__(fancy=1), debug=True)
 		
 		no_debug_add = '\n'+presence.__str__(fancy=1)
 		
-		from_ = xmpp.protocol.JID(presence.getFrom())
-		bare_jid = unicode(from_.getNode()+'@'+from_.getDomain())
 		for bridge in self.bridges:
 			if bare_jid == bridge.xmpp_room_jid:
 				# presence comes from a muc
