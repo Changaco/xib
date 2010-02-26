@@ -240,7 +240,13 @@ class IRC:
                 if s == c._get_socket():
                     c.lock.acquire()
                     if hasattr(c, 'socket'):
-                        c.process_data()
+                        try:
+                            c.process_data()
+                        except ServerNotConnectedError:
+                            if c.real_nickname == self.bot.nickname:
+                                self.bot.restart()
+                            else:
+                                c.connect()
                     c.lock.release()
 
     def process_timeout(self):
