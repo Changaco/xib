@@ -337,11 +337,11 @@ class Bridge:
 			self.bot.error(say_levels.debug, 'Bad decision tree,  p.protocol='+p.protocol+'  left_protocol='+left_protocol+'\np.xmpp_c='+str(p.xmpp_c)+'\np.irc_connection='+str(p.irc_connection), send_to_admins=True)
 	
 	
-	def restart(self, log=True):
+	def restart(self, message='Restarting bridge', log=True):
 		"""Restart the bridge"""
 		
 		# Stop the bridge
-		self.stop(message='Restarting bridge', log=log)
+		self.stop(message=message, log=log)
 		
 		# Recreate the bridge
 		self.init2()
