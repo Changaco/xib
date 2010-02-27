@@ -109,8 +109,7 @@ class Bridge:
 	def _xmpp_join_callback(self, errors):
 		"""Called by muc._xmpp_presence_handler"""
 		if len(errors) == 0:
-			if hasattr(self, 'reconnecting'):
-				del self.reconnecting
+			self.reconnecting = False
 			if self.mode == None:
 				return
 			self.bot.error(3, 'succesfully connected on XMPP side of bridge "'+str(self)+'"', debug=True)
