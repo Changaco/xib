@@ -30,10 +30,12 @@ class muc:
 	class ForgotNickname(Exception): pass
 	class UnknownError(Exception): pass
 	class RemoteServerNotFound(Exception): pass
+	class NotConnected(Exception): pass
 	
-	def __init__(self, room_jid):
+	def __init__(self, room_jid, auto_reconnect=True):
 		self.room_jid = room_jid
 		self.connected = False
+		self.auto_reconnect = auto_reconnect
 		self.participants = {}
 	
 	
@@ -41,13 +43,22 @@ class muc:
 		self.callback = callback
 		self.xmpp_c.RegisterHandler('presence', self._xmpp_presence_handler)
 		s = xmpp.protocol.Presence(to=self.jid, status=self.status, payload=[xmpp.simplexml.Node(tag='x', attrs={'xmlns': 'http://jabber.org/protocol/muc'}, payload=[xmpp.simplexml.Node(tag='history', attrs={'maxchars': '0'})])])
-		self._send(s)
+		self._send(s, force=True)
 	
 	
-	def _send(self, stanza):
+	def _send(self, stanza, force=False):
+		"""Send a stanza.
+		
+		The "force" optional argument bypasses the fact that we are not in the room yet, necessary to send initial presence"""
+		
+		if not self.connected and not force:
+			raise self.NotConnected, stanza.__str__(fancy=1).encode('utf-8')
 		try:
 			self.xmpp_c.send(stanza)
 		except IOError, xmpp.Conflict:
+			if not self.auto_reconnect:
+				raise self.NotConnected, stanza.__str__(fancy=1).encode('utf-8')
+			
 			self.xmpp_c.reconnectAndReauth()
 			for m in self.xmpp_c.mucs:
 				m.rejoin()
@@ -141,6 +152,7 @@ class muc:
 	def leave(self, message=''):
 		"""Leave the room"""
 		self.xmpp_c.lock.acquire()
+		self.auto_reconnect = False
 		s = xmpp.protocol.Presence(to=self.jid, typ='unavailable', status=message)
 		self._send(s)
 		self.connected = False
