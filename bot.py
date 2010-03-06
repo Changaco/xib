@@ -867,10 +867,10 @@ class Bot(threading.Thread):
 		return commands.execute(self, message, bot_admin, bridge)
 	
 	
-	def restart(self):
+	def restart(self, message='Restarting bot'):
 		# Stop the bridges
 		for b in self.bridges:
-			b.stop(message='Restarting bot', log=False)
+			b.stop(message=message, log=False)
 		
 		# Reopen the bot's XMPP connection
 		self.reopen_xmpp_connection(self.xmpp_c)
@@ -879,7 +879,7 @@ class Bot(threading.Thread):
 		for b in self.bridges:
 			b.init2()
 		
-		self.error(-1, 'Bot restarted.', send_to_admins=True)
+		self.error(-1, 'Bot restarted with message: '+message, send_to_admins=True)
 	
 	
 	def restart_bridges_delayed(self, bridges, delay, error, protocol='xmpp'):
