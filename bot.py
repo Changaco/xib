@@ -599,8 +599,10 @@ class Bot(threading.Thread):
 						self.error(2, debug_str, debug=True)
 						message = event.arguments()[0]
 						if event.eventtype() == 'action':
-							message = '/me '+message
-						from_.say_on_xmpp(message)
+							action = True
+						else:
+							action = False
+						from_.say_on_xmpp(message, action=action)
 						return
 					else:
 						continue

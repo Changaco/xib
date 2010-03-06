@@ -109,9 +109,11 @@ class muc:
 				self.callback(errors)
 	
 	
-	def say(self, message):
+	def say(self, message, action=False):
 		"""Say message in the room"""
 		self.xmpp_c.lock.acquire()
+		if action:
+			message = '/me '+message
 		s = xmpp.protocol.Message(to=self.room_jid, typ='groupchat', body=message)
 		self._send(s)
 		self.xmpp_c.lock.release()

@@ -354,10 +354,30 @@ class Bridge:
 			message = self.bot.format_message(importance, message)
 			if importance < self.say_level:
 				return
-		if on_xmpp and isinstance(self.xmpp_room, xmpp.muc) and self.xmpp_room.connected:
-			self.xmpp_room.say(message)
-		if on_irc and isinstance(self.irc_connection, ServerConnection) and self.irc_connection.really_connected:
-			self.irc_connection.privmsg(self.irc_room, message)
+		if on_xmpp:
+			self._say_on_xmpp(message)
+		if on_irc:
+			self._say_on_irc(message)
+	
+	
+	def say_on_behalf(self, nickname, message, on_protocol, action=False):
+		if action:
+			message = '* '+nickname+' '+message
+		else:
+			message = '<'+nickname+'> '+message
+		
+		if on_protocol == 'xmpp':
+			self._say_on_xmpp(message)
+		elif on_protocol == 'irc':
+			self._say_on_irc(message)
+	
+	
+	def _say_on_irc(self, message):
+		self.irc_connection.privmsg(self.irc_room, message)
+	
+	
+	def _say_on_xmpp(self, message):
+		self.xmpp_room.say(message)
 	
 	
 	def show_participants_list_on(self, protocols=[]):

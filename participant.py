@@ -293,10 +293,7 @@ class Participant:
 		elif not isinstance(self.xmpp_c, xmpp.client.Client):
 			bot_say = True
 		if bot_say:
-			if action:
-				self.bridge.say(-1, '* '+self.nickname+' '+message, on_xmpp=False)
-			else:
-				self.bridge.say(-1, '<'+self.nickname+'> '+message, on_xmpp=False)
+			self.bridge.say_on_behalf(self.nickname, message, 'irc', action=action)
 	
 	
 	def say_on_irc_to(self, to, message):
@@ -309,18 +306,11 @@ class Participant:
 				self.bridge.get_participant(to).say_on_xmpp_to(self.nickname, 'Sorry but you cannot send cross-protocol private messages because I don\'t have an IRC duplicate with your nickname.')
 	
 	
-	def say_on_xmpp(self, message):
+	def say_on_xmpp(self, message, action=False):
 		if isinstance(self.xmpp_c, xmpp.client.Client):
-			self.muc.say(message)
+			self.muc.say(message, action=action)
 		elif not isinstance(self.irc_connection, ServerConnection):
-			self.say_on_XMPP_through_bridge(message)
-	
-	
-	def say_on_XMPP_through_bridge(self, message):
-		if message[:4] == '/me ':
-			self.bridge.say(-1, '* '+self.nickname+' '+message[4:], on_irc=False)
-		else:
-			self.bridge.say(-1, '<'+self.nickname+'> '+message, on_irc=False)
+			self.bridge.say_on_behalf(self.nickname, message, 'xmpp', action=action)
 	
 	
 	def say_on_xmpp_to(self, to, message):
