@@ -244,7 +244,7 @@ class IRC:
                             c.process_data()
                         except ServerNotConnectedError:
                             if c.real_nickname == self.bot.nickname:
-                                self.bot.restart()
+                                self.bot.restart(message='Lost bot IRC connection')
                             else:
                                 c.disconnect(volontary=True)
                                 c.connect()
