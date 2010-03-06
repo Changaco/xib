@@ -240,14 +240,7 @@ class IRC:
                 if s == c._get_socket():
                     c.lock.acquire()
                     if hasattr(c, 'socket'):
-                        try:
-                            c.process_data()
-                        except ServerNotConnectedError:
-                            if c.real_nickname == self.bot.nickname:
-                                self.bot.restart(message='Lost bot IRC connection')
-                            else:
-                                c.disconnect(volontary=True)
-                                c.connect()
+                        c.process_data()
                     c.lock.release()
 
     def process_timeout(self):
@@ -300,7 +293,12 @@ class IRC:
             try:
                 self.process_once(timeout)
             except ServerNotConnectedError:
-                self.bot.restart()
+                c = e.args[1]
+                if c.real_nickname == self.bot.nickname:
+                    self.bot.restart(message='Lost bot IRC connection')
+                else:
+                    c.disconnect(volontary=True)
+                    c.connect()
             except:
                 self.bot.error(say_levels.error, 'Unkonwn exception on IRC thread:\n'+traceback.format_exc(), send_to_admins=True)
 
