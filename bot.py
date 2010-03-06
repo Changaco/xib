@@ -670,20 +670,15 @@ class Bot(threading.Thread):
 		# Joining events
 		if event.eventtype() in ['namreply', 'join']:
 			if event.eventtype() == 'namreply':
-				for bridge in self.get_bridges(irc_room=event.arguments()[1].lower(), irc_server=connection.server):
-					for nickname in re.split('(?:^[&@\+%]?|(?: [&@\+%]?)*)', event.arguments()[2].strip()):
-						if nickname == '' or nickname == self.nickname:
-							continue
-						bridge.add_participant('irc', nickname)
+				bridge = self.get_bridge(irc_room=event.arguments()[1].lower(), irc_server=connection.server)
+				for nickname in re.split('(?:^[&@\+%]?|(?: [&@\+%]?)*)', event.arguments()[2].strip()):
+					if nickname == '' or nickname == self.nickname:
+						continue
+					bridge.add_participant('irc', nickname)
 				return
 			elif event.eventtype() == 'join':
-				bridges = self.get_bridges(irc_room=event.target().lower(), irc_server=connection.server)
-				if len(bridges) == 0:
-					self.error(2, debug_str, debug=True)
-					self.error(3, 'no bridge found for "'+event.target().lower()+' at '+connection.server+'"', debug=True)
-					return
-				for bridge in bridges:
-					bridge.add_participant('irc', nickname, irc_id=event.source())
+				bridge = self.get_bridge(irc_room=event.target().lower(), irc_server=connection.server)
+				bridge.add_participant('irc', nickname, irc_id=event.source())
 				return
 		
 		
