@@ -53,28 +53,28 @@ def execute(bot, command_line, bot_admin, bridge):
 
 def _find_bridges(bot, args_array):
 	ret = ''
-	b = []
+	matches = []
 	for arg in args_array:
 		try:
 			bn = int(arg)
 			if bn < 1:
 				raise IndexError
-			b.append(bot.bridges[bn-1])
+			matches.append(bot.bridges[bn-1])
 		except IndexError:
 			ret += '\nInvalid bridge number "'+str(bn)+'".'
 		except ValueError:
-			found_bridges = bot.find_bridges(arg)
+			found_bridges = [b for b in bot.iter_bridges(patterns=[arg])]
 			if len(found_bridges) == 0:
 				ret += '\nNo bridge found matching "'+arg+'".'
 			else:
-				b.extend(found_bridges)
+				matches.extend(found_bridges)
 	
-	if ret != '' or len(b) == 0:
+	if ret != '' or len(matches) == 0:
 		if ret != '':
 			ret += '\n\n'
 		ret += bridges(bot, 'bridges', [], None)+'\n\n'
 	
-	return (b, ret)
+	return (matches, ret)
 
 
 def add_bridge(bot, command, args_array, bridge):

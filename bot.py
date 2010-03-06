@@ -164,7 +164,7 @@ class Bot(threading.Thread):
 								r = reason.getData()
 								if r == 'The conference component is shutting down':
 									# MUC server is going down, try to restart the bridges in 1 minute
-									bridges = self.find_bridges([from_.getDomain()])
+									bridges = self.iter_bridges(patterns=[from_.getDomain()])
 									m = 'The MUC server '+from_.getDomain()+' seems to be going down, the bot will try to recreate all bridges related to this server in 1 minute'
 									error = [say_levels.warning, m]
 									self.restart_bridges_delayed(bridges, 60, error)
@@ -272,7 +272,7 @@ class Bot(threading.Thread):
 									if err == 'cancel remote-server-not-found':
 										# Remote server not found
 										# Stop bridges that depend on this server
-										bridges = self.find_bridges([from_.getDomain()])
+										bridges = self.iter_bridges(patterns=[from_.getDomain()])
 										error = [say_levels.error, 'XMPP Remote server not found: '+from_.getDomain()]
 										self.restart_bridges_delayed(bridges, 60, error)
 									else:
@@ -650,7 +650,7 @@ class Bot(threading.Thread):
 		
 		if event.eventtype() in ['cannotsendtochan', 'notonchannel', 'inviteonlychan']:
 			self.error(2, debug_str, debug=True)
-			bridges = self.get_bridges(irc_room=event.arguments()[0], irc_server=connection.server)
+			bridges = self.iter_bridges(irc_room=event.arguments()[0], irc_server=connection.server)
 			if len(bridges) > 1:
 				raise Exception, 'more than one bridge for one irc chan, WTF ?'
 			bridge = bridges[0]
@@ -694,7 +694,7 @@ class Bot(threading.Thread):
 				self.error(1, 'ignoring IRC mode "'+event.arguments()[0]+'" for "'+event.arguments()[1]+'"', debug=True)
 				return
 			self.error(2, debug_str, debug=True)
-			bridges = self.get_bridges(irc_room=event.target(), irc_server=connection.server)
+			bridges = self.iter_bridges(irc_room=event.target(), irc_server=connection.server)
 			if len(bridges) > 1:
 				raise Exception, 'more than one bridge for one irc chan, WTF ?'
 			bridge = bridges[0]
@@ -739,17 +739,6 @@ class Bot(threading.Thread):
 		return b
 	
 	
-	def find_bridges(self, str_array):
-		# TODO: lock self.bridges for thread safety
-		bridges = [b for b in self.bridges]
-		for bridge in self.bridges:
-			for s in str_array:
-				if not s in str(bridge):
-					bridges.remove(bridge)
-					break
-		return bridges
-	
-	
 	def format_message(self, importance, message):
 		if importance < 0 or importance >= len(say_levels.levels):
 			raise Exception('[Internal Error] unknown message importance')
@@ -757,11 +746,11 @@ class Bot(threading.Thread):
 	
 	
 	def get_bridge(self, **kwargs):
-		"""Calls self.get_bridges and raises exceptions when there are 0 or more than 1 matches
+		"""Calls self.iter_bridges and raises exceptions when there are 0 or more than 1 matches
 		
-		See Bot.get_bridges for the list of args"""
+		See Bot.iter_bridges for the list of args"""
 		
-		bridges = self.get_bridges(**kwargs)
+		bridges = [b for b in self.iter_bridges(**kwargs)]
 		if len(bridges) == 0:
 			raise Exception, 'no bridge matching '+str(kwargs)
 		elif len(bridges) > 1:
@@ -769,20 +758,19 @@ class Bot(threading.Thread):
 		return bridges[0]
 	
 	
-	def get_bridges(self, irc_room=None, irc_server=None, xmpp_room_jid=None):
-		# TODO: lock self.bridges for thread safety
-		bridges = [b for b in self.bridges]
-		for bridge in [b for b in bridges]:
+	def iter_bridges(self, irc_room=None, irc_server=None, xmpp_room_jid=None, patterns=None):
+		for bridge in self.bridges:
 			if irc_room != None and bridge.irc_room != irc_room:
-				bridges.remove(bridge)
 				continue
 			if irc_server != None and bridge.irc_server != irc_server:
-				bridges.remove(bridge)
 				continue
 			if xmpp_room_jid != None and bridge.xmpp_room_jid != xmpp_room_jid:
-				bridges.remove(bridge)
 				continue
-		return bridges
+			if patterns != None:
+				for pattern in patterns:
+					if not pattern in str(bridge):
+						continue
+			yield bridge
 	
 	
 	def get_xmpp_connection(self, nickname):
