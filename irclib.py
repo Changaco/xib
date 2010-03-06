@@ -246,6 +246,7 @@ class IRC:
                             if c.real_nickname == self.bot.nickname:
                                 self.bot.restart()
                             else:
+                                c.disconnect(volontary=True)
                                 c.connect()
                     c.lock.release()
 
