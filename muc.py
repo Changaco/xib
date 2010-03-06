@@ -154,7 +154,10 @@ class muc:
 		self.xmpp_c.lock.acquire()
 		self.auto_reconnect = False
 		s = xmpp.protocol.Presence(to=self.jid, typ='unavailable', status=message)
-		self._send(s)
+		try:
+			self._send(s)
+		except self.NotConnected:
+			pass
 		self.connected = False
 		self.xmpp_c.lock.release()
 	
