@@ -292,8 +292,12 @@ class IRC:
                 break
             try:
                 self.process_once(timeout)
-            except ServerNotConnectedError:
-                c = e.args[1]
+            except ServerNotConnectedError as e:
+                if len(e.args) > 0:
+                    c = e.args[0]
+                else:
+                    self.bot.error(say_levels.error, 'Unkonwn exception on IRC thread:\n'+str(e.args))
+                    continue
                 if c.real_nickname == self.bot.nickname:
                     self.bot.restart(message='Lost bot IRC connection')
                 else:
