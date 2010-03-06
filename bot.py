@@ -759,6 +759,19 @@ class Bot(threading.Thread):
 		return'['+str(say_levels.get(importance))+'] '+message
 	
 	
+	def get_bridge(self, **kwargs):
+		"""Calls self.get_bridges and raises exceptions when there are 0 or more than 1 matches
+		
+		See Bot.get_bridges for the list of args"""
+		
+		bridges = self.get_bridges(**kwargs)
+		if len(bridges) == 0:
+			raise Exception, 'no bridge matching '+str(kwargs)
+		elif len(bridges) > 1:
+			raise Exception, 'more than one bridge matching '+str(kwargs)+'\n'+'\n'.join([str(b) for b in bridges])
+		return bridges[0]
+	
+	
 	def get_bridges(self, irc_room=None, irc_server=None, xmpp_room_jid=None):
 		# TODO: lock self.bridges for thread safety
 		bridges = [b for b in self.bridges]
