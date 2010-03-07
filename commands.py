@@ -31,7 +31,7 @@ commands = ['xmpp-participants', 'irc-participants', 'xmpp-connections', 'irc-co
 admin_commands = ['add-bridge', 'add-xmpp-admin', 'change-bridges-mode', 'debug', 'halt', 'remove-bridges', 'restart-bot', 'restart-bridges', 'stop-bot', 'stop-bridges']
 
 def execute(bot, command_line, bot_admin, bridge):
-	command = shlex.split(command_line)
+	command = shlex.split(str(command_line))
 	if len(command) > 1:
 		args_array = command[1:]
 	else:
