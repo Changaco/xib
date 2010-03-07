@@ -127,7 +127,7 @@ class Bridge:
 			self.stop(message='Failed to connect to the XMPP room, stopping bridge')
 	
 	
-	def add_participant(self, from_protocol, nickname, real_jid=None, irc_id=None):
+	def add_participant(self, from_protocol, nickname, real_jid=None):
 		"""Add a participant to the bridge."""
 		if (from_protocol == 'irc' and nickname == self.bot.nickname) or (from_protocol == 'xmpp' and nickname == self.bot.nickname):
 			self.bot.error(3, 'not adding self ('+self.bot.nickname+') to bridge "'+str(self)+'"', debug=True)
@@ -136,8 +136,6 @@ class Bridge:
 			p = self.get_participant(nickname)
 			if p.protocol != from_protocol:
 				if from_protocol == 'irc' and isinstance(p.irc_connection, ServerConnection) and p.irc_connection.logged_in and p.irc_connection.real_nickname == nickname or from_protocol == 'xmpp' and isinstance(p.xmpp_c, xmpp.client.Client) and isinstance(p.muc, xmpp.muc) and p.xmpp_c.nickname == nickname:
-					if irc_id:
-						p.irc_connection.irc_id = irc_id
 					return p
 				p.set_both_sides()
 			return p

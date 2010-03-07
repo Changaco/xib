@@ -770,6 +770,11 @@ class ServerConnection(Connection):
                     if not is_channel(target):
                         command = "umode"
 
+                if command == "join":
+                    self.irc_id = prefix
+                    if DEBUG:
+                        print "irc_id: %s" % (prefix)
+
                 if DEBUG:
                     print "command: %s, source: %s, target: %s, arguments: %s" % (
                         command, prefix, target, arguments)

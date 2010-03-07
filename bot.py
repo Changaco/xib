@@ -666,7 +666,7 @@ class Bot(threading.Thread):
 				return
 			elif event.eventtype() == 'join':
 				bridge = self.get_bridge(irc_room=event.target().lower(), irc_server=connection.server)
-				bridge.add_participant('irc', nickname, irc_id=event.source())
+				bridge.add_participant('irc', nickname)
 				return
 		
 		
