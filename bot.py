@@ -639,6 +639,9 @@ class Bot(threading.Thread):
 			
 			# Part event
 			if event.eventtype() == 'part':
+				if not from_:
+					self.error(say_levels.debug, 'a participant that wasn\'t here left:\n'+event_str)
+					return
 				if len(event.arguments()) > 0:
 					leave_message = event.arguments()[0]
 				else:
@@ -664,8 +667,7 @@ class Bot(threading.Thread):
 			# Mode event
 			if event.eventtype() == 'mode':
 				if len(event.arguments()) < 2:
-					self.error(2, debug_str, debug=True)
-					self.error(say_levels.debug, '2 arguments are needed for a '+event.eventtype()+' event', no_debug_add=event_str)
+					self.error(say_levels.debug, '2 arguments are needed for a '+event.eventtype()+' event\n'+event_str)
 					return
 				if event.arguments()[1] != self.nickname or not 'o' in event.arguments()[0]:
 					self.error(1, 'ignoring IRC mode "'+event.arguments()[0]+'" for "'+event.arguments()[1]+'"', debug=True)
