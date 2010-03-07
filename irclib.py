@@ -769,9 +769,10 @@ class ServerConnection(Connection):
                         command = "umode"
 
                 if command == "join":
-                    self.irc_id = prefix
-                    if DEBUG:
-                        print "irc_id: %s" % (prefix)
+                    if self.irc_id != prefix:
+                        self.irc_id = prefix
+                        if DEBUG:
+                            print "irc_id: %s" % (prefix)
 
                 if DEBUG:
                     print "command: %s, source: %s, target: %s, arguments: %s" % (
