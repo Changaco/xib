@@ -605,13 +605,13 @@ class ServerConnection(Connection):
         return self
 
 
-    def _call_nick_callbacks(self, error):
+    def _call_nick_callbacks(self, error, arguments=[]):
         if len(self.nick_callbacks) == 0:
             self.irclibobj.bot.error(1, 'no nick callback for "'+self.__str__()+'"', debug=True)
         else:
             self.irclibobj.bot.error(1, 'calling '+str(len(self.nick_callbacks))+' nick callback(s) for "'+self.__str__()+'"', debug=True)
             for f in self.nick_callbacks:
-                f(error)
+                f(error, arguments=arguments)
         self.nick_callbacks = []
 
 
@@ -819,7 +819,7 @@ class ServerConnection(Connection):
         """[Internal]"""
         self.irclibobj._handle_event(self, event)
         if event.eventtype() in ['disconnect', 'nicknameinuse', 'nickcollision', 'erroneusnickname', 'nicknametoolong']:
-            self._call_nick_callbacks(event.eventtype())
+            self._call_nick_callbacks(event.eventtype(), arguments=[event])
         if event.eventtype() in self.handlers:
             for fn in self.handlers[event.eventtype()]:
                 fn(self, event)

@@ -75,7 +75,7 @@ class Bridge:
 		self.stop(message='Failed to connect to the IRC chan, stopping bridge', log=False)
 	
 	
-	def _irc_nick_callback(self, error):
+	def _irc_nick_callback(self, error, arguments=None):
 		if not error:
 			if not self.mode:
 				return

@@ -114,7 +114,7 @@ class Participant:
 		self.irc_connection.connect(nick_callback=self._irc_nick_callback)
 	
 	
-	def _irc_nick_callback(self, error):
+	def _irc_nick_callback(self, error, arguments=None):
 		if not error:
 			self.irc_connection.join(self.bridge.irc_room, callback=self._irc_join_callback)
 		
@@ -126,7 +126,7 @@ class Participant:
 				
 				if self.bridge.mode == 'bypass':
 					new_duplicate_nickname = self._get_new_duplicate_nickname()
-					if new_duplicate_nickname != None:
+					if new_duplicate_nickname:
 						self.bridge.bot.error(3, '"'+self.duplicate_nickname+'" is already used or reserved on the IRC server of bridge "'+str(self.bridge)+'", trying "'+new_duplicate_nickname+'"', debug=True)
 						if self.duplicate_nickname == self.nickname:
 							self.bridge.say(say_levels.info, 'The nickname "'+self.duplicate_nickname+'" is used or reserved on the IRC server')
