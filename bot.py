@@ -504,7 +504,6 @@ class Bot(threading.Thread):
 					self.error(1, 'ignoring IRC '+event.eventtype()+' sent by self', debug=True)
 					return
 			
-			# TODO: lock self.bridges for thread safety
 			for bridge in self.bridges:
 				if connection.server != bridge.irc_server:
 					continue
