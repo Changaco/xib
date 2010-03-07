@@ -462,6 +462,7 @@ class ServerConnection(Connection):
         self.port = port
         self.nickname = nickname
         self.nick_callbacks = []
+        self.join_callbacks = {}
         self.lock = threading.RLock()
         self.left_channels = []
 
@@ -614,8 +615,29 @@ class ServerConnection(Connection):
         self.nick_callbacks = []
 
 
+    def _call_join_callbacks(self, channel, error):
+        self.lock.acquire()
+        m = 'channel "'+channel+'" on connection "'+str(self)+'"'
+        if not self.join_callbacks.has_key(channel) or len(self.join_callbacks[channel]) == 0:
+            self.irclibobj.bot.error(1, 'no join callback for '+m, debug=True)
+        else:
+            self.irclibobj.bot.error(1, 'calling '+str(len(self.join_callbacks[channel]))+' join callback(s) for '+m, debug=True)
+            for f in self.join_callbacks[channel]:
+                f(channel, error)
+        self.join_callbacks.pop(channel, None)
+        self.lock.release()
+
+
     def add_nick_callback(self, callback):
         self.nick_callbacks.append(callback)
+
+
+    def add_join_callback(self, channel, callback):
+        self.lock.acquire()
+        if not self.join_callbacks.has_key(channel):
+            self.join_callbacks[channel] = []
+        self.join_callbacks[channel].append(callback)
+        self.lock.release()
 
 
     def close(self, message, volontary=True):
@@ -773,6 +795,15 @@ class ServerConnection(Connection):
                         self.irc_id = prefix
                         if DEBUG:
                             print "irc_id: %s" % (prefix)
+                    channel = target.lower()
+                    if not channel in self.channels:
+                        self.channels.append(channel)
+                        if channel in self.left_channels:
+                            self.left_channels.remove(channel)
+                        self._call_join_callbacks(channel, None)
+
+                if command in ['inviteonlychan', 'bannedfromchan', 'channelisfull', 'badchannelkey']:
+                    self._call_join_callbacks(arguments[0].lower(), command)
 
                 if DEBUG:
                     print "command: %s, source: %s, target: %s, arguments: %s" % (
@@ -882,13 +913,11 @@ class ServerConnection(Connection):
         """
         self.send_raw("ISON " + " ".join(nicks))
 
-    def join(self, channel, key=""):
+    def join(self, channel, callback=None, key=""):
         """Send a JOIN command."""
-        if channel in self.left_channels:
-            self.left_channels.remove(channel)
-        if not channel in self.channels:
-            self.channels.append(channel)
-        if key and not self.channels_keys.has_key(channel):
+        if callback:
+            self.add_join_callback(channel, callback)
+        if key:
             self.channels_keys[channel] = key
         self.send_raw("JOIN %s%s" % (channel, (key and (" " + key))))
 
