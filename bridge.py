@@ -295,6 +295,8 @@ class Bridge:
 				elif left_protocol == 'irc':
 					# got disconnected somehow
 					if isinstance(p.irc_connection, ServerConnection):
+						if p.irc_connection.socket == 'closed':
+							return
 						p.irc_connection.join(self.irc_room)
 					else:
 						c = self.bot.irc.get_connection(self.irc_server, self.irc_port, p.duplicate_nickname)
@@ -315,6 +317,8 @@ class Bridge:
 				if left_protocol == 'irc':
 					was_on_both = False
 				elif left_protocol == 'xmpp':
+					if isinstance(p.muc, xmpp.muc) and not xmpp.muc.connected:
+						return
 					# got disconnected somehow
 					if isinstance(p.xmpp_c, xmpp.client.Client):
 						self.bot.reopen_xmpp_connection(p.xmpp_c)
