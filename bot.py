@@ -465,9 +465,8 @@ class Bot(threading.Thread):
 		
 		
 		nickname = None
-		if event.source() != None:
-			if '!' in event.source():
-				nickname = event.source().split('!')[0]
+		if event.source() and '!' in event.source():
+			nickname = event.source().split('!')[0]
 		
 		
 		# A string representation of the event
