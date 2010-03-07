@@ -308,10 +308,10 @@ class Participant:
 		if isinstance(self.irc_connection, ServerConnection):
 			self.irc_connection.privmsg(to, message)
 		elif not isinstance(self.xmpp_c, xmpp.client.Client):
-			if self.bridge.mode != 'normal':
-				self.bridge.get_participant(to).say_on_xmpp_to(self.nickname, 'Sorry but cross-protocol private messages are disabled in '+self.bridge.mode+' mode.')
+			if self.bridge.mode not in ['normal', 'bypass']:
+				self.bridge.get_participant(to).say_on_xmpp_to(self.nickname, 'XIB error: Sorry but cross-protocol private messages are disabled in '+self.bridge.mode+' mode.')
 			else:
-				self.bridge.get_participant(to).say_on_xmpp_to(self.nickname, 'Sorry but you cannot send cross-protocol private messages because I don\'t have an IRC duplicate with your nickname.')
+				self.bridge.get_participant(to).say_on_xmpp_to(self.nickname, 'XIB error: Sorry but you cannot send cross-protocol private messages because I don\'t have an IRC duplicate with your nickname.')
 	
 	
 	def say_on_xmpp(self, message, action=False):
@@ -321,14 +321,14 @@ class Participant:
 			self.bridge.say_on_behalf(self.nickname, message, 'xmpp', action=action)
 	
 	
-	def say_on_xmpp_to(self, to, message):
+	def say_on_xmpp_to(self, to, message, action=False):
 		if isinstance(self.xmpp_c, xmpp.client.Client):
-			self.muc.say_to(to, message)
+			self.muc.say_to(to, message, action=action)
 		elif not isinstance(self.irc_connection, ServerConnection):
-			if self.bridge.mode != 'normal':
-				self.bridge.get_participant(to).say_on_xmpp_to(self.nickname, 'Sorry but cross-protocol private messages are disabled in '+self.bridge.mode+' mode.')
+			if self.bridge.mode not in ['normal', 'bypass']:
+				self.bridge.get_participant(to).say_on_xmpp_to(self.nickname, 'XIB error: Sorry but cross-protocol private messages are disabled in '+self.bridge.mode+' mode.')
 			else:
-				self.bridge.get_participant(to).say_on_xmpp_to(self.nickname, 'Sorry but you cannot send cross-protocol private messages because I don\'t have an XMPP duplicate with your nickname.')
+				self.bridge.get_participant(to).say_on_xmpp_to(self.nickname, 'XIB error: Sorry but you cannot send cross-protocol private messages because I don\'t have an XMPP duplicate with your nickname.')
 	
 	
 	def leave(self, message):

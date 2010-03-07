@@ -130,9 +130,11 @@ class muc:
 		self.xmpp_c.lock.release()
 	
 	
-	def say_to(self, to, message):
+	def say_to(self, to, message, action=False):
 		"""Send a private message"""
 		self.xmpp_c.lock.acquire()
+		if action:
+			message = '/me '+message
 		s = xmpp.protocol.Message(to=self.room_jid+'/'+to, typ='chat', body=message)
 		self._send(s)
 		self.xmpp_c.lock.release()
