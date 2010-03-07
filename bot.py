@@ -464,138 +464,74 @@ class Bot(threading.Thread):
 			return
 		
 		
-		nickname = None
+		source_nickname = None
 		if event.source() and '!' in event.source():
-			nickname = event.source().split('!')[0]
+			source_nickname = event.source().split('!')[0]
 		
 		
 		# A string representation of the event
 		event_str = '\nconnection='+connection.__str__()+'\neventtype='+event.eventtype()+'\nsource='+repr(event.source())+'\ntarget='+repr(event.target())+'\narguments='+repr(event.arguments())
 		debug_str = 'Received IRC event.'+event_str
-		printed_event = False
 		
+		handled = False
 		
-		if event.eventtype() in ['pubmsg', 'action', 'privmsg', 'quit', 'part', 'nick', 'kick']:
-			if nickname == None:
+		# Private message
+		if event.eventtype() in ['privmsg', 'action']:
+			
+			if event.target() == self.nickname:
+				# message is for the bot
+				connection.privmsg(source_nickname, self.respond(event.arguments()[0]))
 				return
 			
-			handled = False
-			
-			if event.eventtype() in ['quit', 'part'] and nickname == self.nickname:
-				return
-			
-			if event.eventtype() in ['quit', 'part', 'nick', 'kick']:
-				if connection.real_nickname != self.nickname:
-					self.error(1, 'ignoring IRC '+event.eventtype()+' not received on bot connection', debug=True)
-					return
-				else:
-					self.error(2, debug_str, debug=True)
-					printed_event = True
-			
-			if event.eventtype() == 'kick' and len(event.arguments()) < 1:
-				self.error(say_levels.debug, 'at least 1 argument is needed for a '+event.eventtype()+' event', no_debug_add=event_str)
-				return
-			
-			if event.eventtype() in ['pubmsg', 'action']:
-				if connection.real_nickname != self.nickname:
-					self.error(1, 'ignoring IRC '+event.eventtype()+' not received on bot connection', debug=True)
-					return
-				if nickname == self.nickname:
-					self.error(1, 'ignoring IRC '+event.eventtype()+' sent by self', debug=True)
-					return
-			
-			for bridge in self.bridges:
-				if connection.server != bridge.irc_server:
-					continue
-				
-				try:
-					from_ = bridge.get_participant(nickname)
-					
-				except Bridge.NoSuchParticipantException:
-					continue
-				
-				
-				# Private message
-				if event.eventtype() == 'privmsg':
-					if event.target() == None:
-						return
-					
+			elif not irclib.is_channel(event.target()[0]):
+				# search if the IRC user who sent the message is in one of the bridges
+				for bridge in self.iter_bridges(irc_server=connection.server):
 					try:
-						to_ = bridge.get_participant(event.target().split('!')[0])
-						self.error(2, debug_str, debug=True)
-						from_.say_on_xmpp_to(to_.nickname, event.arguments()[0])
-						return
-						
-					except Bridge.NoSuchParticipantException:
-						if event.target().split('!')[0] == self.nickname:
-							# Message is for the bot
-							self.error(2, debug_str, debug=True)
-							connection.privmsg(from_.nickname, self.respond(event.arguments()[0]))
-							return
-						else:
-							continue
-				
-				
-				# kick handling
-				if event.eventtype() == 'kick':
-					if event.target().lower() == bridge.irc_room:
-						try:
-							kicked = bridge.get_participant(event.arguments()[0])
-							if isinstance(kicked.irc_connection, irclib.ServerConnection):
-								kicked.irc_connection.join(bridge.irc_room)
-							else:
-								if len(event.arguments()) > 1:
-									bridge.remove_participant('irc', kicked.nickname, 'Kicked by '+nickname+' with reason: '+event.arguments()[1])
-								else:
-									bridge.remove_participant('irc', kicked.nickname, 'Kicked by '+nickname+' (no reason was given)')
-							return
-						except Bridge.NoSuchParticipantException:
-							self.error(say_levels.debug, 'a participant that was not here has been kicked ? WTF ?', no_debug_add=event_str)
-							return
-					else:
-						continue
-				
-				
-				# Leaving events
-				if event.eventtype() == 'quit' or event.eventtype() == 'part' and event.target().lower() == bridge.irc_room:
-					if len(event.arguments()) > 0:
-						leave_message = event.arguments()[0]
-					elif event.eventtype() == 'quit':
-						leave_message = 'Left server.'
-					elif event.eventtype() == 'part':
-						leave_message = 'Left channel.'
-					else:
-						leave_message = ''
-					bridge.remove_participant('irc', from_.nickname, leave_message)
-					handled = True
-					continue
-				
-				
-				# Nickname change
-				if event.eventtype() == 'nick':
-					from_.change_nickname(event.target(), 'xmpp')
-					handled = True
-					continue
-				
-				
-				# Chan message
-				if event.eventtype() in ['pubmsg', 'action']:
-					if bridge.irc_room == event.target().lower() and bridge.irc_server == connection.server:
-						self.error(2, debug_str, debug=True)
-						message = event.arguments()[0]
+						from_ = bridge.get_participant(source_nickname)
+						# he is, forward the message on XMPP
 						if event.eventtype() == 'action':
 							action = True
 						else:
 							action = False
-						from_.say_on_xmpp(message, action=action)
+						from_.say_on_xmpp_to(connection.nickname, event.arguments()[0], action=action)
 						return
-					else:
+					except Bridge.NoSuchParticipantException:
 						continue
+				
+				# he isn't, send an error
+				connection.privmsg(source_nickname, 'XIB error: you cannot send a private message to an XMPP user if you are not in one of the chans he is in')
+		
+		
+		# Server events
+		if event.eventtype() in ['quit', 'nick']:
+			for bridge in self.iter_bridges(irc_server=connection.server):
+				
+				try:
+					from_ = bridge.get_participant(source_nickname)
+				except Bridge.NoSuchParticipantException:
+					continue
+				
+				handled = True
+				
+				# Quit event
+				if event.eventtype() == 'quit':
+					if len(event.arguments()) > 0:
+						leave_message = event.arguments()[0]
+					else:
+						leave_message = 'Left server.'
+					bridge.remove_participant('irc', from_.nickname, leave_message)
+					continue
+				
+				# Nickname change
+				if event.eventtype() == 'nick':
+					from_.change_nickname(event.target(), 'xmpp')
+					continue
 			
 			if handled:
 				return
 		
 		
+		# Connection errors
 		if event.eventtype() in ['disconnect', 'kill', 'error']:
 			if len(event.arguments()) > 0 and event.arguments()[0] == 'Connection reset by peer':
 				self.error(2, debug_str, debug=True)
@@ -607,6 +543,7 @@ class Bot(threading.Thread):
 		# Chan errors
 		if event.eventtype() in ['cannotsendtochan', 'notonchannel']:
 			self.error(2, debug_str, debug=True)
+			
 			bridge = self.get_bridge(irc_room=event.arguments()[0], irc_server=connection.server)
 			
 			if event.eventtype() == 'cannotsendtochan':
@@ -633,53 +570,120 @@ class Bot(threading.Thread):
 			return
 		
 		
-		# Joining events
-		if event.eventtype() in ['namreply', 'join']:
-			if event.eventtype() == 'namreply':
-				bridge = self.get_bridge(irc_room=event.arguments()[1].lower(), irc_server=connection.server)
-				for nickname in re.split('(?:^[&@\+%]?|(?: [&@\+%]?)*)', event.arguments()[2].strip()):
-					if nickname == '' or nickname == self.nickname:
-						continue
-					bridge.add_participant('irc', nickname)
+		# Chan events
+		if event.eventtype() in ['pubmsg', 'action', 'part', 'kick', 'mode', 'join']:
+			
+			if event.eventtype() in ['pubmsg', 'action', 'part', 'kick'] and not source_nickname:
+				self.error(say_levels.debug, 'a source is needed for a '+event.eventtype()+' event', no_debug_add=event_str)
 				return
-			elif event.eventtype() == 'join':
-				bridge = self.get_bridge(irc_room=event.target().lower(), irc_server=connection.server)
+			
+			if event.eventtype() == 'kick' and len(event.arguments()) == 0:
+				self.error(say_levels.debug, 'at least 1 argument is needed for a '+event.eventtype()+' event', no_debug_add=event_str)
+				return
+			
+			bridge = self.get_bridge(irc_room=event.target().lower(), irc_server=connection.server)
+			
+			try:
+				from_ = bridge.get_participant(source_nickname)
+			except Bridge.NoSuchParticipantException:
+				from_ = None
+			
+			
+			# Join event
+			if event.eventtype() == 'join':
+				bridge.add_participant('irc', source_nickname)
+				return
+			
+			
+			# kick handling
+			if event.eventtype() == 'kick':
+				try:
+					kicked = bridge.get_participant(event.arguments()[0])
+				except Bridge.NoSuchParticipantException:
+					self.error(2, debug_str, debug=True)
+					self.error(say_levels.debug, 'a participant that was not here has been kicked ? WTF ?', no_debug_add=event_str)
+					return
+				
+				leave_message = 'kicked by '+nickname
+				if len(event.arguments()) > 1:
+					leave_message += ' with reason: '+event.arguments()[1]
+				else:
+					leave_message += ' (no reason was given)'
+				log_message = '"'+kicked.nickname+'" has been '+leave_message
+				
+				self.error(say_levels.warning, log_message)
+				
+				if isinstance(kicked.irc_connection, irclib.ServerConnection):
+					# an IRC duplicate of an XMPP user has been kicked, auto-rejoin
+					kicked.irc_connection.join(bridge.irc_room)
+				elif isinstance(kicked.xmpp_c, xmpp.client.Client):
+					# an IRC user has been kicked, make its duplicate leave
+					kicked.leave(m)
+				else:
+					# an IRC user with no duplicate on XMPP has been kicked, say it on XMPP
+					bridge.say(say_levels.warning, log_message, on_irc=False)
+				return
+			
+			
+			# Part event
+			if event.eventtype() == 'part':
+				if len(event.arguments()) > 0:
+					leave_message = event.arguments()[0]
+				else:
+					leave_message = 'Left channel.'
+				bridge.remove_participant('irc', from_.nickname, leave_message)
+				return
+			
+			
+			# Chan message
+			if event.eventtype() in ['pubmsg', 'action']:
+				message = event.arguments()[0]
+				if event.eventtype() == 'action':
+					action = True
+				else:
+					action = False
+				if isinstance(from_, Participant):
+					from_.say_on_xmpp(message, action=action)
+				else:
+					bridge.say_on_behalf(source_nickname, message, action=action)
+				return
+			
+			
+			# Mode event
+			if event.eventtype() == 'mode':
+				if len(event.arguments()) < 2:
+					self.error(2, debug_str, debug=True)
+					self.error(say_levels.debug, '2 arguments are needed for a '+event.eventtype()+' event', no_debug_add=event_str)
+					return
+				if event.arguments()[1] != self.nickname or not 'o' in event.arguments()[0]:
+					self.error(1, 'ignoring IRC mode "'+event.arguments()[0]+'" for "'+event.arguments()[1]+'"', debug=True)
+					return
+				bridge = self.get_bridge(irc_room=event.target(), irc_server=connection.server)
+				if re.search('\+[^\-]*o', event.arguments()[0]):
+					# bot is channel operator
+					bridge.irc_op = True
+					self.error(say_levels.notice, 'bot has IRC operator privileges in '+event.target())
+				elif re.search('\-[^\+]*o', event.arguments()[0]):
+					# bot lost channel operator privileges
+					if bridge.irc_op:
+						self.error(say_levels.notice, 'bot lost IRC operator privileges in '+event.target(), send_to_admins=True)
+					bridge.irc_op = False
+				return
+		
+		
+		# Namreply event
+		if event.eventtype() == 'namreply':
+			bridge = self.get_bridge(irc_room=event.arguments()[1].lower(), irc_server=connection.server)
+			for nickname in re.split('(?:^[&@\+%]?|(?: [&@\+%]?)*)', event.arguments()[2].strip()):
+				if nickname == '' or nickname == self.nickname:
+					continue
 				bridge.add_participant('irc', nickname)
-				return
-		
-		
-		# Mode event
-		if event.eventtype() == 'mode':
-			if len(event.arguments()) < 2:
-				self.error(2, debug_str, debug=True)
-				self.error(1, '2 arguments are needed for a '+event.eventtype()+' event', debug=True)
-				return
-			if event.arguments()[1] != self.nickname or not 'o' in event.arguments()[0]:
-				self.error(1, 'ignoring IRC mode "'+event.arguments()[0]+'" for "'+event.arguments()[1]+'"', debug=True)
-				return
-			self.error(2, debug_str, debug=True)
-			bridges = self.iter_bridges(irc_room=event.target(), irc_server=connection.server)
-			if len(bridges) > 1:
-				raise Exception, 'more than one bridge for one irc chan, WTF ?'
-			bridge = bridges[0]
-			if re.search('\+[^\-]*o', event.arguments()[0]):
-				# bot is channel operator
-				bridge.irc_op = True
-				self.error(say_levels.notice, 'bot has IRC operator privileges in '+event.target())
-			elif re.search('\-[^\+]*o', event.arguments()[0]):
-				# bot lost channel operator privileges
-				if bridge.irc_op:
-					self.error(say_levels.notice, 'bot lost IRC operator privileges in '+event.target(), send_to_admins=True)
-				bridge.irc_op = False
 			return
 		
 		
 		# Unhandled events
-		if not printed_event:
-			self.error(say_levels.debug, 'The following IRC event was not handled:'+event_str+'\n', send_to_admins=True)
-		else:
-			self.error(1, 'event not handled', debug=True)
-			self._send_message_to_admins(say_levels.debug, 'The following IRC event was not handled:'+event_str)
+		self.error(1, 'event not handled', debug=True)
+		self._send_message_to_admins(say_levels.debug, 'The following IRC event was not handled:'+event_str)
 	
 	
 	def _send_message_to_admins(self, importance, message):
