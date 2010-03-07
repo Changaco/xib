@@ -459,7 +459,7 @@ class Bot(threading.Thread):
 		# Events we always want to ignore
 		if 'all' in event.eventtype() or 'motd' in event.eventtype() or event.eventtype() in ['nicknameinuse', 'nickcollision', 'erroneusnickname']:
 			return
-		if event.eventtype() in ['pong', 'privnotice', 'ctcp', 'nochanmodes', 'notexttosend', 'currenttopic', 'topicinfo', '328', 'pubnotice', '042', 'umode', 'welcome', 'yourhost', 'created', 'myinfo', 'featurelist', 'luserclient', 'luserop', 'luserchannels', 'luserme', 'n_local', 'n_global', 'endofnames', 'luserunknown', 'luserconns']:
+		if event.eventtype() in ['pong', 'privnotice', 'ctcp', 'nochanmodes', 'notexttosend', 'currenttopic', 'topicinfo', '328', 'pubnotice', '042', 'umode', 'welcome', 'yourhost', 'created', 'myinfo', 'featurelist', 'luserclient', 'luserop', 'luserchannels', 'luserme', 'n_local', 'n_global', 'endofnames', 'luserunknown', 'luserconns', 'inviteonlychan', 'bannedfromchan', 'channelisfull', 'badchannelkey']:
 			self.error(1, 'ignoring IRC '+event.eventtype(), debug=True)
 			return
 		
@@ -597,35 +597,6 @@ class Bot(threading.Thread):
 				return
 		
 		
-		# Handle bannedfromchan
-		if event.eventtype() == 'bannedfromchan':
-			if len(event.arguments()) < 1:
-				self.error(1, 'length of arguments should be greater than 0 for a '+event.eventtype()+' event', debug=True)
-				return
-			
-			for bridge in self.bridges:
-				if connection.server != bridge.irc_server or event.arguments()[0].lower() != bridge.irc_room:
-					continue
-				
-				if event.target() == self.nickname:
-					self.error(say_levels.error, 'the nickname "'+event.target()+'" is banned from the IRC chan of bridge "'+str(bridge)+'"')
-					raise Exception('[Error] the nickname "'+event.target()+'" is banned from the IRC chan of bridge "'+str(bridge)+'"')
-				else:
-					try:
-						banned = bridge.get_participant(event.target())
-						if banned.irc_connection != 'bannedfromchan':
-							banned.irc_connection = 'bannedfromchan'
-							self.error(2, debug_str, debug=True)
-							bridge.say(say_levels.warning, 'the nickname "'+event.target()+'" is banned from the IRC chan', log=True)
-						else:
-							self.error(1, 'ignoring '+event.eventtype(), debug=True)
-					except Bridge.NoSuchParticipantException:
-						self.error(1, 'no such participant. WTF ?', debug=True)
-						return
-			
-			return
-		
-		
 		if event.eventtype() in ['disconnect', 'kill', 'error']:
 			if len(event.arguments()) > 0 and event.arguments()[0] == 'Connection reset by peer':
 				self.error(2, debug_str, debug=True)
@@ -634,18 +605,26 @@ class Bot(threading.Thread):
 			return
 		
 		
-		if event.eventtype() in ['cannotsendtochan', 'notonchannel', 'inviteonlychan']:
+		# Chan errors
+		if event.eventtype() in ['cannotsendtochan', 'notonchannel']:
 			self.error(2, debug_str, debug=True)
-			bridges = self.iter_bridges(irc_room=event.arguments()[0], irc_server=connection.server)
-			if len(bridges) > 1:
-				raise Exception, 'more than one bridge for one irc chan, WTF ?'
-			bridge = bridges[0]
-			if connection.real_nickname == self.nickname:
-				bridge._join_irc_failed(event.eventtype())
-			else:
-				p = bridge.get_participant(connection.real_nickname)
-				p._close_irc_connection('')
-				p.irc_connection = event.eventtype()
+			bridge = self.get_bridge(irc_room=event.arguments()[0], irc_server=connection.server)
+			
+			if event.eventtype() == 'cannotsendtochan':
+				if connection.real_nickname == self.nickname:
+					bridge._join_irc_failed(event.eventtype())
+				else:
+					p = bridge.get_participant(connection.real_nickname)
+					p._close_irc_connection(event.eventtype())
+					p.irc_connection = event.eventtype()
+			
+			elif event.eventtype() == 'notonchannel':
+				if connection.real_nickname == self.nickname:
+					bridge.restart(message='Restarting bridge because we received the IRC event '+event.eventtype())
+				else:
+					p = bridge.get_participant(connection.real_nickname)
+					p.irc_connection.join(bridge.irc_room)
+			
 			return
 		
 		
