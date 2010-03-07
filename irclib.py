@@ -726,18 +726,6 @@ class ServerConnection(Connection):
             if command in numeric_events:
                 command = numeric_events[command]
 
-            if command in ["nick", "welcome"]:
-                self.logged_in = True
-                self.real_nickname = arguments[0]
-                if self.new_nickname != arguments[0]:
-                    if len(self.new_nickname) > len(arguments[0]):
-                        self._handle_event(Event('nicknametoolong', None, None, None))
-                    else:
-                        self._handle_event(Event('erroneusnickname', None, None, None))
-                else:
-                    self._call_nick_callbacks(None)
-                self.new_nickname = None
-
             if command in ["privmsg", "notice"]:
                 target, message = arguments[0], arguments[1]
                 messages = _ctcp_dequote(message)
@@ -789,6 +777,19 @@ class ServerConnection(Connection):
                 if command == "mode":
                     if not is_channel(target):
                         command = "umode"
+
+                if command in ["nick", "welcome"]:
+                    self.logged_in = True
+                    self.real_nickname = target
+                    if self.new_nickname:
+                        if self.new_nickname != target:
+                            if len(self.new_nickname) > len(target):
+                                self._handle_event(Event('nicknametoolong', None, None, None))
+                            else:
+                                self._handle_event(Event('erroneusnickname', None, None, None))
+                        else:
+                            self._call_nick_callbacks(None)
+                        self.new_nickname = None
 
                 if command == "join":
                     if self.irc_id != prefix:
