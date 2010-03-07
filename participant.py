@@ -115,13 +115,8 @@ class Participant:
 	
 	
 	def _irc_nick_callback(self, error):
-		if error == None:
-			self.irc_connection.join(self.bridge.irc_room)
-			m = '"'+self.nickname+'" duplicate succesfully created on IRC side of bridge "'+str(self.bridge)+'"'
-			if self.nickname != self.duplicate_nickname:
-				m += ' using nickname "'+self.duplicate_nickname+'"'
-				self.bridge.say(say_levels.info, '"'+self.nickname+'" will appear as "'+self.duplicate_nickname+'" on IRC because its real nickname is reserved or contains unauthorized characters')
-			self.bridge.bot.error(3, m, debug=True)
+		if not error:
+			self.irc_connection.join(self.bridge.irc_room, callback=self._irc_join_callback)
 		
 		elif self.irc_connection != 'both':
 			
@@ -165,6 +160,19 @@ class Participant:
 			if isinstance(self.irc_connection, ServerConnection):
 				self.irc_connection.close('')
 				self.irc_connection = error
+	
+	
+	def _irc_join_callback(self, channel, error):
+		if not error:
+			m = '"'+self.nickname+'" duplicate succesfully joined IRC side of bridge "'+str(self.bridge)+'"'
+			if self.nickname != self.duplicate_nickname:
+				m += ' using nickname "'+self.duplicate_nickname+'"'
+				self.bridge.say(say_levels.info, '"'+self.nickname+'" will appear as "'+self.duplicate_nickname+'" on IRC because its real nickname is reserved or contains unauthorized characters')
+			self.bridge.bot.error(3, m, debug=True)
+		
+		elif self.irc_connection != 'both':
+			self._close_irc_connection('')
+			self.irc_connection = error
 	
 	
 	def set_both_sides(self):

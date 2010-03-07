@@ -76,14 +76,11 @@ class Bridge:
 	
 	
 	def _irc_nick_callback(self, error):
-		if error == None:
-			if self.mode == None:
+		if not error:
+			if not self.mode:
 				return
-			self.irc_connection.join(self.irc_room)
-			self.bot.error(3, 'successfully connected on IRC side of bridge "'+str(self)+'"', debug=True)
-			self.say(say_levels.notice, 'bridge "'+str(self)+'" is running in '+self.mode+' mode', on_xmpp=False)
-			if self.mode not in ['normal', 'bypass']:
-				self.show_participants_list_on(protocols=['irc'])
+			self.irc_connection.join(self.irc_room, callback=self._irc_join_callback)
+		
 		else:
 			self.mode = None
 			self.say(say_levels.error, 'failed to connect to the IRC chan, leaving ...', on_irc=False)
@@ -96,6 +93,17 @@ class Bridge:
 			else:
 				reason = error
 			self._join_irc_failed(reason)
+	
+	
+	def _irc_join_callback(self, channel, error):
+		if not error:
+			self.bot.error(3, 'successfully joined IRC side of bridge "'+str(self)+'"', debug=True)
+			self.say(say_levels.notice, 'bridge "'+str(self)+'" is running in '+self.mode+' mode', on_xmpp=False)
+			if self.mode not in ['normal', 'bypass']:
+				self.show_participants_list_on(protocols=['irc'])
+		
+		else:
+			self._join_irc_failed(error)
 	
 	
 	def _RemoteServerNotFound_handler(self):
@@ -130,7 +138,6 @@ class Bridge:
 	def add_participant(self, from_protocol, nickname, real_jid=None):
 		"""Add a participant to the bridge."""
 		if (from_protocol == 'irc' and nickname == self.bot.nickname) or (from_protocol == 'xmpp' and nickname == self.bot.nickname):
-			self.bot.error(3, 'not adding self ('+self.bot.nickname+') to bridge "'+str(self)+'"', debug=True)
 			return
 		try:
 			p = self.get_participant(nickname)
