@@ -283,7 +283,7 @@ class Bot(threading.Thread):
 						if item and item.has_attr('jid'):
 							real_jid = item.getAttr('jid')
 						
-						p = bridge.add_participant('xmpp', resource, real_jid)
+						p = bridge.add_participant('xmpp', resource, real_jid=real_jid)
 						
 						# if we have the real jid check if the participant is a bot admin
 						if real_jid and isinstance(p, Participant):
@@ -321,35 +321,45 @@ class Bot(threading.Thread):
 		if message.getBody() == None:
 			return
 		
+		
+		# Private message
 		if message.getType() == 'chat':
 			from_bare_jid = unicode(message.getFrom().getNode()+'@'+message.getFrom().getDomain())
-			for bridge in self.bridges:
-				if from_bare_jid == bridge.xmpp_room_jid:
-					# message comes from a room participant
-					
-					self.error(2, 'Received XMPP chat message.\n'+message.__str__(fancy=1), debug=True)
-					
-					try:
-						from_ = bridge.get_participant(message.getFrom().getResource())
-						to_ = bridge.get_participant(xmpp_c.nickname)
-						
-						from_.say_on_irc_to(to_.nickname, message.getBody())
-						
-					except Bridge.NoSuchParticipantException:
-						if xmpp_c.nickname == self.nickname:
-							r = self.respond(str(message.getBody()), participant=from_)
-							if isinstance(r, basestring) and len(r) > 0:
-								s = xmpp.protocol.Message(to=message.getFrom(), body=r, typ='chat')
-								self.error(2, 'Sending\n'+s.__str__(fancy=1), debug=True)
-								xmpp_c.send(s)
-							else:
-								self.error(1, 'won\'t answer.', debug=True)
-							return
-						self.error(say_levels.debug, 'XMPP chat message not relayed', no_debug_add='\n'+message.__str__(fancy=1))
-						return
 			
-			# message does not come from a room
-			if xmpp_c.nickname == self.nickname:
+			try:
+				bridge = self.get_bridge(xmpp_room_jid=from_bare_jid)
+			except KeyError:
+				bridge = None
+			
+			if bridge:
+				# message comes from a room participant
+				self.error(2, 'Received XMPP chat message.\n'+message.__str__(fancy=1), debug=True)
+				
+				try:
+					from_ = bridge.get_participant(message.getFrom().getResource())
+					to_ = bridge.get_participant(xmpp_c.nickname)
+					
+					from_.say_on_irc_to(to_.nickname, message.getBody())
+					
+				except Bridge.NoSuchParticipantException:
+					if xmpp_c.nickname == self.nickname:
+						r = self.respond(str(message.getBody()), participant=from_)
+						if isinstance(r, basestring) and len(r) > 0:
+							s = xmpp.protocol.Message(to=message.getFrom(), body=r, typ='chat')
+							self.error(2, 'Sending\n'+s.__str__(fancy=1), debug=True)
+							xmpp_c.send(s)
+						else:
+							self.error(1, 'won\'t answer.', debug=True)
+						return
+					self.error(say_levels.debug, 'XMPP chat message not relayed', no_debug_add='\n'+message.__str__(fancy=1))
+					return
+			
+			else:
+				# message does not come from a room participant
+				if xmpp_c.nickname != self.nickname:
+					self.error(1, 'Ignoring XMPP chat message not received on bot connection.', debug=True)
+					return
+				
 				self.error(2, 'Received XMPP chat message.\n'+message.__str__(fancy=1), debug=True)
 				
 				# Find out if the message comes from a bot admin
@@ -365,12 +375,10 @@ class Bot(threading.Thread):
 					s = xmpp.protocol.Message(to=message.getFrom(), body=r, typ='chat')
 					self.error(2, 'Sending\n'+s.__str__(fancy=1), debug=True)
 					xmpp_c.send(s)
-			
-			else:
-				self.error(1, 'Ignoring XMPP chat message not received on bot connection.', debug=True)
 		
+		
+		# MUC message
 		elif message.getType() == 'groupchat':
-			# message comes from a room
 			
 			for child in message.getChildren():
 				if child.getName() == 'delay':
@@ -381,68 +389,72 @@ class Bot(threading.Thread):
 				self.error(1, 'Ignoring XMPP MUC message not received on bot connection.', debug=True)
 				return
 			
-			
 			from_ = xmpp.protocol.JID(message.getFrom())
 			
-			if unicode(from_.getResource()) == self.nickname:
+			resource = unicode(from_.getResource())
+			
+			if resource == self.nickname:
 				self.error(1, 'Ignoring XMPP MUC message sent by self.', debug=True)
 				return
 			
 			room_jid = unicode(from_.getNode()+'@'+from_.getDomain())
-			for bridge in self.bridges:
-				if room_jid == bridge.xmpp_room_jid:
-					resource = unicode(from_.getResource())
-					if resource == '':
-						# message comes from the room itself
-						self.error(1, 'Ignoring XMPP groupchat message sent by the room.', debug=True)
-						return
-					else:
-						# message comes from a participant of the room
-						self.error(2, 'Received XMPP groupchat message.\n'+message.__str__(fancy=1), debug=True)
-						
-						try:
-							participant = bridge.get_participant(resource)
-						except Bridge.NoSuchParticipantException:
-							if resource != self.nickname:
-								self.error(say_levels.debug, 'NoSuchParticipantException "'+resource+'" on "'+str(bridge)+'", WTF ?', no_debug_add='\n'+message.__str__(fancy=1))
-							return
-						
-						participant.say_on_irc(message.getBody())
-						return
-		
-		elif message.getType() == 'error':
-			for b in self.bridges:
-				if message.getFrom() == b.xmpp_room_jid:
-					# message comes from a room
-					for c in message.getChildren():
-						if c.getName() == 'error':
-							for cc in c.getChildren():
-								if cc.getNamespace() == 'urn:ietf:params:xml:ns:xmpp-stanzas' and cc.getName() != 'text':
-									err = cc.getName()
-									if err in ['not-acceptable', 'not-allowed']:
-										# we sent a message to a room we are not in
-										# can be due to a MUC server restart
-										# can be a concurrency bug
-										if xmpp_c.nickname == self.nickname:
-											b.restart(message='Automatic restart of bridge')
-										else:
-											try:
-												p = b.get_participant(xmpp_c.nickname)
-												p.say_on_XMPP_through_bridge(message.getBody())
-											except Bridge.NoSuchParticipantException:
-												b.restart(message='Automatic restart of bridge')
-										
-									elif err == 'forbidden':
-										# we don't have the permission to speak
-										# let's remove the bridge and tell admins
-										self.error(say_levels.error, 'Not allowed to speak on the XMPP MUC of bridge '+str(b)+', stopping it', send_to_admins=True)
-										b.stop(message='Not allowed to speak on the XMPP MUC, stopping the bridge')
-									else:
-										self.error(say_levels.debug, 'recevied unknown error message\n'+message.__str__(fancy=1))
-					return
+			bridge = self.get_bridge(xmpp_room_jid=room_jid)
 			
-			self.error(say_levels.debug, 'received unknown error message\n'+message.__str__(fancy=1))
+			if resource == '':
+				# message comes from the room itself
+				self.error(1, 'Ignoring XMPP groupchat message sent by the room.', debug=True)
+				return
+			else:
+				# message comes from a participant of the room
+				self.error(2, 'Received XMPP groupchat message.\n'+message.__str__(fancy=1), debug=True)
+				
+				try:
+					participant = bridge.get_participant(resource)
+					participant.say_on_irc(message.getBody())
+				except Bridge.NoSuchParticipantException:
+					bridge.say_on_behalf(resource, message.getBody(), 'irc', action=(message.getBody()[:4] == '/me '))
+				
+				return
 		
+		
+		# Error message
+		elif message.getType() == 'error':
+			try:
+				b = self.get_bridge(xmpp_room_jid=message.getFrom())
+			except KeyError:
+				self.error(say_levels.debug, 'received unknown error message\n'+message.__str__(fancy=1))
+				return
+			
+			for c in message.getChildren():
+				if c.getName() == 'error':
+					for cc in c.getChildren():
+						if cc.getNamespace() == 'urn:ietf:params:xml:ns:xmpp-stanzas' and cc.getName() != 'text':
+							err = cc.getName()
+							if err in ['not-acceptable', 'not-allowed']:
+								# we sent a message to a room we are not in
+								# can be due to a MUC server restart
+								# can be a concurrency bug
+								if xmpp_c.nickname == self.nickname:
+									b.restart(message='Automatic restart of bridge')
+								else:
+									try:
+										p = b.get_participant(xmpp_c.nickname)
+										p.say_on_XMPP_through_bridge(message.getBody())
+									except Bridge.NoSuchParticipantException:
+										b.restart(message='Automatic restart of bridge')
+								
+							elif err == 'forbidden':
+								# we don't have the permission to speak
+								# let's remove the bridge and tell admins
+								self.error(say_levels.error, 'Not allowed to speak on the XMPP MUC of bridge '+str(b)+', stopping it', send_to_admins=True)
+								b.stop(message='Not allowed to speak on the XMPP MUC, stopping the bridge')
+							else:
+								self.error(say_levels.debug, 'recevied unknown error message\n'+message.__str__(fancy=1))
+			
+			return
+		
+		
+		# Unknown message type
 		else:
 			self.error(say_levels.debug, 'Received XMPP message of unknown type "'+str(message.getType())+'".\n'+message.__str__(fancy=1))
 	
@@ -645,7 +657,7 @@ class Bot(threading.Thread):
 				if isinstance(from_, Participant):
 					from_.say_on_xmpp(message, action=action)
 				else:
-					bridge.say_on_behalf(source_nickname, message, action=action)
+					bridge.say_on_behalf(source_nickname, message, 'xmpp', action=action)
 				return
 			
 			
@@ -720,7 +732,7 @@ class Bot(threading.Thread):
 		
 		bridges = [b for b in self.iter_bridges(**kwargs)]
 		if len(bridges) == 0:
-			raise Exception, 'no bridge matching '+str(kwargs)
+			raise KeyError, 'no bridge matching '+str(kwargs)
 		elif len(bridges) > 1:
 			raise Exception, 'more than one bridge matching '+str(kwargs)+'\n'+'\n'.join([str(b) for b in bridges])
 		return bridges[0]
