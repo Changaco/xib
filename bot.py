@@ -459,7 +459,7 @@ class Bot(threading.Thread):
 		# Events we always want to ignore
 		if 'all' in event.eventtype() or 'motd' in event.eventtype() or event.eventtype() in ['nicknameinuse', 'nickcollision', 'erroneusnickname']:
 			return
-		if event.eventtype() in ['pong', 'privnotice', 'ctcp', 'nochanmodes', 'notexttosend', 'currenttopic', 'topicinfo', '328', 'pubnotice', '042']:
+		if event.eventtype() in ['pong', 'privnotice', 'ctcp', 'nochanmodes', 'notexttosend', 'currenttopic', 'topicinfo', '328', 'pubnotice', '042', 'umode', 'welcome', 'yourhost', 'created', 'myinfo', 'featurelist', 'luserclient', 'luserop', 'luserchannels', 'luserme', 'n_local', 'n_global', 'endofnames', 'luserunknown', 'luserconns']:
 			self.error(1, 'ignoring IRC '+event.eventtype(), debug=True)
 			return
 		
@@ -468,19 +468,6 @@ class Bot(threading.Thread):
 		if event.source() != None:
 			if '!' in event.source():
 				nickname = event.source().split('!')[0]
-		
-		
-		# Events that we want to ignore only in some cases
-		if event.eventtype() in ['umode', 'welcome', 'yourhost', 'created', 'myinfo', 'featurelist', 'luserclient', 'luserop', 'luserchannels', 'luserme', 'n_local', 'n_global', 'endofnames', 'luserunknown', 'luserconns']:
-			if connection.really_connected == False:
-				if event.target() == connection.nickname:
-					connection.really_connected = True
-					connection._call_nick_callbacks(None)
-				elif len(connection.nick_callbacks) > 0:
-					self.error(3, 'event target ('+event.target()+') and connection nickname ('+connection.nickname+') don\'t match', debug=True)
-					connection._call_nick_callbacks('nicknametoolong', arguments=[len(event.target())])
-			self.error(1, 'ignoring '+event.eventtype(), debug=True)
-			return
 		
 		
 		# A string representation of the event
@@ -499,7 +486,7 @@ class Bot(threading.Thread):
 				return
 			
 			if event.eventtype() in ['quit', 'part', 'nick', 'kick']:
-				if connection.get_nickname() != self.nickname:
+				if connection.real_nickname != self.nickname:
 					self.error(1, 'ignoring IRC '+event.eventtype()+' not received on bot connection', debug=True)
 					return
 				else:
@@ -511,7 +498,7 @@ class Bot(threading.Thread):
 				return
 			
 			if event.eventtype() in ['pubmsg', 'action']:
-				if connection.get_nickname() != self.nickname:
+				if connection.real_nickname != self.nickname:
 					self.error(1, 'ignoring IRC '+event.eventtype()+' not received on bot connection', debug=True)
 					return
 				if nickname == self.nickname:
@@ -654,17 +641,17 @@ class Bot(threading.Thread):
 			if len(bridges) > 1:
 				raise Exception, 'more than one bridge for one irc chan, WTF ?'
 			bridge = bridges[0]
-			if connection.get_nickname() == self.nickname:
+			if connection.real_nickname == self.nickname:
 				bridge._join_irc_failed(event.eventtype())
 			else:
-				p = bridge.get_participant(connection.get_nickname())
+				p = bridge.get_participant(connection.real_nickname)
 				p._close_irc_connection('')
 				p.irc_connection = event.eventtype()
 			return
 		
 		
 		# Ignore events not received on bot connection
-		if connection.get_nickname() != self.nickname:
+		if connection.real_nickname != self.nickname:
 			self.error(1, 'ignoring IRC '+event.eventtype()+' not received on bridge connection', debug=True)
 			return
 		

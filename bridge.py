@@ -75,7 +75,7 @@ class Bridge:
 		self.stop(message='Failed to connect to the IRC chan, stopping bridge', log=False)
 	
 	
-	def _irc_nick_callback(self, error, arguments=[]):
+	def _irc_nick_callback(self, error):
 		if error == None:
 			if self.mode == None:
 				return
@@ -92,7 +92,7 @@ class Bridge:
 			elif error == 'erroneusnickname':
 				reason = '"'+self.bot.nickname+'" got "erroneusnickname"'
 			elif error == 'nicknametoolong':
-				reason = '"'+self.bot.nickname+'" got "nicknametoolong", limit seems to be '+str(arguments[0])
+				reason = '"'+self.bot.nickname+'" got "nicknametoolong", limit seems to be '+str(len(self.irc_connection.real_nickname))
 			else:
 				reason = error
 			self._join_irc_failed(reason)
@@ -135,7 +135,7 @@ class Bridge:
 		try:
 			p = self.get_participant(nickname)
 			if p.protocol != from_protocol:
-				if from_protocol == 'irc' and isinstance(p.irc_connection, ServerConnection) and p.irc_connection.really_connected == True and p.irc_connection.real_nickname == nickname or from_protocol == 'xmpp' and isinstance(p.xmpp_c, xmpp.client.Client) and isinstance(p.muc, xmpp.muc) and p.xmpp_c.nickname == nickname:
+				if from_protocol == 'irc' and isinstance(p.irc_connection, ServerConnection) and p.irc_connection.logged_in and p.irc_connection.real_nickname == nickname or from_protocol == 'xmpp' and isinstance(p.xmpp_c, xmpp.client.Client) and isinstance(p.muc, xmpp.muc) and p.xmpp_c.nickname == nickname:
 					if irc_id:
 						p.irc_connection.irc_id = irc_id
 					return p
@@ -380,7 +380,7 @@ class Bridge:
 	
 	
 	def show_participants_list_on(self, protocols=[]):
-		if 'irc' in protocols and self.irc_connection.really_connected:
+		if 'irc' in protocols and self.irc_connection.logged_in:
 			xmpp_participants_nicknames = self.get_participants_nicknames_list(protocols=['xmpp'])
 			self.say(say_levels.info, 'Participants on XMPP: '+'  '.join(xmpp_participants_nicknames), on_xmpp=False)
 		if 'xmpp' in protocols:

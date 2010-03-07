@@ -114,7 +114,7 @@ class Participant:
 		self.irc_connection.connect(nick_callback=self._irc_nick_callback)
 	
 	
-	def _irc_nick_callback(self, error, arguments=[]):
+	def _irc_nick_callback(self, error):
 		if error == None:
 			self.irc_connection.join(self.bridge.irc_room)
 			m = '"'+self.nickname+'" duplicate succesfully created on IRC side of bridge "'+str(self.bridge)+'"'
@@ -157,7 +157,7 @@ class Participant:
 					self.bridge.say(say_levels.warning, 'The nickname "'+self.nickname+'" contains unauthorized characters and cannot be used in the IRC channel', log=True)
 			
 			elif error == 'nicknametoolong':
-				self.bridge.say(say_levels.warning, 'The nickname "'+self.nickname+'" is too long (limit seems to be '+str(arguments[0])+') and cannot be used in the IRC channel', log=True)
+				self.bridge.say(say_levels.warning, 'The nickname "'+self.nickname+'" is too long (limit seems to be '+str(len(self.irc_connection.real_nickname))+') and cannot be used in the IRC channel', log=True)
 			
 			else:
 				self.bridge.say(say_levels.warning, 'unknown error while adding "'+self.nickname+'" to IRC side of bridge', log=True)
@@ -340,7 +340,7 @@ class Participant:
 	
 	def _close_irc_connection(self, message):
 		if isinstance(self.irc_connection, ServerConnection):
-			if self.irc_connection.really_connected == True:
+			if self.irc_connection.logged_in:
 				self.irc_connection.part(self.bridge.irc_room, message=message)
 			self.irc_connection.used_by -= 1
 			if self.irc_connection.used_by < 1:
@@ -351,7 +351,7 @@ class Participant:
 	def __str__(self):
 		r = 'self.protocol='+str(self.protocol)+'\n'+'self.nickname='+str(self.nickname)
 		if isinstance(self.irc_connection, ServerConnection):
-			r += '\nself.irc_connection='+str(self.irc_connection)+'\n'+'self.irc_connection.really_connected='+str(self.irc_connection.really_connected)
+			r += '\nself.irc_connection='+str(self.irc_connection)+'\n'+'self.irc_connection.logged_in='+str(self.irc_connection.logged_in)
 		if isinstance(self.xmpp_c, xmpp.client.Client):
 			r += '\nself.muc.connected='+str(self.muc.connected)
 		return r

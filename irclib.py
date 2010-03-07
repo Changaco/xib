@@ -196,7 +196,7 @@ class IRC:
 
     def get_connection(self, server, port, nickname):
         for c in self.connections:
-            if c.server == server and c.port == port and c.real_nickname == nickname:
+            if c.server == server and c.port == port and nickname in [c.nickname, c.real_nickname]:
                 return c
         return None
 
@@ -454,7 +454,7 @@ class ServerConnection(Connection):
     def __init__(self, irclibobj, server, port, nickname):
         Connection.__init__(self, irclibobj)
         self.connected = False  # Not connected yet.
-        self.really_connected = False
+        self.logged_in = False
         self.used_by = 0
         self.socket = None
         self.ssl = None
@@ -525,7 +525,7 @@ class ServerConnection(Connection):
         if self.used_by > 0:
             self.used_by += 1
             self.irclibobj.bot.error(3, 'using existing IRC connection for '+self.__str__()+', this connection is now used by '+str(self.used_by)+' bridges', debug=True)
-            if self.really_connected:
+            if self.logged_in:
                 self._call_nick_callbacks(None)
             self.lock.release()
             return self
@@ -541,6 +541,7 @@ class ServerConnection(Connection):
             self.handlers = {}
             self.real_server_name = ""
             self.real_nickname = self.nickname
+            self.new_nickname = None
             self.username = username or self.nickname
             self.ircname = ircname or self.nickname
             self.password = password
@@ -603,11 +604,11 @@ class ServerConnection(Connection):
         return self
 
 
-    def _call_nick_callbacks(self, error, arguments=[]):
+    def _call_nick_callbacks(self, error):
         i = 0
         for f in self.nick_callbacks:
             i += 1
-            f(error, arguments=arguments)
+            f(error)
         self.nick_callbacks = []
         if i == 0:
             self.irclibobj.bot.error(1, 'no nick callback for "'+self.__str__()+'"', debug=True)
@@ -644,15 +645,6 @@ class ServerConnection(Connection):
             return self.real_server_name
         else:
             return ""
-
-    def get_nickname(self):
-        """Get the (real) nick name.
-
-        This method returns the (real) nickname.  The library keeps
-        track of nick changes, so it might not be the nick name that
-        was passed to the connect() method.  """
-
-        return self.real_nickname
 
     def process_data(self):
         """[Internal]"""
@@ -714,13 +706,17 @@ class ServerConnection(Connection):
             if command in numeric_events:
                 command = numeric_events[command]
 
-            if command == "nick":
-                if nm_to_n(prefix) == self.real_nickname:
-                    self.real_nickname = arguments[0]
-            elif command == "welcome":
-                # Record the nickname in case the client changed nick
-                # in a nicknameinuse callback.
+            if command in ["nick", "welcome"]:
+                self.logged_in = True
                 self.real_nickname = arguments[0]
+                if self.new_nickname != arguments[0]:
+                    if len(self.new_nickname) > len(arguments[0]):
+                        self._handle_event(Event('nicknametoolong', None, None, None))
+                    else:
+                        self._handle_event(Event('erroneusnickname', None, None, None))
+                else:
+                    self._call_nick_callbacks(None)
+                self.new_nickname = None
 
             if command in ["privmsg", "notice"]:
                 target, message = arguments[0], arguments[1]
@@ -787,8 +783,8 @@ class ServerConnection(Connection):
     def _handle_event(self, event):
         """[Internal]"""
         self.irclibobj._handle_event(self, event)
-        if event.eventtype() in ['disconnect', 'nicknameinuse', 'nickcollision', 'erroneusnickname']:
-            self._call_nick_callbacks(event.eventtype(), arguments=[event])
+        if event.eventtype() in ['disconnect', 'nicknameinuse', 'nickcollision', 'erroneusnickname', 'nicknametoolong']:
+            self._call_nick_callbacks(event.eventtype())
         if event.eventtype() in self.handlers:
             for fn in self.handlers[event.eventtype()]:
                 fn(self, event)
@@ -843,8 +839,8 @@ class ServerConnection(Connection):
 
         if self.connected:
             self.connected = False
-        if self.really_connected:
-            self.really_connected = False
+        if self.logged_in:
+            self.logged_in = False
 
         if self.socket and self.socket != 'closed':
             if message and message != 'Connection reset by peer':
@@ -942,6 +938,7 @@ class ServerConnection(Connection):
         except:
             self._call_nick_callbacks('erroneusnickname')
             return False
+        self.new_nickname = newnick
         self.send_raw("NICK " + newnick)
         return True
 
