@@ -605,15 +605,13 @@ class ServerConnection(Connection):
 
 
     def _call_nick_callbacks(self, error):
-        i = 0
-        for f in self.nick_callbacks:
-            i += 1
-            f(error)
-        self.nick_callbacks = []
-        if i == 0:
+        if len(self.nick_callbacks) == 0:
             self.irclibobj.bot.error(1, 'no nick callback for "'+self.__str__()+'"', debug=True)
         else:
-            self.irclibobj.bot.error(1, 'called '+str(i)+' callback(s) for "'+self.__str__()+'"', debug=True)
+            self.irclibobj.bot.error(1, 'calling '+str(len(self.nick_callbacks))+' nick callback(s) for "'+self.__str__()+'"', debug=True)
+            for f in self.nick_callbacks:
+                f(error)
+        self.nick_callbacks = []
 
 
     def add_nick_callback(self, callback):
