@@ -95,7 +95,7 @@ class Participant:
 					
 					else:
 						self.bridge.say(say_levels.warning, 'The nickname "'+self.nickname+'" is used on both rooms or reserved on the XMPP server', log=True)
-						if self.muc.connected == True:
+						if isinstance(self.muc, xmpp.muc) and self.muc.connected:
 							self.muc.leave('Changed nickname to "'+self.nickname+'"')
 				except xmpp.muc.RoomIsFull:
 					self.bridge.say(say_levels.warning, 'XMPP room is full', log=True)
@@ -229,7 +229,7 @@ class Participant:
 				except self.bridge.NoSuchParticipantException:
 					self.nickname = newnick
 					self.duplicate_nickname = newnick
-					if isinstance(self.xmpp_c, xmpp.client.Client):
+					if isinstance(self.muc, xmpp.muc):
 						for b in self.bridge.bot.bridges:
 							if b.has_participant(oldnick) and b.irc_server != self.bridge.irc_server:
 								self.muc.leave(message='Changed nickname to "'+self.nickname+'"')
@@ -323,14 +323,14 @@ class Participant:
 	
 	
 	def say_on_xmpp(self, message, action=False):
-		if self.muc.connected:
+		if isinstance(self.muc, xmpp.muc) and self.muc.connected:
 			self.muc.say(message, action=action)
 		elif not isinstance(self.irc_connection, ServerConnection):
 			self.bridge.say_on_behalf(self.nickname, message, 'xmpp', action=action)
 	
 	
 	def say_on_xmpp_to(self, to, message, action=False):
-		if self.muc.connected:
+		if isinstance(self.muc, xmpp.muc) and self.muc.connected:
 			self.muc.say_to(to, message, action=action)
 		elif not isinstance(self.irc_connection, ServerConnection):
 			if self.bridge.mode not in ['normal', 'bypass']:
@@ -348,7 +348,7 @@ class Participant:
 	
 	
 	def _close_xmpp_connection(self, message):
-		if isinstance(self.xmpp_c, xmpp.client.Client):
+		if isinstance(self.muc, xmpp.muc):
 			self.muc.leave(message)
 			self.xmpp_c = None
 			self.bridge.bot.close_xmpp_connection(self.nickname)
@@ -368,7 +368,7 @@ class Participant:
 		r = 'self.protocol='+str(self.protocol)+'\n'+'self.nickname='+str(self.nickname)
 		if isinstance(self.irc_connection, ServerConnection):
 			r += '\nself.irc_connection='+str(self.irc_connection)+'\n'+'self.irc_connection.logged_in='+str(self.irc_connection.logged_in)
-		if isinstance(self.xmpp_c, xmpp.client.Client):
+		if isinstance(self.muc, xmpp.muc):
 			r += '\nself.muc.connected='+str(self.muc.connected)
 		return r
 	
