@@ -590,15 +590,11 @@ class Bot(threading.Thread):
 		if event.eventtype() in ['pubmsg', 'action', 'part', 'kick', 'mode', 'join']:
 			
 			if event.eventtype() in ['pubmsg', 'action', 'part', 'kick', 'join'] and not source_nickname:
-				self.error(say_levels.debug, 'a source is needed for a '+event.eventtype()+' event', no_debug_add=event_str)
+				self.error(say_levels.debug, 'a source is needed for a '+event.eventtype()+' event'+event_str)
 				return
 			
-			if event.eventtype() == 'kick' and len(event.arguments()) == 0:
-				self.error(say_levels.debug, 'at least 1 argument is needed for a '+event.eventtype()+' event', no_debug_add=event_str)
-				return
-			
-			if event.eventtype() == 'mode' and len(event.arguments()) < 2:
-				self.error(say_levels.debug, '2 arguments are needed for a '+event.eventtype()+' event'+event_str)
+			if event.eventtype() in ['kick', 'mode'] and len(event.arguments()) == 0:
+				self.error(say_levels.debug, 'at least 1 argument is needed for a '+event.eventtype()+' event'+event_str)
 				return
 			
 			chan = event.target().lower()
@@ -622,8 +618,7 @@ class Bot(threading.Thread):
 				try:
 					kicked = bridge.get_participant(event.arguments()[0])
 				except Bridge.NoSuchParticipantException:
-					self.error(2, debug_str, debug=True)
-					self.error(say_levels.debug, 'a participant that was not here has been kicked ? WTF ?', no_debug_add=event_str)
+					self.error(say_levels.debug, 'a participant that was not here has been kicked ? WTF ?'+event_str)
 					return
 				
 				leave_message = 'kicked by '+nickname
@@ -676,18 +671,26 @@ class Bot(threading.Thread):
 			
 			# Mode event
 			if event.eventtype() == 'mode':
-				if event.arguments()[1] != self.nickname or not 'o' in event.arguments()[0]:
-					self.error(1, 'ignoring IRC mode "'+event.arguments()[0]+'" for "'+event.arguments()[1]+'"', debug=True)
-					return
-				if re.search('\+[^\-]*o', event.arguments()[0]):
-					# bot is channel operator
-					bridge.irc_op = True
-					self.error(say_levels.notice, 'bot has IRC operator privileges in '+chan)
-				elif re.search('\-[^\+]*o', event.arguments()[0]):
-					# bot lost channel operator privileges
-					if bridge.irc_op:
-						self.error(say_levels.notice, 'bot lost IRC operator privileges in '+chan, send_to_admins=True)
-					bridge.irc_op = False
+				if len(event.arguments()) == 1:
+					# chan mode
+					self.error(1, 'ignoring IRC mode "'+event.arguments()[0]+'" for chan "'+event.target()+'"', debug=True)
+				elif len(event.arguments()) == 2:
+					# participant mode
+					if event.arguments()[1] != self.nickname or not 'o' in event.arguments()[0]:
+						self.error(1, 'ignoring IRC mode "'+event.arguments()[0]+'" for "'+event.arguments()[1]+'" in chan "'+event.target()+'"', debug=True)
+						return
+					if re.search('\+[^\-]*o', event.arguments()[0]):
+						# bot is channel operator
+						bridge.irc_op = True
+						self.error(say_levels.notice, 'bot has IRC operator privileges in '+chan)
+					elif re.search('\-[^\+]*o', event.arguments()[0]):
+						# bot lost channel operator privileges
+						if bridge.irc_op:
+							self.error(say_levels.notice, 'bot lost IRC operator privileges in '+chan, send_to_admins=True)
+						bridge.irc_op = False
+				else:
+					# unknown mode
+					self.error(say_levels.debug, 'unknown IRC "mode" event (has 3 arguments):'+event_str)
 				return
 		
 		
