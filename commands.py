@@ -257,16 +257,23 @@ def restart_bot(bot, command, args_array, bridge):
 def restart_bridges(bot, command, args_array, bridge):
 	parser = ArgumentParser(prog=command)
 	parser.add_argument('bridge_id', nargs='+')
+	parser.add_argument('--soft', default=False, action='store_true')
 	try:
 		args = parser.parse_args(args_array)
 	except Exception as e:
 		return '\n'+e.args[1]
 	
 	found_bridges, ret = _find_bridges(bot, args.bridge_id)
-	for found_bridge in found_bridges:
-		found_bridge.restart()
 	
-	return ret+'Bridges restarted.'
+	if args.soft:
+		for found_bridge in found_bridges:
+			found_bridge.soft_restart()
+		return ret+'Bridges softly restarted.'
+	
+	else:
+		for found_bridge in found_bridges:
+			found_bridge.restart()
+		return ret+'Bridges restarted.'
 
 
 def stop_bot(bot, command, args_array, bridge):
