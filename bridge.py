@@ -59,6 +59,8 @@ class Bridge:
 	def init2(self):
 		self.reconnecting = False
 		
+		self.bot.error(say_levels.notice, 'starting bridge "'+str(self)+'" with mode="'+self.mode+'" and say_level="'+str(self.say_level)+'"')
+		
 		# Join XMPP room
 		self.xmpp_room = xmpp.muc(self.xmpp_room_jid)
 		self.xmpp_room.join(self.bot.xmpp_c, self.bot.nickname, callback=self._xmpp_join_callback)
@@ -66,8 +68,6 @@ class Bridge:
 		# Join IRC room
 		self.irc_connection = self.bot.irc.open_connection(self.irc_server, self.irc_port, self.bot.nickname, delay=self.irc_connection_interval)
 		self.irc_connection.connect(nick_callback=self._irc_nick_callback, charsets=self.irc_charsets)
-		
-		self.bot.error(say_levels.notice, 'bridge "'+str(self)+'" is running in '+self.mode+' mode and a say_level of "'+str(self.say_level)+'"')
 	
 	
 	def _join_irc_failed(self, reason):
@@ -117,7 +117,7 @@ class Bridge:
 		"""Called by muc._xmpp_presence_handler"""
 		if len(errors) == 0:
 			self.reconnecting = False
-			if self.mode == None:
+			if not self.mode:
 				return
 			self.bot.error(3, 'succesfully connected on XMPP side of bridge "'+str(self)+'"', debug=True)
 			self.say(say_levels.notice, 'bridge "'+str(self)+'" is running in '+self.mode+' mode', on_irc=False)
