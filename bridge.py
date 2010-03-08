@@ -132,7 +132,7 @@ class Bridge:
 				except:
 					trace = traceback.format_exc()
 			self.bot.error(say_levels.error, 'failed to connect to the XMPP room of bridge "'+str(self)+'", stopping bridge\n'+trace, send_to_admins=True)
-			self.stop(message='Failed to connect to the XMPP room, stopping bridge')
+			self.stop(message='Failed to connect to the XMPP room, stopping bridge', log=False)
 	
 	
 	def add_participant(self, from_protocol, nickname, real_jid=None):
