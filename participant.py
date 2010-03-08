@@ -315,14 +315,14 @@ class Participant:
 	
 	
 	def say_on_xmpp(self, message, action=False):
-		if isinstance(self.xmpp_c, xmpp.client.Client):
+		if self.muc.connected:
 			self.muc.say(message, action=action)
 		elif not isinstance(self.irc_connection, ServerConnection):
 			self.bridge.say_on_behalf(self.nickname, message, 'xmpp', action=action)
 	
 	
 	def say_on_xmpp_to(self, to, message, action=False):
-		if isinstance(self.xmpp_c, xmpp.client.Client):
+		if self.muc.connected:
 			self.muc.say_to(to, message, action=action)
 		elif not isinstance(self.irc_connection, ServerConnection):
 			if self.bridge.mode not in ['normal', 'bypass']:
