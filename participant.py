@@ -305,9 +305,17 @@ class Participant:
 	
 	
 	def say_on_irc_to(self, to, message):
+		error = False
 		if isinstance(self.irc_connection, ServerConnection):
-			self.irc_connection.privmsg(to, message)
+			try:
+				self.irc_connection.privmsg(to, message)
+			except ServerNotConnectedError:
+				self.irc_connection.connect()
+				error = True
 		elif not isinstance(self.xmpp_c, xmpp.client.Client):
+			error = True
+		
+		if error:
 			if self.bridge.mode not in ['normal', 'bypass']:
 				self.bridge.get_participant(to).say_on_xmpp_to(self.nickname, 'XIB error: Sorry but cross-protocol private messages are disabled in '+self.bridge.mode+' mode.')
 			else:
