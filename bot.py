@@ -585,7 +585,7 @@ class Bot(threading.Thread):
 		# Chan events
 		if event.eventtype() in ['pubmsg', 'action', 'part', 'kick', 'mode', 'join']:
 			
-			if event.eventtype() in ['pubmsg', 'action', 'part', 'kick'] and not source_nickname:
+			if event.eventtype() in ['pubmsg', 'action', 'part', 'kick', 'join'] and not source_nickname:
 				self.error(say_levels.debug, 'a source is needed for a '+event.eventtype()+' event', no_debug_add=event_str)
 				return
 			
@@ -593,7 +593,13 @@ class Bot(threading.Thread):
 				self.error(say_levels.debug, 'at least 1 argument is needed for a '+event.eventtype()+' event', no_debug_add=event_str)
 				return
 			
-			bridge = self.get_bridge(irc_room=event.target().lower(), irc_server=connection.server)
+			if event.eventtype() == 'mode' and len(event.arguments()) < 2:
+				self.error(say_levels.debug, '2 arguments are needed for a '+event.eventtype()+' event'+event_str)
+				return
+			
+			chan = event.target().lower()
+			
+			bridge = self.get_bridge(irc_room=chan, irc_server=connection.server)
 			
 			try:
 				from_ = bridge.get_participant(source_nickname)
@@ -640,7 +646,7 @@ class Bot(threading.Thread):
 			# Part event
 			if event.eventtype() == 'part':
 				if not from_:
-					self.error(say_levels.debug, 'a participant that wasn\'t here left:\n'+event_str)
+					self.error(say_levels.debug, 'a participant that wasn\'t here left:'+event_str)
 					return
 				if len(event.arguments()) > 0:
 					leave_message = event.arguments()[0]
@@ -666,21 +672,17 @@ class Bot(threading.Thread):
 			
 			# Mode event
 			if event.eventtype() == 'mode':
-				if len(event.arguments()) < 2:
-					self.error(say_levels.debug, '2 arguments are needed for a '+event.eventtype()+' event\n'+event_str)
-					return
 				if event.arguments()[1] != self.nickname or not 'o' in event.arguments()[0]:
 					self.error(1, 'ignoring IRC mode "'+event.arguments()[0]+'" for "'+event.arguments()[1]+'"', debug=True)
 					return
-				bridge = self.get_bridge(irc_room=event.target(), irc_server=connection.server)
 				if re.search('\+[^\-]*o', event.arguments()[0]):
 					# bot is channel operator
 					bridge.irc_op = True
-					self.error(say_levels.notice, 'bot has IRC operator privileges in '+event.target())
+					self.error(say_levels.notice, 'bot has IRC operator privileges in '+chan)
 				elif re.search('\-[^\+]*o', event.arguments()[0]):
 					# bot lost channel operator privileges
 					if bridge.irc_op:
-						self.error(say_levels.notice, 'bot lost IRC operator privileges in '+event.target(), send_to_admins=True)
+						self.error(say_levels.notice, 'bot lost IRC operator privileges in '+chan, send_to_admins=True)
 					bridge.irc_op = False
 				return
 		
