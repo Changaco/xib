@@ -64,6 +64,10 @@ class Bot(threading.Thread):
 	
 	def error(self, importance, message, debug=False, no_debug_add='', send_to_admins=False):
 		"""Output an error message."""
+		try:
+			message = message.encode('utf-8')
+		except:
+			message = repr(message)
 		if not self.debug:
 			 message += no_debug_add
 		if send_to_admins == True:
@@ -71,9 +75,9 @@ class Bot(threading.Thread):
 		if importance == -1:
 			return
 		if not debug:
-			self.error_fd.write(self.format_message(importance, message).encode('utf-8')+'\n')
+			self.error_fd.write(self.format_message(importance, message)+'\n')
 		elif self.debug:
-			self.error_fd.write('='*importance+'> '+message.encode('utf-8')+'\n')
+			self.error_fd.write('='*importance+'> '+message+'\n')
 	
 	
 	def _xmpp_loop(self):
