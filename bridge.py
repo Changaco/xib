@@ -317,7 +317,7 @@ class Bridge:
 				if left_protocol == 'irc':
 					was_on_both = False
 				elif left_protocol == 'xmpp':
-					if isinstance(p.muc, xmpp.muc) and not xmpp.muc.connected:
+					if isinstance(p.muc, xmpp.muc) and not p.muc.connected:
 						return
 					# got disconnected somehow
 					if isinstance(p.xmpp_c, xmpp.client.Client):
