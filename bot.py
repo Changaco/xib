@@ -514,35 +514,6 @@ class Bot(threading.Thread):
 				connection.privmsg(source_nickname, 'XIB error: you cannot send a private message to an XMPP user if you are not in one of the chans he is in')
 		
 		
-		# Server events
-		if event.eventtype() in ['quit', 'nick']:
-			for bridge in self.iter_bridges(irc_server=connection.server):
-				
-				try:
-					from_ = bridge.get_participant(source_nickname)
-				except Bridge.NoSuchParticipantException:
-					continue
-				
-				handled = True
-				
-				# Quit event
-				if event.eventtype() == 'quit':
-					if len(event.arguments()) > 0:
-						leave_message = event.arguments()[0]
-					else:
-						leave_message = 'Left server.'
-					bridge.remove_participant('irc', from_.nickname, leave_message)
-					continue
-				
-				# Nickname change
-				if event.eventtype() == 'nick':
-					from_.change_nickname(event.target(), 'xmpp')
-					continue
-			
-			if handled:
-				return
-		
-		
 		# Connection errors
 		if event.eventtype() in ['disconnect', 'kill', 'error']:
 			if len(event.arguments()) > 0 and event.arguments()[0] == 'Connection reset by peer':
@@ -580,6 +551,35 @@ class Bot(threading.Thread):
 		if connection.nickname != self.nickname:
 			self.error(1, 'ignoring IRC '+event.eventtype()+' not received on bridge connection', debug=True)
 			return
+		
+		
+		# Server events
+		if event.eventtype() in ['quit', 'nick']:
+			for bridge in self.iter_bridges(irc_server=connection.server):
+				
+				try:
+					from_ = bridge.get_participant(source_nickname)
+				except Bridge.NoSuchParticipantException:
+					continue
+				
+				handled = True
+				
+				# Quit event
+				if event.eventtype() == 'quit':
+					if len(event.arguments()) > 0:
+						leave_message = event.arguments()[0]
+					else:
+						leave_message = 'Left server.'
+					bridge.remove_participant('irc', from_.nickname, leave_message)
+					continue
+				
+				# Nickname change
+				if event.eventtype() == 'nick':
+					from_.change_nickname(event.target(), 'xmpp')
+					continue
+			
+			if handled:
+				return
 		
 		
 		# Chan events
