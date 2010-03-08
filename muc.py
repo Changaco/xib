@@ -52,12 +52,12 @@ class muc:
 		The "force" optional argument bypasses the fact that we are not in the room yet, necessary to send initial presence"""
 		
 		if not self.connected and not force:
-			raise self.NotConnected, stanza.__str__(fancy=1).encode('utf-8')
+			raise self.NotConnected, self.jid+'\n'+stanza.__str__(fancy=1).encode('utf-8')
 		try:
 			self.xmpp_c.send(stanza)
 		except IOError, xmpp.Conflict:
 			if not self.auto_reconnect:
-				raise self.NotConnected, stanza.__str__(fancy=1).encode('utf-8')
+				raise self.NotConnected, self.jid+'\n'+stanza.__str__(fancy=1).encode('utf-8')
 			
 			self.xmpp_c.reconnectAndReauth()
 			for m in self.xmpp_c.mucs:
