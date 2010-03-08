@@ -559,25 +559,25 @@ class Bot(threading.Thread):
 			bridge = self.get_bridge(irc_room=event.arguments()[0], irc_server=connection.server)
 			
 			if event.eventtype() == 'cannotsendtochan':
-				if connection.real_nickname == self.nickname:
+				if connection.nickname == self.nickname:
 					bridge._join_irc_failed(event.eventtype())
 				else:
-					p = bridge.get_participant(connection.real_nickname)
+					p = bridge.get_participant(connection.nickname)
 					p._close_irc_connection(event.eventtype())
 					p.irc_connection = event.eventtype()
 			
 			elif event.eventtype() == 'notonchannel':
-				if connection.real_nickname == self.nickname:
+				if connection.nickname == self.nickname:
 					bridge.restart(message='Restarting bridge because we received the IRC event '+event.eventtype())
 				else:
-					p = bridge.get_participant(connection.real_nickname)
+					p = bridge.get_participant(connection.nickname)
 					p.irc_connection.join(bridge.irc_room)
 			
 			return
 		
 		
 		# Ignore events not received on bot connection
-		if connection.real_nickname != self.nickname:
+		if connection.nickname != self.nickname:
 			self.error(1, 'ignoring IRC '+event.eventtype()+' not received on bridge connection', debug=True)
 			return
 		

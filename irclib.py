@@ -298,7 +298,7 @@ class IRC:
                 else:
                     self.bot.error(say_levels.error, 'Unkonwn exception on IRC thread:\n'+str(e.args))
                     continue
-                if c.real_nickname == self.bot.nickname:
+                if c.nickname == self.bot.nickname:
                     self.bot.restart(message='Lost bot IRC connection')
                 else:
                     c.disconnect(volontary=True)
@@ -780,8 +780,8 @@ class ServerConnection(Connection):
 
                 if command in ["nick", "welcome"]:
                     self.logged_in = True
-                    self.real_nickname = target
-                    if self.new_nickname:
+                    if self.new_nickname and isinstance(target, basestring):
+                        self.real_nickname = target
                         if self.new_nickname != target:
                             if len(self.new_nickname) > len(target):
                                 self._handle_event(Event('nicknametoolong', None, None, None))
