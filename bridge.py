@@ -397,8 +397,31 @@ class Bridge:
 			self.say(say_levels.info, 'Participants on IRC: '+'  '.join(irc_participants_nicknames), on_irc=False)
 	
 	
+	def soft_restart(self, message='Softly restarting bridge', log=True):
+		"""Make the bot leave and rejoin, avoid presence flood but can leave ghosts"""
+		
+		if log:
+			self.bot.error(-1, message+' '+str(self), send_to_admins=True)
+		
+		# Leave
+		if isinstance(self.irc_connection, ServerConnection) and isinstance(self.xmpp_room, xmpp.muc):
+			self.irc_connection.part(self.irc_room, message=message)
+			self.xmpp_room.leave(message=message)
+		else:
+			self.stop()
+			self.init2()
+			return
+		
+		# Rejoin
+		self.irc_connection.join(self.irc_room, callback=self._irc_join_callback)
+		self.xmpp_room.rejoin(callback=self._xmpp_join_callback)
+	
+	
 	def stop(self, message='Stopping bridge', log=True):
 		"""Stop the bridge"""
+		
+		if log:
+			self.bot.error(-1, message+' '+str(self), send_to_admins=True)
 		
 		# Close IRC connection if not used by an other bridge, just leave the room otherwise
 		if isinstance(self.irc_connection, ServerConnection):
@@ -419,9 +442,6 @@ class Bridge:
 		for p in self.participants:
 			p.leave(message)
 		self.participants = []
-		
-		if log:
-			self.bot.error(-1, message+' '+str(self), send_to_admins=True)
 	
 	
 	def __str__(self):
