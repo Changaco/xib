@@ -465,6 +465,13 @@ class ServerConnection(Connection):
         self.join_callbacks = {}
         self.lock = threading.RLock()
         self.left_channels = []
+        self.channels = []
+        self.channels_keys = {}
+        self.irc_id = None
+        self.previous_buffer = ""
+        self.handlers = {}
+        self.real_server_name = ""
+        self.new_nickname = None
 
 
     def __str__(self):
@@ -535,14 +542,7 @@ class ServerConnection(Connection):
             self.used_by = 1
             if charsets or not self.irclibobj.charsets.has_key(self._server_str()):
                 self.irclibobj.charsets[self._server_str()] = charsets
-            self.channels = []
-            self.channels_keys = {}
-            self.irc_id = None
-            self.previous_buffer = ""
-            self.handlers = {}
-            self.real_server_name = ""
             self.real_nickname = self.nickname
-            self.new_nickname = None
             self.username = username or self.nickname
             self.ircname = ircname or self.nickname
             self.password = password
