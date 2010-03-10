@@ -601,10 +601,12 @@ class Bot(threading.Thread):
 			
 			bridge = self.get_bridge(irc_room=chan, irc_server=connection.server)
 			
-			try:
-				from_ = bridge.get_participant(source_nickname)
-			except Bridge.NoSuchParticipantException:
-				from_ = None
+			from_ = None
+			if source_nickname:
+				try:
+					from_ = bridge.get_participant(source_nickname)
+				except Bridge.NoSuchParticipantException:
+					pass
 			
 			
 			# Join event
