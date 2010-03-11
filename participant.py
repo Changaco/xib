@@ -95,7 +95,7 @@ class Participant:
 					
 					else:
 						self.bridge.say(say_levels.warning, 'The nickname "'+self.nickname+'" is used on both rooms or reserved on the XMPP server', log=True)
-						if isinstance(self.muc, xmpp.muc) and self.muc.connected:
+						if isinstance(self.muc, xmpp.muc):
 							self.muc.leave('Changed nickname to "'+self.nickname+'"')
 				except xmpp.muc.RoomIsFull:
 					self.bridge.say(say_levels.warning, 'XMPP room is full', log=True)
