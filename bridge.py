@@ -142,7 +142,7 @@ class Bridge:
 		try:
 			p = self.get_participant(nickname)
 			if p.protocol != from_protocol:
-				if from_protocol == 'irc' and isinstance(p.irc_connection, ServerConnection) and p.irc_connection.logged_in and p.irc_connection.real_nickname == nickname or from_protocol == 'xmpp' and isinstance(p.xmpp_c, xmpp.client.Client) and isinstance(p.muc, xmpp.muc) and p.xmpp_c.nickname == nickname:
+				if from_protocol == 'irc' and isinstance(p.irc_connection, ServerConnection) and p.irc_connection.logged_in or from_protocol == 'xmpp' and isinstance(p.muc, xmpp.muc) and p.muc.state >= p.muc.JOINING:
 					return p
 				p.set_both_sides()
 			return p
@@ -301,7 +301,6 @@ class Bridge:
 					else:
 						c = self.bot.irc.get_connection(self.irc_server, self.irc_port, p.duplicate_nickname)
 						if not (c and self.irc_room in c.left_channels):
-							p._close_irc_connection(leave_message)
 							p.create_duplicate_on_irc()
 					return
 		
@@ -317,7 +316,7 @@ class Bridge:
 				if left_protocol == 'irc':
 					was_on_both = False
 				elif left_protocol == 'xmpp':
-					if isinstance(p.muc, xmpp.muc) and not p.muc.connected:
+					if isinstance(p.muc, xmpp.muc) and p.muc.state <= p.muc.LEAVING:
 						return
 					# got disconnected somehow
 					if isinstance(p.xmpp_c, xmpp.client.Client):

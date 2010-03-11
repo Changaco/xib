@@ -32,12 +32,15 @@ class muc:
 	class RemoteServerNotFound(Exception): pass
 	class NotConnected(Exception): pass
 	
+	LEFT, LEAVING, NOT_IN, JOINING, JOINED = range(5)
+	
 	def __init__(self, room_jid):
 		self.room_jid = room_jid
-		self.connected = False
+		self.state = self.NOT_IN
 	
 	
 	def _join(self, callback=None):
+		self.state = self.JOINING
 		self.callback = callback
 		self.xmpp_c.RegisterHandler('presence', self._xmpp_presence_handler)
 		s = xmpp.protocol.Presence(to=self.jid, status=self.status, payload=[xmpp.simplexml.Node(tag='x', attrs={'xmlns': 'http://jabber.org/protocol/muc'}, payload=[xmpp.simplexml.Node(tag='history', attrs={'maxchars': '0'})])])
@@ -49,7 +52,7 @@ class muc:
 		
 		The "force" optional argument bypasses the fact that we are not in the room yet, necessary to send initial presence"""
 		
-		if not self.connected and not force:
+		if self.state != self.JOINED and not force:
 			raise self.NotConnected, self.jid+'\n'+stanza.__str__(fancy=1).encode('utf-8')
 		try:
 			self.xmpp_c.send(stanza)
@@ -113,7 +116,7 @@ class muc:
 				if len(errors) == 0:
 					errors.append(self.__class__.UnknownError(presence.__str__(fancy=1).encode('utf-8')))
 			else:
-				self.connected = True
+				self.state = self.JOINED
 				xmpp_c.UnregisterHandler('presence', self._xmpp_presence_handler)
 			if self.callback != None:
 				self.callback(errors)
@@ -154,24 +157,23 @@ class muc:
 		"""Leave the room"""
 		self.xmpp_c.lock.acquire()
 		self.auto_reconnect = False
+		self.state = self.LEAVING
 		s = xmpp.protocol.Presence(to=self.jid, typ='unavailable', status=message)
 		try:
-			self._send(s)
+			self._send(s, force=True)
 		except self.NotConnected:
 			pass
-		self.connected = False
 		self.xmpp_c.lock.release()
 	
 	
 	def rejoin(self, callback=None):
 		"""Rejoin room"""
-		self.connected = False
+		self.state = self.JOINING
 		self._join(callback=callback)
 	
 	
 	def __del__(self):
-		if self.connected:
-			self.leave()
+		self.leave()
 		if self in self.xmpp_c.mucs:
 			self.xmpp_c.mucs.remove(self)
 
