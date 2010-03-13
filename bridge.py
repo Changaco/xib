@@ -19,7 +19,7 @@ import re
 import threading
 import traceback
 
-from irclib import ServerConnection
+import irclib
 import muc
 xmpp = muc.xmpp
 del muc
@@ -142,7 +142,7 @@ class Bridge:
 		try:
 			p = self.get_participant(nickname)
 			if p.protocol != from_protocol:
-				if from_protocol == 'irc' and isinstance(p.irc_connection, ServerConnection) and p.irc_connection.logged_in or from_protocol == 'xmpp' and isinstance(p.muc, xmpp.muc) and p.muc.state >= p.muc.JOINING:
+				if from_protocol == 'irc' and isinstance(p.irc_connection, irclib.ServerConnection) and p.irc_connection.channels.has_key(self.irc_room) and p.irc_connection.channels[self.irc_room].state >= irclib.JOINING or from_protocol == 'xmpp' and isinstance(p.muc, xmpp.muc) and p.muc.state >= p.muc.JOINING:
 					return p
 				p.set_both_sides()
 			return p
@@ -294,13 +294,13 @@ class Bridge:
 					was_on_both = False
 				elif left_protocol == 'irc':
 					# got disconnected somehow
-					if isinstance(p.irc_connection, ServerConnection):
+					if isinstance(p.irc_connection, irclib.ServerConnection):
 						if p.irc_connection.socket == 'closed':
 							return
 						p.irc_connection.join(self.irc_room)
 					else:
 						c = self.bot.irc.get_connection(self.irc_server, self.irc_port, p.duplicate_nickname)
-						if not (c and self.irc_room in c.left_channels):
+						if not (c and c.channels.has_key(self.irc_room) and c.channels[self.irc_room].state <= irclib.LEAVING):
 							p.create_duplicate_on_irc()
 					return
 		
@@ -403,7 +403,7 @@ class Bridge:
 			self.bot.error(-1, message+' '+str(self), send_to_admins=True)
 		
 		# Leave
-		if isinstance(self.irc_connection, ServerConnection) and isinstance(self.xmpp_room, xmpp.muc):
+		if isinstance(self.irc_connection, irclib.ServerConnection) and isinstance(self.xmpp_room, xmpp.muc):
 			self.irc_connection.part(self.irc_room, message=message)
 			self.xmpp_room.leave(message=message)
 		else:
@@ -423,7 +423,7 @@ class Bridge:
 			self.bot.error(-1, message+' '+str(self), send_to_admins=True)
 		
 		# Close IRC connection if not used by an other bridge, just leave the room otherwise
-		if isinstance(self.irc_connection, ServerConnection):
+		if isinstance(self.irc_connection, irclib.ServerConnection):
 			self.irc_connection.used_by -= 1
 			if self.irc_connection.used_by < 1:
 				self.irc_connection.close(message)

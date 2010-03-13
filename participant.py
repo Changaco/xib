@@ -354,8 +354,7 @@ class Participant:
 	
 	def _close_irc_connection(self, message):
 		if isinstance(self.irc_connection, ServerConnection):
-			if self.irc_connection.logged_in:
-				self.irc_connection.part(self.bridge.irc_room, message=message)
+			self.irc_connection.part(self.bridge.irc_room, message=message)
 			self.irc_connection.used_by -= 1
 			if self.irc_connection.used_by < 1:
 				self.irc_connection.close(message)

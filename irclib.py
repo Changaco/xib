@@ -410,6 +410,56 @@ class IRC:
         if self.fn_to_remove_socket:
             self.fn_to_remove_socket(connection._get_socket())
 
+
+LEFT, LEAVING, NOT_IN, JOINING, JOINED = range(5)
+
+class Channel:
+
+    def __init__(self, connection, channel_name):
+        self.connection = connection
+        self.channel_name = channel_name
+        self.callbacks = []
+        self.state = NOT_IN
+
+    def _callback(self, error):
+        if not error:
+            self.state = JOINED
+        else:
+            self.state = NOT_IN
+        m = 'channel "'+self.channel_name+'" on connection "'+str(self.connection)+'"'
+        if len(self.callbacks) == 0:
+            self.connection.irclibobj.bot.error(1, 'no join callback for '+m, debug=True)
+        else:
+            self.connection.irclibobj.bot.error(1, 'calling '+str(len(self.callbacks))+' join callback(s) for '+m, debug=True)
+            for f in self.callbacks:
+                f(self.channel_name, error)
+
+    def add_callback(self, callback):
+        if callback and not callback in self.callbacks:
+            self.callbacks.append(callback)
+
+    def join(self, key=None, callback=None):
+        self.state = JOINING
+        self.key = key
+        self.add_callback(callback)
+        self.connection.send_raw("JOIN %s%s" % (self.channel_name, (key and (" " + key))))
+
+    def part(self, message=None):
+        if self.state <= NOT_IN:
+            return
+        self.state = LEAVING
+        self.connection.send_raw("PART " + self.channel_name + (message and (" " + message)))
+
+    def rejoin(self):
+        self.join(key=self.key)
+
+    def remove_callback(self, callback):
+        try:
+            self.callbacks.remove(callback)
+        except ValueError:
+            pass
+
+
 _rfc_1459_command_regexp = re.compile("^(:(?P<prefix>[^ ]+) +)?(?P<command>[^ ]+)( *(?P<argument> .+))?")
 
 class Connection:
@@ -464,9 +514,7 @@ class ServerConnection(Connection):
         self.nick_callbacks = []
         self.join_callbacks = {}
         self.lock = threading.RLock()
-        self.left_channels = []
-        self.channels = []
-        self.channels_keys = {}
+        self.channels = {}
         self.irc_id = None
         self.previous_buffer = ""
         self.handlers = {}
@@ -594,12 +642,8 @@ class ServerConnection(Connection):
         
         # Rejoin channels
         if len(self.channels) > 0:
-            for channel in self.channels:
-                if self.channels_keys.has_key(channel):
-                    key = self.channels_keys[channel]
-                else:
-                    key = ''
-                self.join(channel, key=key)
+            for channel in self.channels.itervalues():
+                channel.rejoin()
         
         self.lock.release()
         return self
@@ -613,19 +657,6 @@ class ServerConnection(Connection):
             for f in self.nick_callbacks:
                 f(error, arguments=arguments)
         self.nick_callbacks = []
-
-
-    def _call_join_callbacks(self, channel, error):
-        self.lock.acquire()
-        m = 'channel "'+channel+'" on connection "'+str(self)+'"'
-        if not self.join_callbacks.has_key(channel) or len(self.join_callbacks[channel]) == 0:
-            self.irclibobj.bot.error(1, 'no join callback for '+m, debug=True)
-        else:
-            self.irclibobj.bot.error(1, 'calling '+str(len(self.join_callbacks[channel]))+' join callback(s) for '+m, debug=True)
-            for f in self.join_callbacks[channel]:
-                f(channel, error)
-        self.join_callbacks.pop(channel, None)
-        self.lock.release()
 
 
     def add_nick_callback(self, callback):
@@ -797,14 +828,11 @@ class ServerConnection(Connection):
                         if DEBUG:
                             print "irc_id: %s" % (prefix)
                     channel = target.lower()
-                    if not channel in self.channels:
-                        self.channels.append(channel)
-                        if channel in self.left_channels:
-                            self.left_channels.remove(channel)
-                        self._call_join_callbacks(channel, None)
+                    if self.channels[channel].state != JOINED:
+                        self.channels[channel]._callback(None)
 
                 if command in ['inviteonlychan', 'bannedfromchan', 'channelisfull', 'badchannelkey']:
-                    self._call_join_callbacks(arguments[0].lower(), command)
+                    self.channels[arguments[0].lower()]._callback(command)
 
                 if DEBUG:
                     print "command: %s, source: %s, target: %s, arguments: %s" % (
@@ -914,13 +942,11 @@ class ServerConnection(Connection):
         """
         self.send_raw("ISON " + " ".join(nicks))
 
-    def join(self, channel, callback=None, key=""):
+    def join(self, channel_name, callback=None, key=""):
         """Send a JOIN command."""
-        if callback:
-            self.add_join_callback(channel, callback)
-        if key:
-            self.channels_keys[channel] = key
-        self.send_raw("JOIN %s%s" % (channel, (key and (" " + key))))
+        if not self.channels.has_key(channel_name):
+            self.channels[channel_name] = Channel(self, channel_name)
+        self.channels[channel_name].join(key=key, callback=callback)
 
     def kick(self, channel, nick, comment=""):
         """Send a KICK command."""
@@ -984,23 +1010,15 @@ class ServerConnection(Connection):
     def oper(self, nick, password):
         """Send an OPER command."""
         self.send_raw("OPER %s %s" % (nick, password))
-    
-    def _remove_channel(self, channel):
-        if channel in self.channels:
-            self.channels.remove(channel)
-        if not channel in self.left_channels:
-            self.left_channels.append(channel)
 
     def part(self, channels, message=""):
         """Send a PART command."""
         try:
             if isinstance(channels, basestring):
-                self._remove_channel(channels)
-                self.send_raw("PART " + channels + (message and (" " + message)))
+                self.channels[channels].part(message=message)
             else:
                 for channel in channels:
-                    self._remove_channel(channel)
-                self.send_raw("PART " + ",".join(channels) + (message and (" " + message)))
+                    self.channels[channel].part(message=message)
         except ServerNotConnectedError:
             self.disconnect(volontary=True)
             self.connect()
