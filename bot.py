@@ -623,7 +623,7 @@ class Bot(threading.Thread):
 					self.error(say_levels.debug, 'a participant that was not here has been kicked ? WTF ?'+event_str)
 					return
 				
-				leave_message = 'kicked by '+nickname
+				leave_message = 'kicked by '+source_nickname
 				if len(event.arguments()) > 1:
 					leave_message += ' with reason: '+event.arguments()[1]
 				else:
