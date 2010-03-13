@@ -35,7 +35,6 @@ class muc:
 	def __init__(self, room_jid):
 		self.room_jid = room_jid
 		self.connected = False
-		self.participants = {}
 	
 	
 	def _join(self, callback=None):
