@@ -32,10 +32,9 @@ class muc:
 	class RemoteServerNotFound(Exception): pass
 	class NotConnected(Exception): pass
 	
-	def __init__(self, room_jid, auto_reconnect=True):
+	def __init__(self, room_jid):
 		self.room_jid = room_jid
 		self.connected = False
-		self.auto_reconnect = auto_reconnect
 		self.participants = {}
 	
 	
@@ -65,11 +64,12 @@ class muc:
 			self.xmpp_c.send(stanza)
 	
 	
-	def join(self, xmpp_c, nickname, status=None, callback=None):
+	def join(self, xmpp_c, nickname, status=None, callback=None, auto_reconnect=True):
 		"""Join room on xmpp_c connection using nickname"""
 		self.jid = self.room_jid+'/'+nickname
 		self.nickname = nickname
 		self.status = status
+		self.auto_reconnect = auto_reconnect
 		self.xmpp_c = xmpp_c
 		self.xmpp_c.mucs.append(self)
 		self._join(callback=callback)
