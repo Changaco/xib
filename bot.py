@@ -637,7 +637,7 @@ class Bot(threading.Thread):
 					kicked.irc_connection.join(bridge.irc_room)
 				elif isinstance(kicked.xmpp_c, xmpp.client.Client):
 					# an IRC user has been kicked, make its duplicate leave
-					kicked.leave(m)
+					kicked.leave(leave_message)
 				else:
 					# an IRC user with no duplicate on XMPP has been kicked, say it on XMPP
 					bridge.say(say_levels.warning, log_message, on_irc=False)
