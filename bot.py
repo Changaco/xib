@@ -169,9 +169,8 @@ class Bot(threading.Thread):
 								if r == 'The conference component is shutting down':
 									# MUC server is going down, try to restart the bridges in 1 minute
 									bridges = self.iter_bridges(patterns=[from_.getDomain()])
-									m = 'The MUC server '+from_.getDomain()+' seems to be going down, the bot will try to recreate all bridges related to this server in 1 minute'
-									error = [say_levels.warning, m]
-									self.restart_bridges_delayed(bridges, 60, error)
+									m = 'The MUC server '+from_.getDomain()+' seems to be going down'
+									self.restart_bridges_delayed(bridges, 60, say_levels.warning, m)
 									return
 								elif r == '':
 									r = 'None given'
@@ -277,8 +276,8 @@ class Bot(threading.Thread):
 										# Remote server not found
 										# Stop bridges that depend on this server
 										bridges = self.iter_bridges(patterns=[from_.getDomain()])
-										error = [say_levels.error, 'XMPP Remote server not found: '+from_.getDomain()]
-										self.restart_bridges_delayed(bridges, 60, error)
+										m = 'XMPP Remote server not found: '+from_.getDomain()
+										self.restart_bridges_delayed(bridges, 60, say_levels.error, m)
 									else:
 										raise Exception(presence.__str__(fancy=1).encode('utf-8'))
 					
@@ -873,27 +872,36 @@ class Bot(threading.Thread):
 		self.error(-1, 'Bot restarted with message: '+message, send_to_admins=True)
 	
 	
-	def restart_bridges_delayed(self, bridges, delay, error, protocol='xmpp'):
-		if len(bridges) > 0:
-			found = False
-			error[1] += '\nThese bridges will be stopped:'
-			for b in bridges:
-				if protocol == 'xmpp':
-					leave_message = 'Could not connect to the MUC server ('+b.xmpp_room_jid+')'
-				else:
-					leave_message = 'Could not connect to the IRC server ('+b.irc_connection._server_str()+')'
-				
-				if not b.reconnecting:
-					found = True
-					error[1] += '\n'+str(b)
-					leave_message += 'will try to recreate the bridge in '+str(delay)+' seconds'
-					b.reconnecting = True
-					self.irc.execute_delayed(delay, b.init2)
-				
-				b.stop(message=leave_message, log=False)
+	def restart_bridges_delayed(self, bridges, delay, error_level, error_message, protocol='xmpp'):
+		bridges_restart_found = False
+		bridges_stop_found = False
+		bridges_stop = 'These bridges will be stopped:'
+		bridges_restart = 'These bridges will be restarted in '+str(delay)+' seconds:'
+		for b in bridges:
+			if protocol == 'xmpp':
+				leave_message = 'MUC connection failed ('+b.xmpp_room_jid+')'
+			else:
+				leave_message = 'IRC connection failed ('+b.irc_connection._server_str()+')'
+			
+			if not b.reconnecting:
+				bridges_restart_found = True
+				bridges_restart += '\n'+str(b)
+				leave_message += ', restart in '+str(delay)+'s'
+				b.reconnecting = True
+				self.irc.execute_delayed(delay, b.init2)
+			else:
+				bridges_stop_found = True
+				bridges_stop += '\n'+str(b)
+			
+			b.stop(message=leave_message, log=False)
+	
+		if bridges_restart_found:
+			error_message += '\n'+bridges_restart
+		if bridges_stop_found:
+			error_message += '\n'+bridges_stop
 		
-		if found:
-			self.error(error[0], error[1], send_to_admins=True)
+		if bridges_restart_found or bridges_stop_found:
+			self.error(error_level, error_message, send_to_admins=True)
 	
 	
 	def stop(self, message='Stopping bot'):
