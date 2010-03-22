@@ -411,6 +411,8 @@ class IRC:
             self.fn_to_remove_socket(connection._get_socket())
 
 
+class UnknownChannel(IRCError): pass
+
 LEFT, LEAVING, NOT_IN, JOINING, JOINED = range(5)
 
 class Channel:
@@ -1008,10 +1010,16 @@ class ServerConnection(Connection):
         """Send a PART command."""
         try:
             if isinstance(channels, basestring):
-                self.channels[channels].part(message=message)
+                try:
+                    self.channels[channels].part(message=message)
+                except KeyError:
+                    raise UnknownChannel, (channels, message, self)
             else:
                 for channel in channels:
-                    self.channels[channel].part(message=message)
+                    try:
+                        self.channels[channel].part(message=message)
+                    except KeyError:
+                        raise UnknownChannel, (channel, message, self)
         except ServerNotConnectedError:
             self.disconnect(volontary=True)
             self.connect()
