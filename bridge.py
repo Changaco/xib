@@ -382,7 +382,7 @@ class Bridge:
 	def _say_on_irc(self, message):
 		try:
 			self.irc_connection.privmsg(self.irc_room, message)
-		except ServerNotConnectedError:
+		except irclib.ServerNotConnectedError:
 			bridges = self.bot.iter_bridges(irc_server=self.irc_server)
 			self.bot.restart_bridges_delayed(bridges, 0, say_levels.error, 'Lost bot IRC connection', protocol='irc')
 	
