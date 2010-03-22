@@ -50,6 +50,7 @@ class Bridge:
 		if mode not in self.__class__.modes:
 			raise Exception('[Error] "'+mode+'" is not a correct value for a bridge\'s "mode" attribute')
 		self.mode = mode
+		self.stopped = False
 		
 		self.lock = threading.RLock()
 		
@@ -77,12 +78,12 @@ class Bridge:
 	
 	def _irc_nick_callback(self, error, arguments=None):
 		if not error:
-			if not self.mode:
+			if self.stopped:
 				return
 			self.irc_connection.join(self.irc_room, callback=self._irc_join_callback)
 		
 		else:
-			self.mode = None
+			self.stopped = True
 			self.say(say_levels.error, 'failed to connect to the IRC chan, leaving ...', on_irc=False)
 			if error in ['nicknameinuse', 'nickcollision']:
 				reason = '"'+self.bot.nickname+'" is already used or reserved on the IRC server'
@@ -117,12 +118,12 @@ class Bridge:
 		"""Called by muc._xmpp_presence_handler"""
 		if len(errors) == 0:
 			self.reconnecting = False
-			if not self.mode:
+			if self.stopped:
 				return
 			self.bot.error(3, 'succesfully connected on XMPP side of bridge "'+str(self)+'"', debug=True)
 			self.say(say_levels.notice, 'bridge "'+str(self)+'" is running in '+self.mode+' mode', on_irc=False)
 		else:
-			self.mode = None
+			self.stopped = True
 			self.say(say_levels.error, 'failed to connect to the XMPP room, leaving ...', on_xmpp=False)
 			for error in errors:
 				try:
