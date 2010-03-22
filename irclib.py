@@ -853,13 +853,6 @@ class ServerConnection(Connection):
             for fn in self.handlers[event.eventtype()]:
                 fn(self, event)
 
-    def is_connected(self):
-        """Return connection status.
-
-        Returns true if connected, otherwise false.
-        """
-        return self.connected
-
     def add_global_handler(self, *args):
         """Add global handler.
 
