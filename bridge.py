@@ -130,7 +130,7 @@ class Bridge:
 				except xmpp.muc.RemoteServerNotFound:
 					self._RemoteServerNotFound_handler()
 				except:
-					trace = traceback.format_exc()
+					trace = traceback.format_exc().splitlines()[-1]
 			self.bot.error(say_levels.error, 'failed to connect to the XMPP room of bridge "'+str(self)+'", stopping bridge\n'+trace, send_to_admins=True)
 			self.stop(message='Failed to connect to the XMPP room, stopping bridge', log=False)
 	
