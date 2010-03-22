@@ -408,7 +408,10 @@ class Bridge:
 		
 		# Leave
 		if isinstance(self.irc_connection, irclib.ServerConnection) and isinstance(self.xmpp_room, xmpp.muc):
-			self.irc_connection.part(self.irc_room, message=message)
+			try:
+				self.irc_connection.part(self.irc_room, message=message)
+			except irclib.UnknownChannel:
+				pass
 			self.xmpp_room.leave(message=message)
 		else:
 			self.stop()
@@ -432,7 +435,10 @@ class Bridge:
 			if self.irc_connection.used_by < 1:
 				self.irc_connection.close(message)
 			else:
-				self.irc_connection.part(self.irc_room, message=message)
+				try:
+					self.irc_connection.part(self.irc_room, message=message)
+				except irclib.UnknownChannel:
+					pass
 			self.irc_connection = None
 		
 		# Leave the MUC
