@@ -389,7 +389,16 @@ class Bridge:
 	
 	
 	def _say_on_xmpp(self, message):
-		self.xmpp_room.say(message)
+		try:
+			self.xmpp_room.say(message)
+		except xmpp.muc.NotConnected:
+			# TODO: implement a message queue to improve this
+			if self.xmpp_room.state <= xmpp.muc.LEAVING:
+				self.bot.error(say_levels.debug, 'Ignoring xmpp.muc.NotConnected exception because we are leaving ('+str(self)+')', send_to_admins=True)
+			elif self.xmpp_room.state >= xmpp.muc.JOINING:
+				self.bot.error(say_levels.debug, 'Dropping a message because we are not in the XMPP room yet ('+str(self)+')', send_to_admins=True)
+			else:
+				self.bot.restart(message='Lost bot XMPP connection')
 	
 	
 	def show_participants_list_on(self, protocols=[]):
