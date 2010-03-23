@@ -1013,7 +1013,7 @@ class ServerConnection(Connection):
                 try:
                     self.channels[channels].part(message=message)
                 except KeyError:
-                    raise UnknownChannel, (channels, message, self)
+                    raise UnknownChannel, (channels, message, str(self))
             else:
                 for channel in channels:
                     try:
