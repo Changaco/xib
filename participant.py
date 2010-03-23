@@ -18,7 +18,7 @@
 import re
 from time import sleep
 
-from irclib import ServerNotConnectedError, ServerConnection
+import irclib
 import muc
 xmpp = muc.xmpp
 del muc
@@ -54,7 +54,7 @@ class Participant:
 	
 	
 	def create_duplicate_on_xmpp(self):
-		if isinstance(self.xmpp_c, xmpp.client.Client) or isinstance(self.irc_connection, ServerConnection):
+		if isinstance(self.xmpp_c, xmpp.client.Client) or isinstance(self.irc_connection, irclib.ServerConnection):
 			return
 		self.xmpp_c = self.bridge.bot.get_xmpp_connection(self.duplicate_nickname)
 		self.muc = xmpp.muc(self.bridge.xmpp_room_jid)
@@ -106,7 +106,7 @@ class Participant:
 	
 	
 	def create_duplicate_on_irc(self):
-		if isinstance(self.xmpp_c, xmpp.client.Client) or isinstance(self.irc_connection, ServerConnection):
+		if isinstance(self.xmpp_c, xmpp.client.Client) or isinstance(self.irc_connection, irclib.ServerConnection):
 			return
 		self.irc_connection = self.bridge.bot.irc.open_connection(self.bridge.irc_server, self.bridge.irc_port, self.duplicate_nickname)
 		self.irc_connection.connect(nick_callback=self._irc_nick_callback)
@@ -129,7 +129,7 @@ class Participant:
 						if self.duplicate_nickname == self.nickname:
 							self.bridge.say(say_levels.info, 'The nickname "'+self.duplicate_nickname+'" is used or reserved on the IRC server')
 						self.duplicate_nickname = new_duplicate_nickname
-						if isinstance(self.irc_connection, ServerConnection):
+						if isinstance(self.irc_connection, irclib.ServerConnection):
 							self.irc_connection.close('')
 							self.irc_connection = error
 						self.create_duplicate_on_irc()
@@ -141,7 +141,7 @@ class Participant:
 			elif error == 'erroneusnickname':
 				if self.bridge.mode == 'bypass':
 					self.duplicate_nickname = re.sub('[^a-zA-Z]', '', self.nickname)
-					if isinstance(self.irc_connection, ServerConnection):
+					if isinstance(self.irc_connection, irclib.ServerConnection):
 						self.irc_connection.close('')
 						self.irc_connection = error
 					self.create_duplicate_on_irc()
@@ -155,7 +155,7 @@ class Participant:
 			else:
 				self.bridge.say(say_levels.warning, 'unknown error while adding "'+self.nickname+'" to IRC side of bridge', log=True)
 			
-			if isinstance(self.irc_connection, ServerConnection):
+			if isinstance(self.irc_connection, irclib.ServerConnection):
 				self.irc_connection.close('')
 				self.irc_connection = error
 	
@@ -175,7 +175,7 @@ class Participant:
 	
 	def set_both_sides(self):
 		self.bridge.say(say_levels.warning, 'The nickname "'+self.nickname+'" is used on both sides of the bridge', log=True)
-		if isinstance(self.irc_connection, ServerConnection):
+		if isinstance(self.irc_connection, irclib.ServerConnection):
 			self.irc_connection.close('')
 		if self.irc_connection != 'both':
 			self.irc_connection = 'both'
@@ -204,7 +204,7 @@ class Participant:
 					self.nickname = newnick
 					self.duplicate_nickname = newnick
 					has_connection = self.bridge.bot.irc.has_connection(self.bridge.irc_server, self.bridge.irc_port, self.duplicate_nickname)
-					if isinstance(self.irc_connection, ServerConnection):
+					if isinstance(self.irc_connection, irclib.ServerConnection):
 						if not has_connection and self.irc_connection.used_by == 1:
 							self.irc_connection.nick(newnick, callback=self._irc_nick_callback)
 						else:
@@ -287,13 +287,13 @@ class Participant:
 			message = message[4:]
 		else:
 			action = False
-		if isinstance(self.irc_connection, ServerConnection):
+		if isinstance(self.irc_connection, irclib.ServerConnection):
 			try:
 				if action:
 					self.irc_connection.action(self.bridge.irc_room, message)
 				else:
 					self.irc_connection.privmsg(self.bridge.irc_room, message)
-			except ServerNotConnectedError:
+			except irclib.ServerNotConnectedError:
 				self.irc_connection.connect()
 				bot_say = True
 		elif not isinstance(self.xmpp_c, xmpp.client.Client):
@@ -304,10 +304,10 @@ class Participant:
 	
 	def say_on_irc_to(self, to, message):
 		error = False
-		if isinstance(self.irc_connection, ServerConnection):
+		if isinstance(self.irc_connection, irclib.ServerConnection):
 			try:
 				self.irc_connection.privmsg(to, message)
-			except ServerNotConnectedError:
+			except irclib.ServerNotConnectedError:
 				self.irc_connection.connect()
 				error = True
 		elif not isinstance(self.xmpp_c, xmpp.client.Client):
@@ -323,14 +323,14 @@ class Participant:
 	def say_on_xmpp(self, message, action=False):
 		if isinstance(self.muc, xmpp.muc) and self.muc.state == self.muc.JOINED:
 			self.muc.say(message, action=action)
-		elif not isinstance(self.irc_connection, ServerConnection):
+		elif not isinstance(self.irc_connection, irclib.ServerConnection):
 			self.bridge.say_on_behalf(self.nickname, message, 'xmpp', action=action)
 	
 	
 	def say_on_xmpp_to(self, to, message, action=False):
 		if isinstance(self.muc, xmpp.muc) and self.muc.state == self.muc.JOINED:
 			self.muc.say_to(to, message, action=action)
-		elif not isinstance(self.irc_connection, ServerConnection):
+		elif not isinstance(self.irc_connection, irclib.ServerConnection):
 			if self.bridge.mode not in ['normal', 'bypass']:
 				self.bridge.get_participant(to).say_on_xmpp_to(self.nickname, 'XIB error: Sorry but cross-protocol private messages are disabled in '+self.bridge.mode+' mode.')
 			else:
@@ -353,8 +353,11 @@ class Participant:
 	
 	
 	def _close_irc_connection(self, message):
-		if isinstance(self.irc_connection, ServerConnection):
-			self.irc_connection.part(self.bridge.irc_room, message=message)
+		if isinstance(self.irc_connection, irclib.ServerConnection):
+			try:
+				self.irc_connection.part(self.bridge.irc_room, message=message)
+			except irclib.UnknownChannel:
+				pass
 			self.irc_connection.used_by -= 1
 			if self.irc_connection.used_by < 1:
 				self.irc_connection.close(message)
@@ -363,7 +366,7 @@ class Participant:
 	
 	def __str__(self):
 		r = 'self.protocol='+str(self.protocol)+'\n'+'self.nickname='+str(self.nickname)
-		if isinstance(self.irc_connection, ServerConnection):
+		if isinstance(self.irc_connection, irclib.ServerConnection):
 			r += '\nself.irc_connection='+str(self.irc_connection)+'\n'+'self.irc_connection.logged_in='+str(self.irc_connection.logged_in)
 		if isinstance(self.muc, xmpp.muc):
 			r += '\nself.muc.state='+str(self.muc.state)
