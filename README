@@ -1,6 +1,6 @@
 > Introduction
 
-This is the first release of xib so some things are not implemented yet, if you want/need an error-safe bot, don't use this one !
+If you want/need a fail-safe bot, don't use this one !
 
 Here is the list of things that still need to be implemented:
 - internationalization
