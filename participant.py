@@ -102,7 +102,7 @@ class Participant:
 				except xmpp.muc.RemoteServerNotFound:
 					self.bridge._RemoteServerNotFound_handler()
 				
-				self._close_xmpp_connection()
+				self._close_xmpp_connection('')
 	
 	
 	def create_duplicate_on_irc(self):
